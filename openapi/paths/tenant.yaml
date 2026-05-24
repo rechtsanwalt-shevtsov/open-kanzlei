@@ -1,0 +1,39 @@
+profile:
+  get:
+    tags: [Tenant]
+    operationId: getTenantProfile
+    summary: Get tenant profile
+    security:
+      - sessionCookie: []
+    responses:
+      '200':
+        description: Tenant profile
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/tenant.yaml#/TenantProfile'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+  patch:
+    tags: [Tenant]
+    operationId: updateTenantProfile
+    summary: Update tenant profile
+    security:
+      - sessionCookie: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/tenant.yaml#/UpdateTenantProfileRequest'
+    responses:
+      '200':
+        description: Updated profile
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/tenant.yaml#/TenantProfile'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'

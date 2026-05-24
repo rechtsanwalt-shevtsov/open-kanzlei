@@ -1,0 +1,20 @@
+BadRequest:
+  description: Invalid request
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/common.yaml#/ErrorResponse'
+
+Unauthorized:
+  description: Authentication required or invalid
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/common.yaml#/ErrorResponse'
+
+Conflict:
+  description: Resource conflict (e.g. tenant slug already exists)
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/common.yaml#/ErrorResponse'

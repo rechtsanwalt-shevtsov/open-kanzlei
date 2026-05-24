@@ -1,0 +1,73 @@
+register-tenant:
+  post:
+    tags: [Auth]
+    operationId: registerTenant
+    summary: Register a new tenant with admin user
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/auth.yaml#/RegisterTenantRequest'
+    responses:
+      '201':
+        description: Tenant and admin user created
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/auth.yaml#/AuthSessionResponse'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+login:
+  post:
+    tags: [Auth]
+    operationId: login
+    summary: Login with tenant slug, username and password
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/auth.yaml#/LoginRequest'
+    responses:
+      '200':
+        description: Login successful
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/auth.yaml#/AuthSessionResponse'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+
+logout:
+  post:
+    tags: [Auth]
+    operationId: logout
+    summary: End current session
+    security:
+      - sessionCookie: []
+    responses:
+      '204':
+        description: Logged out
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+
+me:
+  get:
+    tags: [Auth]
+    operationId: getCurrentUser
+    summary: Current authenticated user
+    security:
+      - sessionCookie: []
+    responses:
+      '200':
+        description: Current user
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/auth.yaml#/CurrentUserResponse'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'

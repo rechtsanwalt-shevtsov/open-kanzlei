@@ -1,0 +1,9 @@
+-- OpenKanzlei: PostgreSQL logical schemas
+-- See Konzept.txt §14
+
+CREATE SCHEMA IF NOT EXISTS platform;
+CREATE SCHEMA IF NOT EXISTS legal;
+CREATE SCHEMA IF NOT EXISTS events;
+CREATE SCHEMA IF NOT EXISTS meta;
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;

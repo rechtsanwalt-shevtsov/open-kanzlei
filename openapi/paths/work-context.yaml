@@ -1,0 +1,9 @@
+# Work Context API — reserved for later phases.
+#
+# Tag: WorkContext
+# Path prefix: /v1/work-context/
+#
+# Planned: neutral query endpoints only (e.g. open stages for a user).
+# Explicitly NOT planned: prioritization, next-task, Kanban logic.
+#
+# No paths defined in MVP Step 1.

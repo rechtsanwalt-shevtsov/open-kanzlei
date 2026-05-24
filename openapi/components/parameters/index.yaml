@@ -1,0 +1,15 @@
+AcceptLanguage:
+  name: Accept-Language
+  in: header
+  required: false
+  schema:
+    type: string
+    example: de
+
+LangQuery:
+  name: lang
+  in: query
+  required: false
+  schema:
+    type: string
+    enum: [de, en]

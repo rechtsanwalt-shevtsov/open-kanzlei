@@ -1,0 +1,16 @@
+ErrorResponse:
+  $ref: './common.yaml#/ErrorResponse'
+
+RegisterTenantRequest:
+  $ref: './auth.yaml#/RegisterTenantRequest'
+LoginRequest:
+  $ref: './auth.yaml#/LoginRequest'
+AuthSessionResponse:
+  $ref: './auth.yaml#/AuthSessionResponse'
+CurrentUserResponse:
+  $ref: './auth.yaml#/CurrentUserResponse'
+
+TenantProfile:
+  $ref: './tenant.yaml#/TenantProfile'
+UpdateTenantProfileRequest:
+  $ref: './tenant.yaml#/UpdateTenantProfileRequest'

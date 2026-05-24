@@ -1,0 +1,44 @@
+openapi: 3.1.0
+info:
+  title: OpenKanzlei API
+  version: 0.1.0
+  description: |
+    Work-Context-Plattform für juristische Wissensarbeit.
+    API-first — Vertrag vor Implementierung.
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Tenant registration and session management
+  - name: Tenant
+    description: Tenant profile and settings
+  - name: WorkContext
+    description: |
+      Reserved for neutral work-context queries (no prioritization or workflow logic).
+      Endpoints will be added in later phases.
+
+paths:
+  /v1/auth/register-tenant:
+    $ref: './paths/auth.yaml#/register-tenant'
+  /v1/auth/login:
+    $ref: './paths/auth.yaml#/login'
+  /v1/auth/logout:
+    $ref: './paths/auth.yaml#/logout'
+  /v1/auth/me:
+    $ref: './paths/auth.yaml#/me'
+  /v1/tenant/profile:
+    $ref: './paths/tenant.yaml#/profile'
+
+components:
+  schemas:
+    $ref: './components/schemas/index.yaml'
+  parameters:
+    $ref: './components/parameters/index.yaml'
+  responses:
+    $ref: './components/responses/index.yaml'

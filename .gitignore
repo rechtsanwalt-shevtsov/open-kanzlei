@@ -1,0 +1,37 @@
+# Obsolete planning notes (superseded by Konzept.txt)
+Initial Promt.txt
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Storage (local dev)
+storage/
+uploads/
+
+# Docker volumes (if mounted locally)
+postgres-data/

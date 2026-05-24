@@ -1,0 +1,484 @@
+================================================================================
+OpenKanzlei — Konzept und Implementierungsplan
+================================================================================
+Stand: Mai 2026
+Zweck: Fahrplan und dokumentierte Architekturentscheidungen für die Entwicklung.
+       Vor Implementierung abgestimmt; bei Änderungen dieses Dokument aktualisieren.
+
+================================================================================
+1. VISION
+================================================================================
+
+OpenKanzlei ist eine Arbeitsumgebung für Juristen (primär Rechtsanwälte).
+Es ist KEINE klassische Workflow- oder BPM-Anwendung.
+
+Ziel: Eine Work-Context-Plattform für juristische Wissensarbeit.
+
+Leitprinzip:
+  "Work Context enables Work"
+  NICHT: "Workflow defines Work"
+
+Die Plattform steuert die Arbeit nicht, sondern stellt strukturierten
+Arbeitskontext bereit. Darauf basierend entscheiden externe Werkzeuge
+(UI, KI-Agenten, Automationen) selbständig über Ausführung, Reihenfolge
+und Priorisierung.
+
+Juristische Arbeit wird CMMN-inspiriert betrachtet:
+  - Zentrale Gruppierung: Stage (z. B. "Klageschrift verfassen")
+  - Stage enthält Tasks (z. B. "Schreiben aufsetzen", "Termin vereinbaren")
+  - OpenKanzlei liefert primär Daten zu Stages und Tasks
+  - Externe Werkzeuge entscheiden, welche Tasks in welcher Reihenfolge laufen
+
+Cases sind Datencontainer für Stages und Dokumente.
+Arbeitsverwaltung und -überwachung erfolgen vorrangig ausgehend von Stages.
+
+Work Context wird NICHT als separate Entität im Backend modelliert.
+Später können externe Werkzeuge Kontext über APIs und Events zusammensetzen.
+
+================================================================================
+2. ARCHITEKTURPRINZIPIEN
+================================================================================
+
+  - API-first
+  - Multitenantfähig
+  - Eventorientiert
+  - Zustandsorientiert (Status als Daten, keine Workflow-Engine)
+  - Modular
+  - Erweiterbar
+  - UI-unabhängig
+  - Mehrsprachig (i18n) von Anfang an
+
+Das Backend speichert Arbeitszustände, stellt Daten bereit, publiziert Events,
+garantiert Tenant-Isolation, verwaltet Rechte und bereitet Zero-Knowledge vor.
+
+NICHT im Backend:
+  - Bearbeitungs-, Priorisierungs- oder Koordinationslogik
+  - Workflow-Engine
+  - Kanban-Logik
+  - Empfehlungen ("nächste Aufgabe")
+  - Zentrale Work-Context-Interpretation
+
+================================================================================
+3. TECHNOLOGIESTACK
+================================================================================
+
+  Backend:        Node.js (TypeScript empfohlen)
+  Frontend:       React
+  Datenbank:      PostgreSQL
+  API-Vertrag:    OpenAPI YAML (OpenAPI-first)
+  Dateispeicher:  lokal oder S3-kompatibel (vorbereitet)
+  Event-Dispatcher: Node.js Worker
+  Lokale Entwicklung: Docker Compose
+
+Lizenz des Projekts: Apache License 2.0
+
+Abhängigkeiten: Nur permissive Lizenzen verwenden (MIT, BSD, ISC, Apache 2.0).
+Keine GPL/AGPL-Bibliotheken, die das Gesamtprojekt unter andere Lizenzbedingungen
+zwingen würden. LICENSE-Datei im Repo-Root, license-Feld in package.json.
+
+Empfohlene lizenzfreundliche Bibliotheken (Beispiele):
+  - HTTP: Fastify oder Express (MIT)
+  - DB: pg (MIT), Migrationen: node-pg-migrate oder Drizzle (MIT/Apache 2.0)
+  - Frontend: React + Vite (MIT)
+  - Passwort-Hash: argon2 (MIT)
+
+================================================================================
+4. PROJEKTSTRUKTUR
+================================================================================
+
+openkanzlei/
+├── LICENSE                         # Apache 2.0
+├── README.md
+├── Konzept.txt                     # Dieses Dokument
+├── docker-compose.yml
+├── .env.example
+│
+├── openapi/                        # Zentraler API-Vertrag (nicht nur unter backend)
+│   ├── openapi.yaml
+│   ├── paths/
+│   │   ├── auth.yaml
+│   │   ├── tenant.yaml
+│   │   └── work-context.yaml       # Zunächst leer / ohne Endpunkte
+│   └── components/
+│       ├── schemas/
+│       ├── parameters/
+│       └── responses/
+│
+├── backend/
+│   ├── foundation/
+│   │   ├── database/               # Pool, Migrationen, RLS-Vorbereitung
+│   │   ├── iam/
+│   │   ├── encryption/             # EncryptionService-Interface + MVP-Passthrough
+│   │   ├── storage/                # Storage-Abstraktion (local / S3)
+│   │   ├── events/                 # EventService
+│   │   └── i18n/                   # Locale-Auflösung, Übersetzungen
+│   │
+│   ├── platform/
+│   │   ├── auth/
+│   │   ├── tenants/
+│   │   ├── users/
+│   │   └── roles/
+│   │
+│   ├── legal-work/                 # Domain ohne HTTP im MVP; Repositories vorbereitet
+│   │   ├── case-models/
+│   │   ├── cases/
+│   │   ├── stage-models/
+│   │   ├── stages/
+│   │   ├── task-models/
+│   │   ├── tasks/
+│   │   ├── documents/
+│   │   └── attributes/
+│   │
+│   ├── api/
+│   │   ├── middleware/             # tenant, auth, locale
+│   │   ├── routes/
+│   │   │   ├── auth/
+│   │   │   └── tenant/
+│   │   └── legal-work/
+│   │       └── work-context/
+│   │           └── README.md       # Platzhalter, bewusst nicht implementiert
+│   │
+│   └── workers/
+│       └── event-dispatcher/
+│
+└── frontend/
+    └── react-app/
+
+Schichten:
+  foundation/  — Technik, keine juristische Fachlogik
+  platform/    — Mandanten, Benutzer, Rollen
+  legal-work/  — Juristische Domain (logisch getrennt von Platform)
+  api/         — HTTP-Schicht, OpenAPI-konform
+  workers/     — Outbox → Webhook, ohne Fachlogik
+
+================================================================================
+5. DATENBEREICHE (ARCHITEKTURMODELL)
+================================================================================
+
+Drei logische Scopes (kein scope_type-Feld in der DB nötig):
+
+  1. Tenant Profile     — globale Tenant-Identität und Einstellungen
+  2. Shared Resources   — Kontakte, Organisationen, Vorlagen, … (später)
+  3. Cases              — Arbeitscontainer: Stages, Tasks, Dokumente
+
+Technische DB-Struktur darf flach bleiben; Trennung über Schemas/Module.
+
+================================================================================
+6. MODELL / INSTANZ — CASES, STAGES, TASKS
+================================================================================
+
+Entscheidung: Attribute werden NUR auf Modellen definiert, nicht auf Instanzen.
+Instanzen enthalten ausschließlich die Attribute ihres Modells.
+
+Beispiel:
+  Case-Modell "Fallakte"
+    → Instanzen: "Müller gegen Mayer", "XY GmbH gegen ABC AG"
+  Stage-Modell "Klageschrift verfassen"
+    → konkrete Stage-Instanzen an Cases
+  Task-Modell "Schreiben aufsetzen"
+    → konkrete Task-Instanzen an Stages
+
+Modelle (Definitionen, tenant-scoped):
+  - case_models
+  - stage_models          — tenant-weit wiederverwendbar (NICHT an ein Case-Modell gebunden)
+  - task_models           — gehören zu einem stage_model
+
+Optionale Verknüpfung Case-Modell ↔ Stage-Modell:
+  - case_model_stage_models (Many-to-Many, optional sort_order)
+  - Nur Modell-Metadaten ("typische Stages für Fallakte")
+  - Erzeugt KEINE Instanzen, steuert KEINEN Ablauf
+
+Instanzen (lazy — Entscheidung B):
+  - POST /cases erzeugt nur Case-Instanz
+  - Stages und Tasks werden explizit per POST angelegt (on demand)
+  - Keine automatische Erzeugung aller Stage/Task-Shells beim Case-Anlegen
+
+Hierarchie Instanzen:
+  cases      → case_model_id
+  stages     → case_id + stage_model_id
+  tasks      → stage_id + task_model_id
+
+Systemfelder auf Instanzen (keine sensiblen Fachdaten als Spalten):
+  - id, tenant_id, *_model_id
+  - status (sprachneutraler Key)
+  - encryption_status, encryption_version
+  - created_at, updated_at
+
+WICHTIG — title und reference/Aktenzeichen:
+  - KEINE Standardspalten auf cases
+  - title enthält sensible Mandantendaten → modelldefiniertes Attribut
+  - reference/Aktenzeichen ebenfalls modelldefiniertes Attribut
+  - encryption_mode: zero_knowledge (langfristig)
+
+================================================================================
+7. BENUTZERDEFINIERTE ATTRIBUTE
+================================================================================
+
+Unterscheidung:
+
+  1. Systemfelder — normale DB-Spalten (id, tenant_id, status, timestamps, …)
+
+  2. Benutzerdefinierte Attribute — KEINE eigenen DB-Spalten pro Attribut
+
+Tabellen:
+  attribute_definitions
+    - tenant_id, owner_type, owner_id (Modell!)
+    - key (sprachneutral, stabil), data_type
+    - encryption_mode: server_readable | zero_knowledge
+    - translations (JSONB): {"de":"…","en":"…"}
+    - created_by
+
+  attribute_values
+    - tenant_id, attribute_definition_id
+    - owner_type (Instanz: case | stage | task), owner_id
+    - plaintext_value / encrypted_value
+    - encryption_status, encryption_version
+
+Regeln:
+  - Definitionen nur auf owner_type: case_model, stage_model, task_model
+  - Werte nur auf Instanzen (case, stage, task)
+  - Schreiben nur erlaubt, wenn Attribut am Modell der Instanz definiert ist
+  - Verschlüsselungsentscheidung über attribute_definitions.encryption_mode,
+    NICHT über Tabellen- oder Spaltennamen
+
+================================================================================
+8. DOKUMENTE
+================================================================================
+
+Dokumente NICHT in PostgreSQL als Blob.
+
+  documents:
+    - id, tenant_id, owner_type, owner_id
+    - storage_key
+    - encryption_key_id
+    - metadata (JSONB)
+    - encryption_status, encryption_version
+
+Zugriff nur über Storage-Abstraktion (local / S3), keine direkten Dateizugriffe.
+
+================================================================================
+9. ZERO-KNOWLEDGE — ZIEL UND MVP-REGEL
+================================================================================
+
+Langfristiges Ziel:
+  - Juristische Daten clientseitig verschlüsselt
+  - Server sieht juristische Inhalte nicht im Klartext
+  - Entschlüsselung nur beim berechtigten Client
+  - Betreiber hat keinen Zugriff auf juristische Inhalte
+
+Betrifft später u. a.: Cases, Stages, Tasks, Attribute, Notizen, Dokumente,
+Mandanten-/Gegnerinformationen.
+
+Ausgenommen (technische Plattformdaten):
+  tenant_id, user_id, username, Rollen, Metadaten, Timestamps, Eventtypen,
+  Systemstatus, Webhook-Konfigurationen.
+
+MVP-Regel (explizit):
+  - KEINE echte Zero-Knowledge-Verschlüsselung
+  - Juristische Daten und Dokumente dürfen unverschlüsselt gespeichert werden
+  - Keine clientseitige Kryptografie, keine Schlüsselverwaltung, keine Recovery
+  - Architektur MUSS spätere Zero-Knowledge ergänzen können ohne API-Bruch
+
+Architektur-Vorbereitung im MVP:
+  - legal-work logisch von platform trennen
+  - Repository- und Storage-Schichten zentral
+  - Keine direkten DB-/Dateizugriffe in Handlern
+  - EncryptionService-Interface (Passthrough-Implementierung)
+  - encryption_status und encryption_version vorsehen
+  - APIs unabhängig von interner Speicherrepräsentation
+  - Events ohne sensible Klartextdaten (nur IDs und geänderte Keys)
+
+================================================================================
+10. MULTITENANCY
+================================================================================
+
+  - tenant_id überall, wo fachlich sinnvoll
+  - Keine tenantübergreifenden Zugriffe
+  - Tenant-Kontext über Middleware
+  - PostgreSQL Row Level Security (RLS) architektonisch vorbereiten
+  - Pro Request/Transaktion: set_config('app.tenant_id', …)
+
+Tenant-Registrierung (UI):
+  - Kanzleiname, Administrator-E-Mail, Passwort (+ admin_username, tenant_slug)
+  - Anlegen: Tenant, Tenant Profile, erster Admin-User, Admin-Rolle
+  - Optional: Domain Event tenant.registered
+
+Login:
+  - tenant_slug + username + password (NICHT E-Mail als globale ID)
+  - E-Mail-Adressen NICHT global eindeutig
+  - Mehrere Benutzer mit gleicher E-Mail erlaubt
+  - Unique: (tenant_id, username)
+
+================================================================================
+11. INTERNATIONALISIERUNG (i18n)
+================================================================================
+
+Gleiche Installation, unterschiedliche Sprachen pro Benutzer.
+
+Tenant: default_language (bei Registrierung, z. B. de/en)
+User:   preferred_language (optional, überschreibt Tenant-Default)
+
+Locale-Auflösung (Reihenfolge):
+  1. Explizit angefordert (Accept-Language Header oder ?lang=)
+  2. preferred_language des Benutzers
+  3. default_language des Tenants
+  4. Systemstandard: de
+
+Gespeicherte Fachdaten bleiben sprachneutral (status = open, key = claim_value).
+Lokalisierung nur in Darstellung/API-Labels (Fehlermeldungen, Enum-Labels,
+Rollenbezeichnungen, Attribut-Labels via translations JSONB).
+
+MVP-Sprachen: Deutsch (de), Englisch (en) — erweiterbar.
+
+================================================================================
+12. EVENTS
+================================================================================
+
+Prinzip:
+  - Fachliche Änderungen erzeugen Domain Events
+  - Events zuerst persistent speichern, danach optional verteilen
+  - Events ersetzen keine APIs (APIs = lesen/schreiben; Events = informieren)
+  - Payload minimal, keine sensiblen Klartexte
+
+Tabellen:
+  - domain_events
+  - outbox_events
+  - webhook_subscriptions
+
+Services:
+  - EventService (beim Schreiben in derselben Transaktion)
+  - EventDispatcher Worker (nur Verteilung, keine Fachlogik)
+
+Webhook:
+  - Externe Werkzeuge registrieren target_url, event_types, secret
+  - Verteilung per HTTP POST mit HMAC-Signatur
+  - Felder: tenant_id, event_types, target_url, secret, is_active,
+            retry_count, last_error, last_attempt_at
+
+Event-Benennung: {aggregate}.{action} (z. B. tenant.registered, case.created)
+
+Beispiel-Payload (minimal):
+  { "case_id": "…", "changed_attribute_keys": ["title"] }
+  — kein title-Wert im Event
+
+================================================================================
+13. WORK CONTEXT — BEWUSST ZURÜCKGESTELLT
+================================================================================
+
+Kein WorkContextService mit fachlicher Interpretation, Priorisierung oder
+Koordination im Backend.
+
+Backend stellt nur Work-Context-FÄHIGE Grundlagen:
+  - Cases, Stages, Tasks als neutrale Datenobjekte
+  - Modell/Instanz-System und Attribute
+  - Events und Webhooks
+  - Filter- und Query-Möglichkeiten
+  - Stabile IDs, Statusfelder, Zeitstempel, Beziehungen
+
+Externe Werkzeuge interpretieren dieselben Rohdaten unterschiedlich
+(Kanban, Fristen, Streitwert, KI-Priorisierung, …).
+
+API-Gruppe Work Context:
+  - In OpenAPI als Tag/Pfadpräfix reservieren (/v1/work-context/…)
+  - Zunächst ohne Endpunkte (leere work-context.yaml)
+  - Später: einzelne neutrale Abfrage-APIs (z. B. offene Stages eines Benutzers)
+  - KEINE Endpunkte für Priorisierung, next-task, Kanban-Logik
+
+Platzhalter:
+  backend/api/legal-work/work-context/README.md
+
+  Inhalt:
+  "Dieses Modul ist bewusst noch nicht implementiert. OpenKanzlei stellt
+   zunächst nur neutrale Arbeitsdaten bereit. Die Interpretation des Work
+   Context erfolgt später durch austauschbare externe Werkzeuge."
+
+================================================================================
+14. POSTGRESQL-SCHEMA (ÜBERSICHT)
+================================================================================
+
+PostgreSQL-Schemas zur logischen Trennung:
+
+  platform.*   — tenants, tenant_profiles, users, roles, sessions, …
+  legal.*      — case_models, cases, stage_models, stages, task_models, tasks,
+                 case_model_stage_models, documents
+  events.*     — domain_events, outbox_events, webhook_subscriptions
+  meta.*       — attribute_definitions, attribute_values
+
+RLS auf allen tenant-scoped Tabellen (Vorbereitung; MVP kann schrittweise aktivieren).
+
+================================================================================
+15. OPENAPI — MVP-ENDPUNKTE
+================================================================================
+
+Zuerst NUR implementieren:
+
+  POST   /v1/auth/register-tenant
+  POST   /v1/auth/login
+  POST   /v1/auth/logout
+  GET    /v1/auth/me
+  GET    /v1/tenant/profile
+  PATCH  /v1/tenant/profile
+
+Noch NICHT implementieren (MVP):
+  - Case / Stage / Task APIs
+  - Work-Context Endpunkte (nur Gruppe/Tag reservieren)
+  - Juristische Fachlogik
+  - Workflow Engine
+
+OpenAPI-first: Vertrag zuerst definieren, Implementierung daraus ableiten.
+
+================================================================================
+16. IMPLEMENTIERUNGSPLAN (FAHRPLAN)
+================================================================================
+
+Schritt 1 — Repository + Vertrag + Schema + Docker
+  [ ] LICENSE (Apache 2.0), README, .gitignore, Konzept.txt
+  [ ] docker-compose.yml (PostgreSQL; Backend/Frontend optional initial)
+  [ ] openapi/ — MVP auth + tenant; Tag WorkContext + leere work-context.yaml
+  [ ] SQL-Migrationen: platform, events, legal (Modelle + lazy Instanzen),
+      meta (attribute_*), case_model_stage_models
+  [ ] backend/ Minimal: package.json, TypeScript, migrate-Skript, GET /health
+  [ ] work-context/README.md (Platzhalter)
+
+Schritt 2 — Foundation + Auth/Tenant (MVP-APIs)
+  [ ] DB-Pool, Tenant-/Locale-Middleware, RLS set_config
+  [ ] EncryptionService (Passthrough), Storage-Interface (local)
+  [ ] Tenant-Registrierung, Login, Logout, me, Tenant-Profil
+  [ ] i18n Fehlermeldungen de/en
+  [ ] EventService + tenant.registered + Outbox (Dispatcher minimal)
+
+Schritt 3 — Frontend MVP
+  [ ] Registrierung, Login, Profil
+  [ ] API-Client gegen OpenAPI
+
+Schritt 4 — Legal-Modelle und Instanzen (nach MVP)
+  [ ] CRUD Case-/Stage-/Task-Modelle
+  [ ] Lazy Instanzen (Cases, Stages, Tasks)
+  [ ] Attributdefinitionen auf Modellen, Werte auf Instanzen
+
+Schritt 5 — Erste Work-Context-Abfrage-APIs (später)
+  [ ] Neutrale Filter-Endpunkte unter /v1/work-context/…
+  [ ] z. B. GET offene Stages eines Benutzers — ohne Priorisierung
+
+================================================================================
+17. GETROFFENE ENTSCHEIDUNGEN (KURZREFERENZ)
+================================================================================
+
+  | Thema                    | Entscheidung                              |
+  |--------------------------|-------------------------------------------|
+  | Work Context im Backend  | Keine Interpretation; nur Rohdaten + APIs |
+  | Work-Context API         | Gruppe reservieren, Endpunkte später      |
+  | Case title               | Modell-Attribut, zero_knowledge           |
+  | Aktenzeichen/reference   | Modell-Attribut                           |
+  | Attribute definieren     | Nur auf Modellen, nicht auf Instanzen     |
+  | Instanziierung           | Lazy (B)                                  |
+  | Stage-Modelle            | Tenant-weit wiederverwendbar              |
+  | Login                    | tenant_slug + username + password         |
+  | E-Mail                   | Nicht global unique                       |
+  | Projekt-Lizenz           | Apache 2.0                                |
+  | Dependencies             | Nur permissive Lizenzen                   |
+  | MVP Verschlüsselung      | Keine; Architektur vorbereitet            |
+
+================================================================================
+ENDE DES DOKUMENTS
+================================================================================

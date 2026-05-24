@@ -1,0 +1,10 @@
+ErrorResponse:
+  type: object
+  required: [error, message]
+  properties:
+    error:
+      type: string
+      description: Machine-readable error code
+    message:
+      type: string
+      description: Localized human-readable message

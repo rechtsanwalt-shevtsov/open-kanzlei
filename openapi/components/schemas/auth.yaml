@@ -1,0 +1,77 @@
+RegisterTenantRequest:
+  type: object
+  required:
+    - tenant_slug
+    - firm_name
+    - admin_username
+    - admin_email
+    - admin_password
+    - default_language
+  properties:
+    tenant_slug:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$'
+      description: Unique tenant identifier used at login
+    firm_name:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: Kanzleiname
+    admin_username:
+      type: string
+      minLength: 1
+      maxLength: 64
+    admin_email:
+      type: string
+      format: email
+    admin_password:
+      type: string
+      minLength: 8
+      format: password
+    default_language:
+      type: string
+      enum: [de, en]
+
+LoginRequest:
+  type: object
+  required: [tenant_slug, username, password]
+  properties:
+    tenant_slug:
+      type: string
+    username:
+      type: string
+    password:
+      type: string
+      format: password
+
+AuthSessionResponse:
+  type: object
+  required: [user]
+  properties:
+    user:
+      $ref: '#/CurrentUserResponse'
+
+CurrentUserResponse:
+  type: object
+  required: [id, tenant_id, username, roles]
+  properties:
+    id:
+      type: string
+      format: uuid
+    tenant_id:
+      type: string
+      format: uuid
+    username:
+      type: string
+    email:
+      type: string
+      format: email
+      nullable: true
+    preferred_language:
+      type: string
+      enum: [de, en]
+      nullable: true
+    roles:
+      type: array
+      items:
+        type: string

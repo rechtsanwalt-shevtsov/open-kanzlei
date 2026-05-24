@@ -1,0 +1,31 @@
+TenantProfile:
+  type: object
+  required: [tenant_id, firm_name, default_language]
+  properties:
+    tenant_id:
+      type: string
+      format: uuid
+    tenant_slug:
+      type: string
+    firm_name:
+      type: string
+    default_language:
+      type: string
+      enum: [de, en]
+    settings:
+      type: object
+      additionalProperties: true
+
+UpdateTenantProfileRequest:
+  type: object
+  properties:
+    firm_name:
+      type: string
+      minLength: 1
+      maxLength: 255
+    default_language:
+      type: string
+      enum: [de, en]
+    settings:
+      type: object
+      additionalProperties: true

@@ -1,0 +1,6 @@
+BadRequest:
+  $ref: './common.yaml#/BadRequest'
+Unauthorized:
+  $ref: './common.yaml#/Unauthorized'
+Conflict:
+  $ref: './common.yaml#/Conflict'
