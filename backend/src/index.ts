@@ -1,23 +1,20 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import dotenv from 'dotenv';
-import Fastify from 'fastify';
+import { env } from './config/env.js';
+import { buildApp } from './app.js';
+import { closePool } from './foundation/database/pool.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+const app = await buildApp();
 
-const port = Number(process.env.PORT ?? 3000);
+const shutdown = async () => {
+  await app.close();
+  await closePool();
+  process.exit(0);
+};
 
-const app = Fastify({ logger: true });
-
-app.get('/health', async () => ({
-  status: 'ok',
-  service: 'openkanzlei-backend',
-  version: '0.1.0',
-}));
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 try {
-  await app.listen({ port, host: '0.0.0.0' });
+  await app.listen({ port: env.port, host: '0.0.0.0' });
 } catch (err) {
   app.log.error(err);
   process.exit(1);

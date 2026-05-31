@@ -1,0 +1,230 @@
+apps-list:
+  get:
+    tags: [Apps]
+    operationId: listInstalledApps
+    summary: List installed apps for current tenant and user
+    security: [{ sessionCookie: [] }]
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/apps.yaml#/AppInstallation'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+
+tenant-apps-catalog:
+  get:
+    tags: [Apps]
+    operationId: listTenantAppCatalog
+    summary: List all known apps with installation status for current tenant (admin)
+    security: [{ sessionCookie: [] }]
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/apps.yaml#/TenantAppCatalogEntry'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+
+tenant-app-status:
+  patch:
+    tags: [Apps]
+    operationId: patchTenantAppStatus
+    summary: Activate or deactivate an app for the current tenant (admin)
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - name: appKey
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/apps.yaml#/AppKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/apps.yaml#/PatchTenantAppStatusRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/apps.yaml#/TenantAppCatalogEntry'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+apps-manifest:
+  get:
+    tags: [Apps]
+    operationId: getAppManifest
+    summary: Get app manifest
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - name: appKey
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/apps.yaml#/AppKey'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/apps.yaml#/AppManifest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+apps-effective-settings:
+  get:
+    tags: [Apps]
+    operationId: getEffectiveAppSettings
+    summary: Merged app settings for current user
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - name: appKey
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/apps.yaml#/AppKey'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/apps.yaml#/EffectiveAppSettings'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+tenant-app-settings:
+  get:
+    tags: [Apps]
+    operationId: getTenantAppSettings
+    summary: Tenant-wide app settings overrides
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - name: appKey
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/apps.yaml#/AppKey'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/apps.yaml#/AppSettings'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [Apps]
+    operationId: patchTenantAppSettings
+    summary: Update tenant app settings (admin only)
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - name: appKey
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/apps.yaml#/AppKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/apps.yaml#/PatchAppSettingsRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/apps.yaml#/AppSettings'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+me-app-settings:
+  get:
+    tags: [Apps]
+    operationId: getUserAppSettings
+    summary: User app settings overrides
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - name: appKey
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/apps.yaml#/AppKey'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/apps.yaml#/AppSettings'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [Apps]
+    operationId: patchUserAppSettings
+    summary: Update user app settings
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - name: appKey
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/apps.yaml#/AppKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/apps.yaml#/PatchAppSettingsRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/apps.yaml#/AppSettings'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'

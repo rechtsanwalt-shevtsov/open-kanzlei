@@ -12,8 +12,22 @@ Unauthorized:
       schema:
         $ref: '../schemas/common.yaml#/ErrorResponse'
 
+Forbidden:
+  description: Insufficient permissions
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/common.yaml#/ErrorResponse'
+
 Conflict:
   description: Resource conflict (e.g. tenant slug already exists)
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/common.yaml#/ErrorResponse'
+
+NotFound:
+  description: Resource not found
   content:
     application/json:
       schema:

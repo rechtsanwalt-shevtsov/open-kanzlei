@@ -1,7 +1,7 @@
 ================================================================================
 OpenKanzlei — Konzept und Implementierungsplan
 ================================================================================
-Stand: Mai 2026
+Stand: Mai 2026 (Apps: ergänzt 26.05.2026)
 Zweck: Fahrplan und dokumentierte Architekturentscheidungen für die Entwicklung.
        Vor Implementierung abgestimmt; bei Änderungen dieses Dokument aktualisieren.
 
@@ -24,13 +24,13 @@ Arbeitskontext bereit. Darauf basierend entscheiden externe Werkzeuge
 und Priorisierung.
 
 Juristische Arbeit wird CMMN-inspiriert betrachtet:
-  - Zentrale Gruppierung: Stage (z. B. "Klageschrift verfassen")
-  - Stage enthält Tasks (z. B. "Schreiben aufsetzen", "Termin vereinbaren")
-  - OpenKanzlei liefert primär Daten zu Stages und Tasks
-  - Externe Werkzeuge entscheiden, welche Tasks in welcher Reihenfolge laufen
+  - Zentrale Gruppierung: Task (z. B. "Klageschrift verfassen")
+  - Task enthält Instruments (z. B. "Schreiben aufsetzen", "Termin vereinbaren")
+  - OpenKanzlei liefert primär Daten zu Tasks und Instruments
+  - Externe Werkzeuge entscheiden, welche Instruments in welcher Reihenfolge laufen
 
-Cases sind Datencontainer für Stages und Dokumente.
-Arbeitsverwaltung und -überwachung erfolgen vorrangig ausgehend von Stages.
+Cases sind Datencontainer für Tasks und Dokumente.
+Arbeitsverwaltung und -überwachung erfolgen vorrangig ausgehend von Tasks.
 
 Work Context wird NICHT als separate Entität im Backend modelliert.
 Später können externe Werkzeuge Kontext über APIs und Events zusammensetzen.
@@ -122,10 +122,10 @@ openkanzlei/
 │   ├── legal-work/                 # Domain ohne HTTP im MVP; Repositories vorbereitet
 │   │   ├── case-models/
 │   │   ├── cases/
-│   │   ├── stage-models/
-│   │   ├── stages/
 │   │   ├── task-models/
 │   │   ├── tasks/
+│   │   ├── instrument-models/
+│   │   ├── instruments/
 │   │   ├── documents/
 │   │   └── attributes/
 │   │
@@ -143,6 +143,7 @@ openkanzlei/
 │
 └── frontend/
     └── react-app/
+        └── src/apps/              # First-Party-Apps (Muster: case-model-designer)
 
 Schichten:
   foundation/  — Technik, keine juristische Fachlogik
@@ -159,7 +160,7 @@ Drei logische Scopes (kein scope_type-Feld in der DB nötig):
 
   1. Tenant Profile     — globale Tenant-Identität und Einstellungen
   2. Shared Resources   — Kontakte, Organisationen, Vorlagen, … (später)
-  3. Cases              — Arbeitscontainer: Stages, Tasks, Dokumente
+  3. Cases              — Arbeitscontainer: Tasks, Instruments, Dokumente
 
 Technische DB-Struktur darf flach bleiben; Trennung über Schemas/Module.
 
@@ -173,30 +174,30 @@ Instanzen enthalten ausschließlich die Attribute ihres Modells.
 Beispiel:
   Case-Modell "Fallakte"
     → Instanzen: "Müller gegen Mayer", "XY GmbH gegen ABC AG"
-  Stage-Modell "Klageschrift verfassen"
-    → konkrete Stage-Instanzen an Cases
-  Task-Modell "Schreiben aufsetzen"
-    → konkrete Task-Instanzen an Stages
+  Task-Modell "Klageschrift verfassen"
+    → konkrete Task-Instanzen an Cases
+  Instrument-Modell "Schreiben aufsetzen"
+    → konkrete Instrument-Instanzen an Tasks
 
 Modelle (Definitionen, tenant-scoped):
   - case_models
-  - stage_models          — tenant-weit wiederverwendbar (NICHT an ein Case-Modell gebunden)
-  - task_models           — gehören zu einem stage_model
+  - task_models          — tenant-weit wiederverwendbar (NICHT an ein Case-Modell gebunden)
+  - instrument_models    — gehören zu einem task_model
 
-Optionale Verknüpfung Case-Modell ↔ Stage-Modell:
-  - case_model_stage_models (Many-to-Many, optional sort_order)
-  - Nur Modell-Metadaten ("typische Stages für Fallakte")
+Optionale Verknüpfung Case-Modell ↔ Task-Modell:
+  - case_model_task_models (Many-to-Many, optional sort_order)
+  - Nur Modell-Metadaten ("typische Tasks für Fallakte")
   - Erzeugt KEINE Instanzen, steuert KEINEN Ablauf
 
 Instanzen (lazy — Entscheidung B):
   - POST /cases erzeugt nur Case-Instanz
-  - Stages und Tasks werden explizit per POST angelegt (on demand)
-  - Keine automatische Erzeugung aller Stage/Task-Shells beim Case-Anlegen
+  - Tasks und Instruments werden explizit per POST angelegt (on demand)
+  - Keine automatische Erzeugung aller Task/Instrument-Shells beim Case-Anlegen
 
 Hierarchie Instanzen:
   cases      → case_model_id
-  stages     → case_id + stage_model_id
-  tasks      → stage_id + task_model_id
+  tasks     → case_id + task_model_id
+  instruments      → task_id + instrument_model_id
 
 Systemfelder auf Instanzen (keine sensiblen Fachdaten als Spalten):
   - id, tenant_id, *_model_id
@@ -230,13 +231,13 @@ Tabellen:
 
   attribute_values
     - tenant_id, attribute_definition_id
-    - owner_type (Instanz: case | stage | task), owner_id
+    - owner_type (Instanz: case | task | instrument), owner_id
     - plaintext_value / encrypted_value
     - encryption_status, encryption_version
 
 Regeln:
-  - Definitionen nur auf owner_type: case_model, stage_model, task_model
-  - Werte nur auf Instanzen (case, stage, task)
+  - Definitionen nur auf owner_type: case_model, task_model, instrument_model
+  - Werte nur auf Instanzen (case, task, instrument)
   - Schreiben nur erlaubt, wenn Attribut am Modell der Instanz definiert ist
   - Verschlüsselungsentscheidung über attribute_definitions.encryption_mode,
     NICHT über Tabellen- oder Spaltennamen
@@ -266,7 +267,7 @@ Langfristiges Ziel:
   - Entschlüsselung nur beim berechtigten Client
   - Betreiber hat keinen Zugriff auf juristische Inhalte
 
-Betrifft später u. a.: Cases, Stages, Tasks, Attribute, Notizen, Dokumente,
+Betrifft später u. a.: Cases, Tasks, Instruments, Attribute, Notizen, Dokumente,
 Mandanten-/Gegnerinformationen.
 
 Ausgenommen (technische Plattformdaten):
@@ -369,7 +370,7 @@ Kein WorkContextService mit fachlicher Interpretation, Priorisierung oder
 Koordination im Backend.
 
 Backend stellt nur Work-Context-FÄHIGE Grundlagen:
-  - Cases, Stages, Tasks als neutrale Datenobjekte
+  - Cases, Tasks, Instruments als neutrale Datenobjekte
   - Modell/Instanz-System und Attribute
   - Events und Webhooks
   - Filter- und Query-Möglichkeiten
@@ -381,7 +382,7 @@ Externe Werkzeuge interpretieren dieselben Rohdaten unterschiedlich
 API-Gruppe Work Context:
   - In OpenAPI als Tag/Pfadpräfix reservieren (/v1/work-context/…)
   - Zunächst ohne Endpunkte (leere work-context.yaml)
-  - Später: einzelne neutrale Abfrage-APIs (z. B. offene Stages eines Benutzers)
+  - Später: einzelne neutrale Abfrage-APIs (z. B. offene Tasks eines Benutzers)
   - KEINE Endpunkte für Priorisierung, next-task, Kanban-Logik
 
 Platzhalter:
@@ -398,9 +399,10 @@ Platzhalter:
 
 PostgreSQL-Schemas zur logischen Trennung:
 
-  platform.*   — tenants, tenant_profiles, users, roles, sessions, …
-  legal.*      — case_models, cases, stage_models, stages, task_models, tasks,
-                 case_model_stage_models, documents
+  platform.*   — tenants, tenant_profiles, users, roles, sessions,
+                 app_installations, app_tenant_settings, app_user_settings, …
+  legal.*      — case_models, cases, task_models, tasks, instrument_models, instruments,
+                 case_model_task_models, documents
   events.*     — domain_events, outbox_events, webhook_subscriptions
   meta.*       — attribute_definitions, attribute_values
 
@@ -420,7 +422,7 @@ Zuerst NUR implementieren:
   PATCH  /v1/tenant/profile
 
 Noch NICHT implementieren (MVP):
-  - Case / Stage / Task APIs
+  - Case / Task / Instrument APIs
   - Work-Context Endpunkte (nur Gruppe/Tag reservieren)
   - Juristische Fachlogik
   - Workflow Engine
@@ -436,7 +438,7 @@ Schritt 1 — Repository + Vertrag + Schema + Docker
   [ ] docker-compose.yml (PostgreSQL; Backend/Frontend optional initial)
   [ ] openapi/ — MVP auth + tenant; Tag WorkContext + leere work-context.yaml
   [ ] SQL-Migrationen: platform, events, legal (Modelle + lazy Instanzen),
-      meta (attribute_*), case_model_stage_models
+      meta (attribute_*), case_model_task_models
   [ ] backend/ Minimal: package.json, TypeScript, migrate-Skript, GET /health
   [ ] work-context/README.md (Platzhalter)
 
@@ -452,13 +454,380 @@ Schritt 3 — Frontend MVP
   [ ] API-Client gegen OpenAPI
 
 Schritt 4 — Legal-Modelle und Instanzen (nach MVP)
-  [ ] CRUD Case-/Stage-/Task-Modelle
-  [ ] Lazy Instanzen (Cases, Stages, Tasks)
+  [ ] CRUD Case-/Task-/Instrument-Modelle
+  [ ] Lazy Instanzen (Cases, Tasks, Instruments)
   [ ] Attributdefinitionen auf Modellen, Werte auf Instanzen
 
 Schritt 5 — Erste Work-Context-Abfrage-APIs (später)
   [ ] Neutrale Filter-Endpunkte unter /v1/work-context/…
-  [ ] z. B. GET offene Stages eines Benutzers — ohne Priorisierung
+  [ ] z. B. GET offene Tasks eines Benutzers — ohne Priorisierung
+
+================================================================================
+18. PLATTFORM UND APPS
+================================================================================
+
+Stand der Entscheidung: 26.05.2026 — freigegeben, Implementierung folgt.
+
+OpenKanzlei wird als Plattform mit austauschbaren Apps verstanden.
+
+Die Plattform stellt bereit (ohne feste Arbeitslogik):
+  - Datenhaltung, Tenant-Isolation
+  - Benutzer und Rollen
+  - APIs, Events, Webhooks (Webhooks später ausbauen)
+  - App-Registrierung und App-Einstellungen
+  - spätere Zero-Knowledge-Verschlüsselung (vorbereitet, MVP ohne echte ZK)
+
+Apps enthalten Fachlogik und/oder Benutzeroberfläche.
+Eine App kommuniziert ausschließlich über Plattform-APIs und speichert keine
+eigenen fachlichen Daten außerhalb der Plattform.
+
+Mehrere Apps können dieselben Plattformdaten unterschiedlich interpretieren.
+Die Plattform liefert den Arbeitsgegenstand; die App liefert Arbeitsweise oder Sicht.
+
+MVP-Regel „Austauschbar“:
+  - Gleiches technisches Muster (Manifest, Settings, API-Nutzung, Ordnerstruktur)
+  - KEIN externer App-Store, kein iframe, kein separates Deployment pro App
+  - First-Party-Apps leben im Monorepo unter apps/<app-key>/
+
+----------------------------------------------------------------------
+18.1 First-Party-Apps und Registry
+----------------------------------------------------------------------
+
+  - Manifest pro App: apps/<app-key>/manifest.json (settings_schema eingebettet)
+  - Plattform kennt Apps über Registry-Scan von apps/ beim Serverstart
+    (APPS_PATH, Standard: <repo>/apps); kein manueller Code-Eintrag pro App
+  - Jeder Tenant hat eigene app_installations (Status, Version, Timestamps)
+  - GET /v1/apps: nur für den aktuellen Tenant installierte und aktive Apps,
+    für den eingeloggten Benutzer sichtbar (Sidebar, normale Nutzung)
+  - GET /v1/tenant/apps (nur admin): Katalog aller serverweit bekannten Apps
+    mit Installationsstatus für den aktuellen Tenant (aktiv/inaktiv/nicht installiert)
+  - PATCH /v1/tenant/apps/{appKey} (nur admin): App für den Tenant aktivieren
+    oder deaktivieren (status active|inactive); nur eigene app_installations
+  - First-Party-Apps sind plattformweit in der Registry verfügbar; Nutzung pro
+    Tenant erst nach Aktivierung (Option A, multitenant-sicher)
+  - Administration → Apps: Admin sieht den vollen Katalog und schaltet Apps
+    für seine Kanzlei ein/aus; normale User sehen nur aktive Apps
+  - Neue Tenants (MVP): alle in der Registry bekannten Apps werden bei
+    Registrierung sofort für den neuen Tenant aktiviert (status active)
+  - Neue Tenants (später, mit Kanzlei-Vorlagen): beim Anlegen einer Kanzlei
+    legt die gewählte Vorlage fest, welche Apps von Anfang an aktiviert werden;
+    nicht in der Vorlage enthaltene Apps erscheinen im Katalog, sind aber inaktiv,
+    bis der Admin sie aktiviert
+
+----------------------------------------------------------------------
+18.2 App-Manifest
+----------------------------------------------------------------------
+
+Jede App besitzt ein Manifest mit mindestens:
+
+  app_key           — stabil, z. B. "case-model-designer"
+  name              — Anzeigename
+  version           — Semver der App
+  description
+  routes            — Frontend-Routen der App (Navigation)
+  required_roles    — z. B. ["admin"] (KEIN separates Permission-System im MVP)
+  settings_schema   — Definition aller Einstellungen (siehe 18.3)
+  supported_locales — z. B. ["de", "en"]
+  event_subscriptions — optional, MVP nicht auswerten
+
+Manifest und settings_schema liegen in manifest.json; Server validiert daraus,
+Frontend importiert dasselbe JSON für UI-Hilfen (keine Duplikat-TS-Datei mehr).
+
+----------------------------------------------------------------------
+18.3 App-Einstellungen (drei Ebenen)
+----------------------------------------------------------------------
+
+  1. App Default Settings     — defaults aus settings_schema im Manifest
+  2. Tenant App Settings      — vom Tenant-Admin (Rolle admin), tenantweit
+  3. User App Settings        — vom Benutzer, nur wo userOverridable = true
+
+Effektive Einstellungen (serverseitig berechnet):
+
+  effective_settings = defaults + tenant_overrides + user_overrides
+
+Regeln:
+  - Plattform validiert alle Werte anhand settings_schema
+  - Tenant-Settings: PATCH nur mit Rolle admin
+  - User-Settings: nur Keys mit userOverridable = true
+  - App-Settings sind UI-/Vorschlagswerte; sie erzwingen keine Fachregeln
+    auf Plattform-POSTs (z. B. defaultCaseModelStatus nur Formular-Default,
+    nicht serverseitig bei POST /v1/case-models)
+
+Tabellen (Vorschlag):
+  platform.app_installations   — id, tenant_id, app_key, version, status,
+                               installed_at, updated_at
+  platform.app_tenant_settings — tenant_id, app_key, settings JSONB, updated_at
+  platform.app_user_settings   — tenant_id, user_id, app_key, settings JSONB,
+                               updated_at
+
+----------------------------------------------------------------------
+18.4 settings_schema — case-model-designer (Muster-App)
+----------------------------------------------------------------------
+
+  defaultCaseModelStatus
+    type: string, default: "draft"
+    allowedValues: ["draft", "active", "archived"]
+    tenantConfigurable: true, userOverridable: false
+
+  showTechnicalKeys
+    type: boolean, default: false
+    tenantConfigurable: true, userOverridable: true
+
+  defaultAttributeEncryptionMode
+    type: string, default: "zero_knowledge"
+    allowedValues: ["server_readable", "zero_knowledge"]
+    tenantConfigurable: true, userOverridable: false
+    (nur Vorschlag beim Anlegen neuer Attributdefinitionen, keine echte ZK im MVP)
+
+  itemsPerPage
+    type: number, default: 25
+    tenantConfigurable: true, userOverridable: true
+    (MVP: clientseitige Pagination, API ohne limit/offset für case-models)
+
+  editorLayout
+    type: string, default: "simple"
+    allowedValues: ["simple", "advanced"]
+    tenantConfigurable: true, userOverridable: true
+
+----------------------------------------------------------------------
+18.5 Plattform-APIs für Apps (neu)
+----------------------------------------------------------------------
+
+OpenAPI-Tag: Apps (openapi/paths/apps.yaml)
+
+  GET  /v1/apps
+       — installierte/aktive Apps des aktuellen Tenants für den User (Sidebar)
+
+  GET  /v1/tenant/apps
+       — Katalog aller serverweit bekannten Apps mit Status für den Tenant (admin)
+
+  PATCH /v1/tenant/apps/{appKey}
+       — App für den Tenant aktivieren oder deaktivieren (admin)
+
+  GET  /v1/apps/{appKey}/manifest
+
+  GET  /v1/apps/{appKey}/settings/effective
+       — merged settings für aktuellen User + Tenant
+
+  GET  /v1/tenant/apps/{appKey}/settings
+  PATCH /v1/tenant/apps/{appKey}/settings   — nur admin
+
+  GET  /v1/me/apps/{appKey}/settings
+  PATCH /v1/me/apps/{appKey}/settings
+
+----------------------------------------------------------------------
+18.6 Case-Model APIs (bestehend, von App genutzt)
+----------------------------------------------------------------------
+
+Bestehende Pfade beibehalten (kein Umbenennen):
+
+  GET/POST           /v1/case-models
+  GET/PATCH/DELETE   /v1/case-models/{id}
+  GET/POST           /v1/case-models/{id}/attributes
+  PATCH/DELETE       /v1/attribute-definitions/{id}
+
+CaseModel (Erweiterung MVP):
+  - description_translations (JSONB, wie translations)
+  - status: enum draft | active | archived (OpenAPI + DB-CHECK)
+  - created_by: Phase 2 (nicht im ersten App-MVP)
+
+Attributdefinitionen — Phase 2 (nicht im ersten App-MVP):
+  - help_text_translations, required, sort_order
+
+data_type im App-MVP:
+  - text, number, boolean, date (bestehend)
+  - money, select: Phase 2
+
+----------------------------------------------------------------------
+18.7 Events (Apps und Attribute)
+----------------------------------------------------------------------
+
+Bereits vorhanden:
+  case_model.created | .updated | .deleted
+
+Neu im App-MVP:
+  attribute_definition.created | .updated | .deleted
+  app_settings.updated
+
+Payload-Regel unverändert: nur IDs und technische Metadaten/Keys,
+keine sensiblen Klartexte.
+
+----------------------------------------------------------------------
+18.8 Erste Muster-App: case-model-designer
+----------------------------------------------------------------------
+
+  app_key:  case-model-designer
+  Name:     Case Model Designer
+  Routen:   /apps/case-model-designer/… (unter React-App)
+
+Zweck:
+  - Case-Modelle anlegen, anzeigen, bearbeiten
+  - Attributdefinitionen am Case-Modell verwalten
+  - App-Einstellungen (effective + tenant/user, soweit erlaubt)
+  - Referenzmuster für weitere Apps
+
+Scope dieser App (explizit):
+  ÜBERNIMMT:
+    - gesamte Admin-UI nur für Case-Models inkl. Attribute
+  BLEIBT in bestehender Admin-UI:
+    - Task-Modelle, Instrument-Modelle, CreateModelDialog für task/instrument
+    - /admin/models (ohne Case-Model-Zeilen oder mit Link „In App öffnen“)
+  NICHT in dieser App:
+    - Case-/Task-/Instrument-Instanzen, Kanban, Dokumente, Workflow, KI, ZK
+
+App-Ordnerstruktur (implementiert):
+
+  apps/case-model-designer/
+    manifest.json           — Manifest + settings_schema (eine Quelle)
+    frontend/
+      routes.tsx            — export appKey, appRoutes
+      entry.tsx             — Einstieg für Drop-in-Build (lib)
+      vite.config.ts        — optionaler Einzel-Build → frontend/dist/
+      pages/, hooks/, lib/, api.ts, settings-schema.ts
+
+Shell-Frontend:
+  - import.meta.glob lädt apps/*/frontend/routes.tsx automatisch
+  - Aliase @shell (react-app/src) und @apps (repo/apps)
+  - npm run build:apps — baut alle App-frontends nach frontend/dist/
+
+Grundregel: keine direkten DB-Zugriffe; nur Plattform-APIs.
+
+----------------------------------------------------------------------
+18.9 Bewusst nicht im App-MVP
+----------------------------------------------------------------------
+
+  - Echte Zero-Knowledge-Verschlüsselung
+  - Externer App-Store / Drittanbieter-Installation
+  - iframe / Micro-Frontend-Deployment
+  - event_subscriptions aus Manifest auswerten
+  - Feingranulares Permission-System (nur required_roles)
+  - Case-Instanzen-UI in der App (bestehende /cases-Seite bleibt)
+  - Kanzlei-Vorlagen mit app-spezifischer Initial-Aktivierung (nur vorbereitet
+    in 18.1; MVP aktiviert alle bekannten Apps bei Registrierung)
+
+----------------------------------------------------------------------
+18.10 App-Verzeichnis und Auslieferung (implementiert)
+----------------------------------------------------------------------
+
+Stufe 1 — Monorepo [x]:
+  apps/<app-key>/ mit manifest.json + frontend/
+  case-model-designer migriert; Schema-Duplikate entfernt
+
+Stufe 2 — Tenant-App-Verwaltung [x]:
+  GET /v1/tenant/apps — Katalog (admin)
+  PATCH /v1/tenant/apps/{appKey} — aktivieren/deaktivieren (admin)
+  /admin/apps — Tabelle mit Status und Toggle; Sidebar aktualisiert sich
+  Registrierung: alle Registry-Apps sofort active für neuen Tenant
+
+Stufe 3 — Drop-in auf dem Server [x]:
+  Serverstart: initializeAppRegistry() scannt APPS_PATH
+  Statische Assets: GET /app-assets/{appKey}/* aus apps/.../frontend/dist/
+  build:apps erzeugt dist/entry.js pro App (Vite lib mode)
+  Monorepo-Apps: weiterhin im Shell-Bundle via import.meta.glob
+  Drop-in ohne Shell-Rebuild: Infrastruktur vorhanden (entry.js + app-assets);
+  vollständiges dynamisches Routing ohne Shell-Rebuild: langfristig (20.3)
+
+Zwei Ebenen „Installation“:
+  1. Server: App im Katalog bekannt (Registry / apps/-Scan)
+  2. Tenant: app_installations.status = active (Admin oder Registrierungs-Policy)
+
+----------------------------------------------------------------------
+20. APPS — LANGFRISTIGE ZIELE
+----------------------------------------------------------------------
+
+20.1 Kanzlei-Vorlagen
+  - Beim Anlegen einer Kanzlei legt die Vorlage fest, welche Apps initial aktiv sind
+  - Ersetzt MVP-Regel „alle Apps sofort aktiv“
+  - Nicht in der Vorlage: App im Katalog sichtbar, status inactive bis Admin aktiviert
+
+20.2 Weitere First-Party-Apps
+  - Gleiches Muster apps/<app-key>/; menu_category work oder administration
+  - Fachlogik über Plattform-APIs; keine app-eigenen DB-Tabellen im MVP-Stil
+
+20.3 Drop-in ohne Shell-Rebuild (Ausbau)
+  - Dynamisches Laden von /app-assets/{appKey}/entry.js für nicht im Monorepo
+    gebündelte Apps (DropInAppRoutes-Komponente vorbereitet)
+  - Gemeinsame Shared-Dependencies (React) über Import-Maps oder Module Federation
+  - Dokumentierter Deploy: apps/<key>/ kopieren, npm run build:apps, Server-Neustart
+
+20.4 Drittanbieter / App-Store (bewusst später)
+  - Signierung, Sandbox, Dependency-Isolation, App-Migrations-Runner
+  - Siehe 18.9 — nicht Teil des aktuellen Stands
+
+20.5 Plattform-Erweiterungen
+  - event_subscriptions aus Manifest auswerten
+  - Feingranulares Permission-System über required_roles hinaus
+  - Tests für App-Settings, Katalog, Tenant-Isolation
+
+================================================================================
+19. IMPLEMENTIERUNGSPLAN — APPS (case-model-designer)
+================================================================================
+
+Reihenfolge für die nächste Implementierungsrunde. OpenAPI-first in jeder Phase.
+Nach jeder Phase: Konzept.txt-Checkboxen aktualisieren.
+
+Phase A — OpenAPI und Konzept (Dokumentation)
+  [x] Abschnitt 18/19 in Konzept.txt (dieses Dokument)
+  [x] openapi/paths/apps.yaml + Schemas (App, Manifest, Settings, Installation)
+  [x] openapi/openapi.yaml: Tag Apps, Pfade einbinden
+  [x] legal.yaml / legal schemas: CaseModel.description_translations,
+      CaseModelStatus enum (draft|active|archived)
+  [x] README: kurzer Hinweis auf Apps und case-model-designer
+
+Phase B — Backend Plattform (Apps)
+  [x] Migration: app_installations, app_tenant_settings, app_user_settings
+  [x] platform/apps/: Registry (statisch case-model-designer), Manifest laden,
+      Settings-Merge, Validierung gegen settings_schema
+  [x] api/routes/app-routes.ts: alle Endpunkte aus 18.5
+  [x] Bei register-tenant: alle Registry-Apps installieren (status active)
+  [x] Event app_settings.updated bei PATCH tenant/user settings
+  [ ] Tests: effective_settings, userOverridable, admin-only tenant settings
+
+Phase C — Backend Legal-Erweiterungen
+  [x] Migration: legal.case_models.description_translations;
+      status CHECK (draft, active, archived) — bestehende Daten ggf. migrieren
+  [x] models.ts + OpenAPI: description_translations lesen/schreiben
+  [x] attributes.ts: Events attribute_definition.created|updated|deleted
+  [x] Keine Phase-2-Felder (help_text, required, sort_order, money, select)
+
+Phase D — Frontend case-model-designer
+  [x] Ordner apps/case-model-designer/frontend/ gemäß 18.8
+  [x] manifest.json + settings-schema (eine Quelle)
+  [x] Routen via import.meta.glob (nicht manuell in App.tsx)
+  [x] Seiten: Liste (Pagination itemsPerPage), Create, Edit, Attribute, Settings
+  [x] Navigation: Menüpunkt „Case Model Designer“ (admin)
+  [x] api.ts: Apps-APIs + case-models + attributes
+
+Phase E — Admin-UI bereinigen
+  [x] CreateModelDialog: Option case_model entfernen
+  [x] ModelsPage: Case-Models aus Liste entfernen oder Link zur App
+  [x] ModelDetailPage case_model: entfernen oder Redirect zur App
+  [x] Alte Routen /admin/case-models/:id → Redirect /apps/case-model-designer/…
+  [x] frontend: npm run generate:api nach OpenAPI-Änderungen
+
+Phase F — später (nicht in dieser Runde)
+  [ ] created_by auf case_models
+  [ ] help_text_translations, required, sort_order auf attribute_definitions
+  [ ] data_type money, select
+  [ ] event_subscriptions aus Manifest
+  [ ] Drittanbieter-Apps / App-Store
+
+Phase G — App-Plattform ausbauen [x]
+  [x] apps/<app-key>/ im Monorepo; case-model-designer migriert
+  [x] OpenAPI: GET /v1/tenant/apps, PATCH /v1/tenant/apps/{appKey}
+  [x] Backend: Registry-Scan, listTenantAppCatalog, setTenantAppStatus
+  [x] Frontend: AdminAppsPage Katalog + Toggle; Sidebar-Refresh
+  [x] apps/-Scan beim Serverstart; /app-assets/{appKey}/; npm run build:apps
+  [ ] Tests: admin-only Katalog; User sieht nur aktive Apps; Tenant-Isolation
+  [ ] Später: Kanzlei-Vorlagen steuern Initial-Apps (20.1)
+  [ ] Später: dynamisches Drop-in-Routing ohne Shell-Rebuild (20.3)
+
+Abnahme App-MVP:
+  - Tenant-Admin kann Case-Modelle und Attribute nur über die App verwalten
+  - Task-/Instrument-Modelle weiterhin unter /admin/models
+  - effective_settings sichtbar; tenant/user overrides wie im Schema
+  - Events attribute_definition.* und app_settings.updated in domain_events
+  - Keine App-Daten außerhalb der Plattform-DB
 
 ================================================================================
 17. GETROFFENE ENTSCHEIDUNGEN (KURZREFERENZ)
@@ -472,12 +841,30 @@ Schritt 5 — Erste Work-Context-Abfrage-APIs (später)
   | Aktenzeichen/reference   | Modell-Attribut                           |
   | Attribute definieren     | Nur auf Modellen, nicht auf Instanzen     |
   | Instanziierung           | Lazy (B)                                  |
-  | Stage-Modelle            | Tenant-weit wiederverwendbar              |
+  | Task-Modelle             | Tenant-weit wiederverwendbar              |
   | Login                    | tenant_slug + username + password         |
   | E-Mail                   | Nicht global unique                       |
   | Projekt-Lizenz           | Apache 2.0                                |
   | Dependencies             | Nur permissive Lizenzen                   |
   | MVP Verschlüsselung      | Keine; Architektur vorbereitet            |
+  | Plattform vs. Apps       | Plattform = Daten/APIs; Apps = UI/Fachsicht |
+  | App-MVP Typ              | First-Party im Monorepo, kein App-Store   |
+  | App-Installation         | Pro Tenant; Registry plattformweit (Opt. A)|
+  | App-Katalog Admin        | GET /v1/tenant/apps; Toggle nur admin     |
+  | Neue Tenants (MVP)       | Alle bekannten Apps sofort aktiv          |
+  | Neue Tenants (später)    | Initial-Apps über Kanzlei-Vorlage         |
+  | App-Ordner                 | apps/<app-key>/manifest.json + frontend/  |
+  | Registry                   | Scan APPS_PATH beim Serverstart           |
+  | App-Assets                 | /app-assets/{appKey}/ aus frontend/dist/  |
+  | App-Berechtigung         | required_roles ["admin"] im Manifest      |
+  | Case-Model-UI            | Nur in case-model-designer-App            |
+  | Case-Model API-Pfade     | Bestehende /case-models, /attributes      |
+  | CaseModel status         | draft, active, archived (Enum)              |
+  | App-Settings vs. POST    | Nur Formular-Vorschlag, kein POST-Zwang   |
+  | Attribute API-Pfad       | …/attributes (nicht attribute-definitions)|
+  | Attribut-Felder Phase 2  | help_text, required, sort_order           |
+  | data_type Phase 2        | money, select                             |
+  | created_by case_models   | Phase 2                                   |
 
 ================================================================================
 ENDE DES DOKUMENTS

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OpenKanzlei API
-  version: 0.1.0
+  version: 0.5.0
   description: |
     Work-Context-Plattform für juristische Wissensarbeit.
     API-first — Vertrag vor Implementierung.
@@ -22,6 +22,12 @@ tags:
     description: |
       Reserved for neutral work-context queries (no prioritization or workflow logic).
       Endpoints will be added in later phases.
+  - name: LegalWork
+    description: Case, task and instrument models and instances
+  - name: Platform
+    description: Tenant users and teams (administration)
+  - name: Apps
+    description: First-party app registry, installations and settings
 
 paths:
   /v1/auth/register-tenant:
@@ -34,8 +40,84 @@ paths:
     $ref: './paths/auth.yaml#/me'
   /v1/tenant/profile:
     $ref: './paths/tenant.yaml#/profile'
+  /v1/tenant/ui-preferences:
+    $ref: './paths/ui.yaml#/tenant-ui-preferences'
+  /v1/me/ui-preferences:
+    $ref: './paths/ui.yaml#/me-ui-preferences'
+
+  /v1/apps:
+    $ref: './paths/apps.yaml#/apps-list'
+  /v1/tenant/apps:
+    $ref: './paths/apps.yaml#/tenant-apps-catalog'
+  /v1/tenant/apps/{appKey}:
+    $ref: './paths/apps.yaml#/tenant-app-status'
+  /v1/apps/{appKey}/manifest:
+    $ref: './paths/apps.yaml#/apps-manifest'
+  /v1/apps/{appKey}/settings/effective:
+    $ref: './paths/apps.yaml#/apps-effective-settings'
+  /v1/tenant/apps/{appKey}/settings:
+    $ref: './paths/apps.yaml#/tenant-app-settings'
+  /v1/me/apps/{appKey}/settings:
+    $ref: './paths/apps.yaml#/me-app-settings'
+
+  /v1/teams:
+    $ref: './paths/platform.yaml#/teams-list'
+  /v1/teams/{id}:
+    $ref: './paths/platform.yaml#/teams-item'
+  /v1/users:
+    $ref: './paths/platform.yaml#/users-list'
+  /v1/users/{id}:
+    $ref: './paths/platform.yaml#/users-item'
+
+  /v1/case-models:
+    $ref: './paths/legal.yaml#/case-models-list'
+  /v1/case-models/{id}:
+    $ref: './paths/legal.yaml#/case-models-item'
+  /v1/case-models/{id}/task-models:
+    $ref: './paths/legal.yaml#/case-models-task-links'
+  /v1/case-models/{id}/attributes:
+    $ref: './paths/legal.yaml#/case-models-attributes'
+
+  /v1/task-models:
+    $ref: './paths/legal.yaml#/task-models-list'
+  /v1/task-models/{id}:
+    $ref: './paths/legal.yaml#/task-models-item'
+  /v1/task-models/{id}/instrument-models:
+    $ref: './paths/legal.yaml#/task-models-instrument-models'
+  /v1/task-models/{id}/attributes:
+    $ref: './paths/legal.yaml#/task-models-attributes'
+
+  /v1/instrument-models/{id}:
+    $ref: './paths/legal.yaml#/instrument-models-item'
+  /v1/instrument-models/{id}/attributes:
+    $ref: './paths/legal.yaml#/instrument-models-attributes'
+
+  /v1/attribute-definitions/{id}:
+    $ref: './paths/legal.yaml#/attribute-definitions-item'
+
+  /v1/cases:
+    $ref: './paths/legal.yaml#/cases-list'
+  /v1/cases/{id}:
+    $ref: './paths/legal.yaml#/cases-item'
+  /v1/cases/{id}/tasks:
+    $ref: './paths/legal.yaml#/cases-tasks'
+
+  /v1/tasks:
+    $ref: './paths/legal.yaml#/tasks-list'
+  /v1/tasks/{id}:
+    $ref: './paths/legal.yaml#/tasks-item'
+  /v1/tasks/{id}/instruments:
+    $ref: './paths/legal.yaml#/tasks-instruments'
+
+  /v1/instruments/{id}:
+    $ref: './paths/legal.yaml#/instruments-item'
 
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: openkanzlei_session
   schemas:
     $ref: './components/schemas/index.yaml'
   parameters:

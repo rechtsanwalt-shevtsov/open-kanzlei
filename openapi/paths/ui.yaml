@@ -1,0 +1,60 @@
+me-ui-preferences:
+  get:
+    tags: [Platform]
+    operationId: getUiPreferences
+    summary: Effective UI preferences for current user
+    security: [{ sessionCookie: [] }]
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/ui.yaml#/UiPreferences'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+  patch:
+    tags: [Platform]
+    operationId: patchUserUiPreferences
+    summary: Update user UI preferences (overrides tenant defaults where allowed)
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ui.yaml#/PatchUserUiPreferencesRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/ui.yaml#/UiPreferences'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+
+tenant-ui-preferences:
+  patch:
+    tags: [Tenant]
+    operationId: patchTenantUiPreferences
+    summary: Set tenant default UI preferences (admin)
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/ui.yaml#/PatchTenantUiPreferencesRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/ui.yaml#/UiPreferences'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'

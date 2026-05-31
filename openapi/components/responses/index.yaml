@@ -4,3 +4,5 @@ Unauthorized:
   $ref: './common.yaml#/Unauthorized'
 Conflict:
   $ref: './common.yaml#/Conflict'
+NotFound:
+  $ref: './common.yaml#/NotFound'

@@ -1,17 +1,12 @@
 RegisterTenantRequest:
   type: object
   required:
-    - tenant_slug
     - firm_name
     - admin_username
     - admin_email
     - admin_password
     - default_language
   properties:
-    tenant_slug:
-      type: string
-      pattern: '^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$'
-      description: Unique tenant identifier used at login
     firm_name:
       type: string
       minLength: 1
@@ -34,10 +29,8 @@ RegisterTenantRequest:
 
 LoginRequest:
   type: object
-  required: [tenant_slug, username, password]
+  required: [username, password]
   properties:
-    tenant_slug:
-      type: string
     username:
       type: string
     password:

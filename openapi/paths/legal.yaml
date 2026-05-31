@@ -1,0 +1,880 @@
+case-models-list:
+  get:
+    tags: [LegalWork]
+    operationId: listCaseModels
+    summary: List case models
+    security: [{ sessionCookie: [] }]
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/CaseModel'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+  post:
+    tags: [LegalWork]
+    operationId: createCaseModel
+    summary: Create case model
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateCaseModelRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/CaseModel'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+case-models-item:
+  get:
+    tags: [LegalWork]
+    operationId: getCaseModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/CaseModel'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [LegalWork]
+    operationId: updateCaseModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/UpdateCaseModelRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/CaseModel'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  delete:
+    tags: [LegalWork]
+    operationId: deleteCaseModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+case-models-task-links:
+  get:
+    tags: [LegalWork]
+    operationId: listCaseModelTaskModels
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/CaseModelTaskModelLink'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  put:
+    tags: [LegalWork]
+    operationId: setCaseModelTaskModels
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/SetCaseModelTaskModelsRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/CaseModelTaskModelLink'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+case-models-attributes:
+  get:
+    tags: [LegalWork]
+    operationId: listCaseModelAttributes
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/AttributeDefinition'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  post:
+    tags: [LegalWork]
+    operationId: createCaseModelAttribute
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateAttributeDefinitionRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/AttributeDefinition'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+task-models-list:
+  get:
+    tags: [LegalWork]
+    operationId: listTaskModels
+    security: [{ sessionCookie: [] }]
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/TaskModel'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+  post:
+    tags: [LegalWork]
+    operationId: createTaskModel
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateTaskModelRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/TaskModel'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+task-models-item:
+  get:
+    tags: [LegalWork]
+    operationId: getTaskModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/TaskModel'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [LegalWork]
+    operationId: updateTaskModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/UpdateTaskModelRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/TaskModel'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  delete:
+    tags: [LegalWork]
+    operationId: deleteTaskModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+task-models-instrument-models:
+  get:
+    tags: [LegalWork]
+    operationId: listInstrumentModelsForTaskModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/InstrumentModel'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  post:
+    tags: [LegalWork]
+    operationId: createInstrumentModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateInstrumentModelRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/InstrumentModel'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+task-models-attributes:
+  get:
+    tags: [LegalWork]
+    operationId: listTaskModelAttributes
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/AttributeDefinition'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  post:
+    tags: [LegalWork]
+    operationId: createTaskModelAttribute
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateAttributeDefinitionRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/AttributeDefinition'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+instrument-models-item:
+  get:
+    tags: [LegalWork]
+    operationId: getInstrumentModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/InstrumentModel'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [LegalWork]
+    operationId: updateInstrumentModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/UpdateInstrumentModelRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/InstrumentModel'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  delete:
+    tags: [LegalWork]
+    operationId: deleteInstrumentModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+instrument-models-attributes:
+  get:
+    tags: [LegalWork]
+    operationId: listInstrumentModelAttributes
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/AttributeDefinition'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  post:
+    tags: [LegalWork]
+    operationId: createInstrumentModelAttribute
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateAttributeDefinitionRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/AttributeDefinition'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+attribute-definitions-item:
+  patch:
+    tags: [LegalWork]
+    operationId: updateAttributeDefinition
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/UpdateAttributeDefinitionRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/AttributeDefinition'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  delete:
+    tags: [LegalWork]
+    operationId: deleteAttributeDefinition
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+cases-list:
+  get:
+    tags: [LegalWork]
+    operationId: listCases
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - name: case_model_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/Case'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+  post:
+    tags: [LegalWork]
+    operationId: createCase
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateCaseRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Case'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+cases-item:
+  get:
+    tags: [LegalWork]
+    operationId: getCase
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Case'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [LegalWork]
+    operationId: updateCase
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/UpdateCaseRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Case'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  delete:
+    tags: [LegalWork]
+    operationId: deleteCase
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+cases-tasks:
+  get:
+    tags: [LegalWork]
+    operationId: listTasksForCase
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/Task'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  post:
+    tags: [LegalWork]
+    operationId: createTask
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateTaskRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Task'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+tasks-list:
+  get:
+    tags: [LegalWork]
+    operationId: listTasks
+    security: [{ sessionCookie: [] }]
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/Task'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+
+tasks-item:
+  get:
+    tags: [LegalWork]
+    operationId: getTask
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Task'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [LegalWork]
+    operationId: updateTask
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/UpdateTaskRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Task'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  delete:
+    tags: [LegalWork]
+    operationId: deleteTask
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+tasks-instruments:
+  get:
+    tags: [LegalWork]
+    operationId: listInstrumentsForTask
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/Instrument'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  post:
+    tags: [LegalWork]
+    operationId: createInstrument
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateInstrumentRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Instrument'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+instruments-item:
+  get:
+    tags: [LegalWork]
+    operationId: getInstrument
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Instrument'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [LegalWork]
+    operationId: updateInstrument
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/UpdateInstrumentRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Instrument'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  delete:
+    tags: [LegalWork]
+    operationId: deleteInstrument
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'

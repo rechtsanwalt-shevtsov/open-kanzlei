@@ -14,3 +14,31 @@ TenantProfile:
   $ref: './tenant.yaml#/TenantProfile'
 UpdateTenantProfileRequest:
   $ref: './tenant.yaml#/UpdateTenantProfileRequest'
+
+TenantRoleKey:
+  $ref: './platform.yaml#/TenantRoleKey'
+Team:
+  $ref: './platform.yaml#/Team'
+CreateTeamRequest:
+  $ref: './platform.yaml#/CreateTeamRequest'
+UpdateTeamRequest:
+  $ref: './platform.yaml#/UpdateTeamRequest'
+TenantUser:
+  $ref: './platform.yaml#/TenantUser'
+CreateTenantUserRequest:
+  $ref: './platform.yaml#/CreateTenantUserRequest'
+UpdateTenantUserRequest:
+  $ref: './platform.yaml#/UpdateTenantUserRequest'
+
+AppKey:
+  $ref: './apps.yaml#/AppKey'
+AppInstallation:
+  $ref: './apps.yaml#/AppInstallation'
+AppManifest:
+  $ref: './apps.yaml#/AppManifest'
+EffectiveAppSettings:
+  $ref: './apps.yaml#/EffectiveAppSettings'
+AppSettings:
+  $ref: './apps.yaml#/AppSettings'
+PatchAppSettingsRequest:
+  $ref: './apps.yaml#/PatchAppSettingsRequest'

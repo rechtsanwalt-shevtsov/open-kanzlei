@@ -1,0 +1,43 @@
+ColorTheme:
+  type: string
+  enum: [classic, modern, forest, midnight]
+
+UiPreferences:
+  type: object
+  required:
+    - color_theme
+    - tenant_color_theme
+    - user_color_theme
+    - available_themes
+  properties:
+    color_theme:
+      $ref: '#/ColorTheme'
+      description: Effective theme for the current user
+    tenant_color_theme:
+      $ref: '#/ColorTheme'
+      description: Tenant default theme
+    user_color_theme:
+      allOf:
+        - $ref: '#/ColorTheme'
+      nullable: true
+      description: User override; null means use tenant default
+    available_themes:
+      type: array
+      items:
+        $ref: '#/ColorTheme'
+
+PatchUserUiPreferencesRequest:
+  type: object
+  properties:
+    color_theme:
+      allOf:
+        - $ref: '#/ColorTheme'
+      nullable: true
+      description: Set a theme override, or null to use the tenant default
+
+PatchTenantUiPreferencesRequest:
+  type: object
+  required: [color_theme]
+  properties:
+    color_theme:
+      $ref: '#/ColorTheme'

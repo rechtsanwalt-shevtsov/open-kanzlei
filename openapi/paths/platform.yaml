@@ -1,0 +1,184 @@
+teams-list:
+  get:
+    tags: [Platform]
+    operationId: listTeams
+    security: [{ sessionCookie: [] }]
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/platform.yaml#/Team'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+  post:
+    tags: [Platform]
+    operationId: createTeam
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/platform.yaml#/CreateTeamRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/platform.yaml#/Team'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+teams-item:
+  patch:
+    tags: [Platform]
+    operationId: updateTeam
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/platform.yaml#/UpdateTeamRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/platform.yaml#/Team'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+  delete:
+    tags: [Platform]
+    operationId: deleteTeam
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+users-list:
+  get:
+    tags: [Platform]
+    operationId: listTenantUsers
+    security: [{ sessionCookie: [] }]
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/platform.yaml#/TenantUser'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+  post:
+    tags: [Platform]
+    operationId: createTenantUser
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/platform.yaml#/CreateTenantUserRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/platform.yaml#/TenantUser'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+users-item:
+  get:
+    tags: [Platform]
+    operationId: getTenantUser
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/platform.yaml#/TenantUser'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [Platform]
+    operationId: updateTenantUser
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/platform.yaml#/UpdateTenantUserRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/platform.yaml#/TenantUser'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'

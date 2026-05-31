@@ -1,0 +1,130 @@
+TenantRoleKey:
+  type: string
+  enum: [admin, regular]
+  description: Administrator or regular user
+
+Team:
+  type: object
+  required: [id, name, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+      minLength: 1
+      maxLength: 128
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateTeamRequest:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 128
+
+UpdateTeamRequest:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 128
+
+TenantUser:
+  type: object
+  required:
+    - id
+    - username
+    - role
+    - is_active
+    - created_at
+    - updated_at
+  properties:
+    id:
+      type: string
+      format: uuid
+    username:
+      type: string
+    email:
+      type: string
+      format: email
+      nullable: true
+    role:
+      $ref: '#/TenantRoleKey'
+    team_id:
+      type: string
+      format: uuid
+      nullable: true
+    team_name:
+      type: string
+      nullable: true
+    is_active:
+      type: boolean
+    preferred_language:
+      type: string
+      enum: [de, en]
+      nullable: true
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateTenantUserRequest:
+  type: object
+  required: [username, password, role]
+  properties:
+    username:
+      type: string
+      minLength: 1
+      maxLength: 64
+    email:
+      type: string
+      format: email
+      nullable: true
+    password:
+      type: string
+      minLength: 8
+      format: password
+    role:
+      $ref: '#/TenantRoleKey'
+    team_id:
+      type: string
+      format: uuid
+      nullable: true
+    preferred_language:
+      type: string
+      enum: [de, en]
+
+UpdateTenantUserRequest:
+  type: object
+  properties:
+    email:
+      type: string
+      format: email
+      nullable: true
+    password:
+      type: string
+      minLength: 8
+      format: password
+    role:
+      $ref: '#/TenantRoleKey'
+    team_id:
+      type: string
+      format: uuid
+      nullable: true
+    is_active:
+      type: boolean
+    preferred_language:
+      type: string
+      enum: [de, en]

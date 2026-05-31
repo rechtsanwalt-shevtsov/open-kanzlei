@@ -1,0 +1,331 @@
+OpenKanzlei — App-UI Design-Vorgaben
+=====================================
+Stand: Mai 2026
+Referenz-Implementierung: apps/case-model-designer/
+CSS-Basis: frontend/react-app/src/styles/admin.css, global.css
+Farben: frontend/react-app/src/styles/themes.css (CSS-Variablen, data-theme am <html>)
+
+Dieses Dokument beschreibt den verbindlichen UI-Stil für neue Apps in OpenKanzlei.
+Es ergänzt Konzept.txt (Architektur, Manifest, APIs) und dient als Checkliste bei der
+Implementierung — Design-Entscheidungen sollen nicht pro App neu diskutiert werden.
+
+
+1. Grundprinzipien
+------------------
+
+- Apps nutzen die Shell-Komponenten und CSS-Klassen der Plattform; kein separates
+  App-CSS, außer app-spezifische Ergänzungen sind zwingend nötig.
+- Alle sichtbaren Texte über i18n (msg('…')), keine hardcodierten UI-Strings.
+- Icons: react-icons/lu (Lucide), einheitliche Größen (Toolbar/Buttons: 18px,
+  Pagination/Chevron: 14–16px, Sort-Pfeile: 14px).
+- Farben ausschließlich über CSS-Variablen (--color-text, --color-link,
+  --color-surface, …), damit Farbschemas (Classic, Modern, Forest, Midnight) greifen.
+- Layout orientiert sich am „Entity-Manager“-Muster: Listen und Formulare für
+  verwaltbare Objekte, konsistente Werkzeugleisten, klare Hierarchie.
+
+
+2. Seitenaufbau (Layout)
+------------------------
+
+2.1 Zwei Seiten-Container
+
+  admin-page
+    Standard-Container mit weißem Hintergrund, Rahmen und Schatten.
+    Verwendung: Formularseiten (Anlegen/Bearbeiten), Plattform-Administration
+    (/admin/settings, /admin/users), wenn die ganze Seite eine Karte sein soll.
+
+  admin-page admin-page--shell  („Card-on-Gray“)
+    Transparenter äußerer Container (kein Rahmen, kein Schatten).
+    Der Seitenhintergrund (--color-bg, hellgrau bzw. dunkel je nach Schema) bleibt
+    sichtbar. Nur die Datentabelle sitzt in einer inneren weißen Karte.
+    Verwendung: App-Listen, App-Detailseiten mit Unterliste, App-Einstellungen.
+
+2.2 Vertikale Reihenfolge (Listen- und Detailseiten mit Tabelle)
+
+  1. Breadcrumb (optional auf reiner Listen-Startseite, sonst Pflicht)
+  2. Seitenkopf (admin-page-header): Titel links, Werkzeugleiste rechts
+  3. Listen-Steuerung (admin-list-controls): Suche, Bulk-Aktionen, Pagination
+  4. Status: Ladehinweis / Fehlermeldung (außerhalb der Karte)
+  5. Tabellen-Karte (admin-list-card) — nur die Tabelle
+
+2.3 Formularseiten (Anlegen/Bearbeiten)
+
+  - admin-page (mit Karte, ohne --shell)
+  - Breadcrumb → h1 → Formular (form, ggf. admin-dialog-form)
+  - Aktionen unten rechts: Abbrechen (Link/Button outline) + Speichern (button-primary)
+
+
+3. Breadcrumb
+-------------
+
+- Markup: nav.admin-breadcrumb, aria-label="Breadcrumb"
+- Trennzeichen: › in span.admin-breadcrumb-sep
+- Aufbau: Link zur übergeordneten Ebene · … · aktueller Knoten
+- Aktueller Knoten: span mit aria-current="page" (kein Link)
+- Stil: klein (0.875rem), gedämpfte Farbe (--color-muted); Links bei Hover unterstrichen
+  und etwas kräftiger (--color-link)
+
+Beispiele (Case Model Designer):
+
+  Listen-Startseite: kein Breadcrumb (nur Titel im Header)
+  Detailseite:       App-Titel › Modellname
+  Einstellungen:     App-Titel › Einstellungen
+  Bearbeiten:        App-Titel › Modellname › Bearbeiten
+  Neu anlegen:       App-Titel › Anlegen
+
+Regel: Der erste Breadcrumb-Link führt immer zur App-Startseite (/apps/<app-key>).
+Jede Zwischenebene, die eine eigene Seite hat, ist verlinkt.
+
+
+4. Seitenkopf und Werkzeugleiste
+--------------------------------
+
+4.1 Struktur
+
+  header.admin-page-header
+    div (optional: Titel + Untertitel/hint)
+      h1.admin-page-title
+      p.hint  (optional: Status, technischer Schlüssel, Kurzinfo)
+    div.admin-toolbar
+      … Buttons …
+
+4.2 Button-Reihenfolge in der Toolbar (von links nach rechts)
+
+  1. Primäre Text-Aktion(en) als button-outline, z. B. „+ Anlegen“, „Bearbeiten“
+  2. Weitere sekundäre Text-Aktionen (button-outline)
+  3. App-Einstellungen IMMER als letzter Button rechts: button-icon mit LuSettings
+     - title und aria-label: „App-Settings“ (oder übersetzter Äquivalent)
+     - Link zur Route /apps/<app-key>/settings
+     - Kein Textlabel, nur Icon
+
+4.3 Button-Typen
+
+  button-outline     Text-Buttons (Anlegen, Bearbeiten, Abbrechen, Actions-Dropdown)
+  button-icon        reine Icon-Buttons (Einstellungen, ggf. Zeilenaktionen)
+  button-primary     Hauptaktion Speichern (Formulare, unten rechts)
+
+Primäre Erstell-Aktion: führendes „+ “ vor dem Label (+ Case-Modell anlegen).
+
+
+5. Listen — Aussehen und Verhalten
+----------------------------------
+
+5.1 Card-on-Gray
+
+  - Steuerung (Suche, Bulk, Pagination) und Titel liegen auf dem Seitenhintergrund.
+  - Nur die Tabelle liegt in admin-list-card (weiße/dunkle Surface, Rahmen, Schatten,
+    overflow hidden, abgerundete Ecken).
+
+5.2 Tabelle
+
+  - table.admin-table, optional admin-table--fixed-cols (table-layout: fixed)
+  - Spaltenbreiten über Hilfsklassen: admin-table-col-check, -label, -key, -status, …
+  - Kopfzeile: font-weight 500, --color-muted, unterer Rand
+  - Zeilen: hover --color-table-row-hover; ausgewählt admin-table-row--selected
+  - Erste Spalte: schmal (2.5rem), Checkbox
+  - Name/Bezeichnung: Link zur Detailseite (normales <a>, keine admin-table-link-Klasse
+    nötig — globale Link-Farben greifen)
+  - Leere Liste: eine Zeile mit colSpan und Hinweistext (msg('…Empty'))
+
+5.3 Suche
+
+  - input.admin-search in div.admin-search-wrap
+  - type="search", placeholder msg('search')
+  - Filter clientseitig; bei Änderung Seite auf 0 zurücksetzen
+  - Volle Breite im linken Steuerungsblock
+
+5.4 Pagination
+
+  - Position: rechts in admin-list-controls (admin-list-pagination)
+  - Nur anzeigen, wenn Einträge vorhanden und nicht geladen wird
+  - Format: « {from}-{to} / {total} » mit LuChevronLeft / LuChevronRight
+  - i18n-Schlüssel cmdPageRange: „{from}-{to} / {total}“
+  - Seitengröße aus App-Einstellung itemsPerPage (Tenant/User, Standard 25, min. 5)
+  - Aria-labels für Vor/Zurück (cmdPrevPage / cmdNextPage)
+
+5.5 Sortierung
+
+  - Sortierbare Spalten: th mit button.admin-table-sort (kein separates UI-Element)
+  - Klick auf Spaltenkopf:
+      • Erster Klick auf Spalte: aufsteigend (asc)
+      • Weitere Klicks: asc ↔ desc toggeln
+      • Spaltenwechsel: neue Spalte startet mit asc
+  - Aktive Sortierung: LuArrowUp / LuArrowDown in span.admin-table-sort-icon
+  - th erhält aria-sort: ascending | descending | none
+  - Sortierung clientseitig auf gefilterter Liste; localeCompare mit aktiver locale
+  - Bei Sortierwechsel: page auf 0 setzen
+  - Nicht sortierbare Spalten (z. B. Checkbox, Aktionen): normaler th-Text
+
+
+6. Mehrfachauswahl und Bulk-Aktionen
+------------------------------------
+
+6.1 Checkboxen
+
+  - Pro Zeile: input.admin-table-checkbox in erster Spalte
+  - Kopfzeile: „Alle auf dieser Seite auswählen“ — nur Einträge der aktuellen Seite
+  - Indeterminate-Zustand, wenn Teilmenge der Seite ausgewählt (ref + useEffect)
+  - Auswahl bleibt beim Blättern erhalten (Set von IDs, nicht nur sichtbare Zeilen)
+  - Ausgewählte Zeilen: Klasse admin-table-row--selected
+
+6.2 Actions-Leiste
+
+  - Erscheint nur, wenn selectedIds.size > 0
+  - Platz: unter der Suche, admin-list-actions-slot / admin-list-actions-row
+  - Links: Dropdown „Actions“ (button-outline admin-bulk-actions-toggle + LuChevronDown)
+  - Rechts daneben: „{count} ausgewählt“ (admin-list-toolbar-meta, cmdSelectedCount)
+  - Dropdown: admin-bulk-actions-menu, role="menu"
+  - Destruktive Aktionen: Klasse admin-bulk-actions-menu--danger (--color-error)
+  - Vor Löschen: window.confirm mit app-spezifischem Bestätigungstext
+  - Nach Bulk-Operation: Liste neu laden; fehlgeschlagene IDs in Auswahl behalten
+  - Klick außerhalb schließt Dropdown (mousedown auf document)
+  - Bei leerer Auswahl: Dropdown schließen
+
+6.3 Erweiterung neuer Bulk-Aktionen
+
+  - Weitere menuitem-Buttons unter dem Actions-Menü
+  - Destruktiv = --danger; neutrale Aktionen ohne Zusatzklasse
+  - Pro App dokumentieren, welche Bulk-Operationen es gibt
+
+
+7. Detailseiten
+---------------
+
+- Gleiches Card-on-Gray-Layout wie Listen-Startseite
+- Breadcrumb Pflicht
+- Header: Modell-/Objektname als h1, hint mit Status (und optional technischem Key,
+  wenn App-Einstellung showTechnicalKeys aktiv)
+- Toolbar: Bearbeiten, domänenspezifische „+ Anlegen“-Aktion, dann LuSettings
+- Unter dem Header: gleiche Listen-Steuerung für Unterobjekte (Attribute, Tasks, …)
+- Unterliste folgt demselben Tabellen-, Sortier-, Bulk- und Pagination-Muster
+
+
+8. App-Einstellungen
+--------------------
+
+- Route: /apps/<app-key>/settings
+- Layout: admin-page--shell, Breadcrumb (App › Einstellungen), h1
+- Einstellungstabelle in admin-list-card:
+    table.admin-table.admin-table--settings
+    Spalten: Einstellung | Standard | Kanzlei | Benutzer
+- Zeilen aus manifest.json settings_schema generieren
+- Technischer Schlüssel unter dem Label als code.admin-settings-key
+- Kanzlei-Spalte: nur für admin editierbar (select.admin-settings-select)
+- Benutzer-Spalte: nur wenn userOverridable im Schema
+- Speichern-Button unterhalb der Karte (admin-settings-actions), button-primary
+- Gespeichert-/Fehler-Feedback wie bei Formularen (form-success / form-error)
+
+
+9. Formulare und Dialoge
+------------------------
+
+9.1 Vollseiten-Formulare (Neu/Bearbeiten)
+
+  - admin-page mit Breadcrumb
+  - form.form oder form.form.admin-dialog-form
+  - Labels: form label mit input/select/textarea
+  - Fehler: p.form-error; Erfolg nach Redirect oder inline
+
+9.2 Modale Dialoge (Anlegen/Bearbeiten in Kontext)
+
+  - div.admin-dialog-backdrop (fixed, z-index 1000)
+  - div.admin-dialog (max-width 440px)
+  - h2 als Dialogtitel
+  - form.admin-dialog-form
+  - Aktionen: div.admin-dialog-actions, rechtsbündig (Abbrechen + Speichern)
+
+9.3 Zeilenaktionen (optional)
+
+  - Spalte admin-table-actions-col, rechtsbündig
+  - Drei-Punkte-Menü oder Icon-Button über shell-Komponenten (AttributeRowActions o. ä.)
+  - Einzel-Löschen/Bearbeiten zusätzlich zu Bulk-Aktionen erlaubt
+
+
+10. Lade- und Fehlerzustände
+---------------------------
+
+- Laden: p mit msg('loading') oberhalb der Tabelle (nicht in admin-list-card)
+- Fehler: p.form-error oberhalb der Tabelle; Tabelle kann leer bleiben oder
+  letzten Stand zeigen
+- Während Bulk-Löschen: Actions-Button disabled, deleting-State
+- Keine blockierenden Spinner, wenn nicht unbedingt nötig — Text „Laden…“ reicht
+
+
+11. i18n — Namenskonvention für App-Texte
+-----------------------------------------
+
+App-spezifische Schlüssel mit Präfix der App, z. B. cmd… für Case Model Designer:
+
+  cmdAppTitle, cmdCreate, cmdEdit, cmdSettings, cmdEmpty
+  cmdActions, cmdBulkDelete, cmdBulkDeleteConfirm, cmdSelectAll, cmdSelectedCount
+  cmdPageRange, cmdPrevPage, cmdNextPage
+  cmdSettingsColSetting, cmdSettingsColDefault, cmdSettingsColFirm, cmdSettingsColUser
+
+Plattform-weite Schlüssel wiederverwenden: search, loading, saved, errorGeneric,
+submitSave, workColStatus, …
+
+
+12. Navigation und Sidebar
+--------------------------
+
+- App erscheint in der Sidebar unter dem Manifest (nav_path, nav_icon aus manifest.json)
+- menu_category: administration | work — gruppiert Einträge in der Shell-Sidebar
+- App-interne Navigation primär über Breadcrumb und Links in Tabellen, nicht über
+  zusätzliche Sub-Sidebar in der App
+
+
+13. Plattform-Administration vs. Apps
+-------------------------------------
+
+Plattform-Seiten unter /admin/* (Users, Apps, Settings der Kanzlei):
+  - admin-page ohne --shell (ganze Seite als eine Karte)
+  - Gleiche Tabellen-/Formular-Klassen, gleiche Breadcrumb-Logik
+  - Kein LuSettings in der Toolbar (Kontext ist nicht „eine App“)
+
+Apps unter /apps/<app-key>/*:
+  - admin-page--shell für Listen/Details/Einstellungen
+  - LuSettings immer in der Toolbar, sofern settings_schema im Manifest existiert
+
+
+14. Checkliste für neue Apps
+----------------------------
+
+[ ] manifest.json: routes, nav_icon, settings_schema
+[ ] Listen-Startseite: admin-page--shell, Header, Toolbar (+ Anlegen, LuSettings)
+[ ] Card-on-Gray: Steuerung außerhalb, admin-list-card für Tabelle
+[ ] Suche, Pagination, Sortierung nach diesem Dokument
+[ ] Checkbox-Auswahl + Actions-Dropdown für sinnvolle Bulk-Operationen
+[ ] Detailseite mit Breadcrumb, hint, Unterliste im gleichen Muster
+[ ] Einstellungsseite mit Vier-Spalten-Tabelle aus settings_schema
+[ ] Formularseiten mit Breadcrumb und admin-dialog-actions
+[ ] Alle Texte in i18n (de/en)
+[ ] Keine festen Farben — nur CSS-Variablen
+[ ] Icons aus react-icons/lu, Größen wie oben
+
+
+15. Referenz — wichtige CSS-Klassen
+------------------------------------
+
+  Layout:        admin-page, admin-page--shell, admin-page-header, admin-page-title,
+                 admin-toolbar, admin-list-controls, admin-list-card
+  Tabelle:       admin-table, admin-table--fixed-cols, admin-table-sort,
+                 admin-table-row--selected, admin-table-checkbox
+  Bulk:          admin-bulk-actions, admin-bulk-actions-menu,
+                 admin-bulk-actions-menu--danger, admin-list-toolbar-meta
+  Navigation:    admin-breadcrumb, admin-breadcrumb-sep
+  Buttons:       button-outline, button-icon, button-primary
+  Einstellungen: admin-table--settings, admin-settings-col-*, admin-settings-select
+  Formulare:     form, form-error, form-success, admin-dialog, admin-dialog-actions
+  Suche:         admin-search, admin-search-wrap
+  Pagination:    admin-list-pagination
+
+
+16. Abgrenzung / Nicht-Ziele
+----------------------------
+
+- Work-Bereich (/cases, /tasks): eigenes Layout in work.css — andere UX (Arbeitskontext,
+  nicht Entity-Manager). Neue Verwaltungs-Apps folgen diesem Dokument, nicht work.css.
+- Kein eigenes Design-System pro App; Abweichungen nur nach expliziter Entscheidung
+  und Aktualisierung dieses Dokuments.
+- Responsive/mobile Optimierung: bisher Desktop-first; gleiche Klassen beibehalten,
+  Breakpoints später zentral ergänzen.

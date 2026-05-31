@@ -1,0 +1,464 @@
+Translations:
+  type: object
+  additionalProperties:
+    type: string
+  example:
+    de: Fallakte
+    en: Case file
+
+ModelKey:
+  type: string
+  pattern: '^[a-z][a-z0-9_]{0,62}$'
+
+StatusKey:
+  type: string
+  minLength: 1
+  maxLength: 64
+  description: Language-neutral status key (e.g. active, open, closed)
+
+DataType:
+  type: string
+  enum: [text, number, boolean, date]
+
+EncryptionMode:
+  type: string
+  enum: [server_readable, zero_knowledge]
+
+CaseModelStatus:
+  type: string
+  enum: [draft, active, archived]
+
+CaseModel:
+  type: object
+  required: [id, key, status, translations, description_translations, display_name, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/CaseModelStatus'
+    translations:
+      $ref: '#/Translations'
+    description_translations:
+      $ref: '#/Translations'
+    display_name:
+      type: string
+      description: Resolved label for the effective request locale (Accept-Language), with fallback de → en → key
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateCaseModelRequest:
+  type: object
+  description: >
+    Provide either name (server generates key and translations[locale]) or legacy key + translations.
+  properties:
+    name:
+      type: string
+      minLength: 1
+      description: Display name in the given locale; server generates a unique key
+    locale:
+      type: string
+      enum: [de, en]
+      description: Locale of name; defaults to Accept-Language when omitted
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/CaseModelStatus'
+    translations:
+      $ref: '#/Translations'
+    description_translations:
+      $ref: '#/Translations'
+
+UpdateCaseModelRequest:
+  type: object
+  properties:
+    name:
+      type: string
+      minLength: 1
+      description: Updates translations[locale] without removing other locales
+    locale:
+      type: string
+      enum: [de, en]
+      description: Locale of name; defaults to Accept-Language when omitted
+    status:
+      $ref: '#/CaseModelStatus'
+    translations:
+      $ref: '#/Translations'
+    description_translations:
+      $ref: '#/Translations'
+
+TaskModel:
+  type: object
+  required: [id, key, status, translations, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/StatusKey'
+    translations:
+      $ref: '#/Translations'
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateTaskModelRequest:
+  type: object
+  required: [key, translations]
+  properties:
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/StatusKey'
+    translations:
+      $ref: '#/Translations'
+
+UpdateTaskModelRequest:
+  type: object
+  properties:
+    status:
+      $ref: '#/StatusKey'
+    translations:
+      $ref: '#/Translations'
+
+InstrumentModel:
+  type: object
+  required: [id, task_model_id, key, status, translations, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    task_model_id:
+      type: string
+      format: uuid
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/StatusKey'
+    translations:
+      $ref: '#/Translations'
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateInstrumentModelRequest:
+  type: object
+  required: [key, translations]
+  properties:
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/StatusKey'
+    translations:
+      $ref: '#/Translations'
+
+UpdateInstrumentModelRequest:
+  type: object
+  properties:
+    status:
+      $ref: '#/StatusKey'
+    translations:
+      $ref: '#/Translations'
+
+CaseModelTaskModelLink:
+  type: object
+  required: [task_model_id]
+  properties:
+    task_model_id:
+      type: string
+      format: uuid
+    sort_order:
+      type: integer
+      nullable: true
+
+SetCaseModelTaskModelsRequest:
+  type: object
+  required: [links]
+  properties:
+    links:
+      type: array
+      items:
+        $ref: '#/CaseModelTaskModelLink'
+
+Assignee:
+  type: object
+  required: [user_id, username]
+  properties:
+    user_id:
+      type: string
+      format: uuid
+    username:
+      type: string
+
+Case:
+  type: object
+  required: [id, case_model_id, status, encryption_status, assignees, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    case_model_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/StatusKey'
+    encryption_status:
+      type: string
+    encryption_version:
+      type: integer
+      nullable: true
+    attributes:
+      type: object
+      additionalProperties: true
+      description: Attribute values keyed by definition key (includes status)
+    assignees:
+      type: array
+      items:
+        $ref: '#/Assignee'
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateCaseRequest:
+  type: object
+  required: [case_model_id]
+  properties:
+    case_model_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/StatusKey'
+    attributes:
+      type: object
+      additionalProperties: true
+    assignee_user_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+
+UpdateCaseRequest:
+  type: object
+  properties:
+    status:
+      $ref: '#/StatusKey'
+    attributes:
+      type: object
+      additionalProperties: true
+    assignee_user_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+
+Task:
+  type: object
+  required: [id, case_id, task_model_id, status, encryption_status, assignees, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    case_id:
+      type: string
+      format: uuid
+    task_model_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/StatusKey'
+    encryption_status:
+      type: string
+    encryption_version:
+      type: integer
+      nullable: true
+    attributes:
+      type: object
+      additionalProperties: true
+    assignees:
+      type: array
+      items:
+        $ref: '#/Assignee'
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateTaskRequest:
+  type: object
+  required: [task_model_id]
+  properties:
+    task_model_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/StatusKey'
+    attributes:
+      type: object
+      additionalProperties: true
+    assignee_user_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+
+UpdateTaskRequest:
+  type: object
+  properties:
+    status:
+      $ref: '#/StatusKey'
+    attributes:
+      type: object
+      additionalProperties: true
+    assignee_user_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+
+Instrument:
+  type: object
+  required: [id, task_id, instrument_model_id, status, encryption_status, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    task_id:
+      type: string
+      format: uuid
+    instrument_model_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/StatusKey'
+    encryption_status:
+      type: string
+    encryption_version:
+      type: integer
+      nullable: true
+    attributes:
+      type: object
+      additionalProperties: true
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateInstrumentRequest:
+  type: object
+  required: [instrument_model_id]
+  properties:
+    instrument_model_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/StatusKey'
+    attributes:
+      type: object
+      additionalProperties: true
+
+UpdateInstrumentRequest:
+  type: object
+  properties:
+    status:
+      $ref: '#/StatusKey'
+    attributes:
+      type: object
+      additionalProperties: true
+
+AttributeDefinition:
+  type: object
+  required: [id, owner_type, owner_id, key, data_type, encryption_mode, translations, display_name]
+  properties:
+    id:
+      type: string
+      format: uuid
+    owner_type:
+      type: string
+      enum: [case_model, task_model, instrument_model]
+    owner_id:
+      type: string
+      format: uuid
+    key:
+      $ref: '#/ModelKey'
+    data_type:
+      $ref: '#/DataType'
+    encryption_mode:
+      $ref: '#/EncryptionMode'
+    translations:
+      $ref: '#/Translations'
+    display_name:
+      type: string
+      description: Resolved label for the effective request locale (Accept-Language), with fallback de → en → key
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateAttributeDefinitionRequest:
+  type: object
+  description: >
+    Provide either name (server generates key and translations[locale]) or legacy key + translations.
+  required: [data_type]
+  properties:
+    name:
+      type: string
+      minLength: 1
+    locale:
+      type: string
+      enum: [de, en]
+    key:
+      $ref: '#/ModelKey'
+    data_type:
+      $ref: '#/DataType'
+    encryption_mode:
+      $ref: '#/EncryptionMode'
+    translations:
+      $ref: '#/Translations'
+
+UpdateAttributeDefinitionRequest:
+  type: object
+  properties:
+    name:
+      type: string
+      minLength: 1
+    locale:
+      type: string
+      enum: [de, en]
+    data_type:
+      $ref: '#/DataType'
+    encryption_mode:
+      $ref: '#/EncryptionMode'
+    translations:
+      $ref: '#/Translations'
+
+AttributeValuesRequest:
+  type: object
+  required: [values]
+  properties:
+    values:
+      type: object
+      additionalProperties: true
+      description: Map of attribute key to value

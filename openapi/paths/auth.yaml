@@ -25,7 +25,7 @@ login:
   post:
     tags: [Auth]
     operationId: login
-    summary: Login with tenant slug, username and password
+    summary: Login with username and password
     requestBody:
       required: true
       content:
@@ -68,6 +68,6 @@ me:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/auth.yaml#/CurrentUserResponse'
+              $ref: '../components/schemas/auth.yaml#/AuthSessionResponse'
       '401':
         $ref: '../components/responses/common.yaml#/Unauthorized'

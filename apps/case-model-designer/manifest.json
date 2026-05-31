@@ -1,0 +1,54 @@
+{
+  "app_key": "case-model-designer",
+  "name": "Case Model Designer",
+  "version": "1.0.0",
+  "description": "Case-Modelle und Attributdefinitionen verwalten (First-Party-Referenz-App).",
+  "has_react_ui": true,
+  "menu_category": "administration",
+  "nav_path": "/apps/case-model-designer",
+  "nav_icon": "LuBriefcaseBusiness",
+  "routes": [
+    { "path": "/apps/case-model-designer", "label": "Case Model Designer" },
+    { "path": "/apps/case-model-designer/new", "label": "Neues Case-Modell" },
+    { "path": "/apps/case-model-designer/settings", "label": "Einstellungen" }
+  ],
+  "required_roles": ["admin"],
+  "supported_locales": ["de", "en"],
+  "event_subscriptions": [],
+  "settings_schema": {
+    "defaultCaseModelStatus": {
+      "type": "string",
+      "default": "draft",
+      "allowedValues": ["draft", "active", "archived"],
+      "tenantConfigurable": true,
+      "userOverridable": false
+    },
+    "showTechnicalKeys": {
+      "type": "boolean",
+      "default": false,
+      "tenantConfigurable": true,
+      "userOverridable": true
+    },
+    "defaultAttributeEncryptionMode": {
+      "type": "string",
+      "default": "zero_knowledge",
+      "allowedValues": ["server_readable", "zero_knowledge"],
+      "tenantConfigurable": true,
+      "userOverridable": false
+    },
+    "itemsPerPage": {
+      "type": "number",
+      "default": 25,
+      "allowedValues": [5, 10, 25, 50, 100],
+      "tenantConfigurable": true,
+      "userOverridable": true
+    },
+    "editorLayout": {
+      "type": "string",
+      "default": "simple",
+      "allowedValues": ["simple", "advanced"],
+      "tenantConfigurable": true,
+      "userOverridable": true
+    }
+  }
+}

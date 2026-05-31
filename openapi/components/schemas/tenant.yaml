@@ -5,8 +5,6 @@ TenantProfile:
     tenant_id:
       type: string
       format: uuid
-    tenant_slug:
-      type: string
     firm_name:
       type: string
     default_language:

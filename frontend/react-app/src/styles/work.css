@@ -1,0 +1,314 @@
+.work-page {
+  max-width: 1200px;
+}
+
+.work-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.work-page-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.button-secondary {
+  padding: 0.45rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.button-secondary:hover {
+  background: var(--color-bg);
+}
+
+.work-toolbar {
+  margin-bottom: 1rem;
+}
+
+.work-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.work-toolbar-row--secondary {
+  margin-top: 0.5rem;
+}
+
+.work-filter-select {
+  min-width: 8rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  font: inherit;
+}
+
+.work-search-wrap {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.work-search {
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font: inherit;
+}
+
+.work-view-toggle {
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-left: auto;
+}
+
+.work-view-btn {
+  padding: 0.4rem 0.55rem;
+  border: none;
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.work-view-btn--active {
+  background: #e8f0fe;
+  color: var(--color-primary);
+}
+
+.work-view-icon {
+  display: block;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.work-count {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  text-align: right;
+}
+
+.work-table-wrap {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: auto;
+}
+
+.work-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.work-table th,
+.work-table td {
+  padding: 0.65rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.work-table th {
+  font-weight: 600;
+  color: var(--color-muted);
+  background: #fafbfc;
+}
+
+.work-row-title {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.work-muted {
+  color: var(--color-muted);
+}
+
+.work-empty {
+  color: var(--color-muted);
+  padding: 2rem;
+  text-align: center;
+}
+
+.work-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.work-badge--not_started {
+  background: #eceff1;
+  color: #546e7a;
+}
+
+.work-badge--started {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.work-badge--completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.work-badge--deferred {
+  background: #f3e5f5;
+  color: #6a1b9a;
+}
+
+.work-assignees {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.work-assignees--empty {
+  color: var(--color-muted);
+}
+
+.work-assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.work-assignee-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.work-assignee-name {
+  font-size: 0.85rem;
+}
+
+.work-kanban {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(200px, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .work-kanban {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .work-kanban {
+    grid-template-columns: 1fr;
+  }
+}
+
+.work-kanban-col {
+  background: var(--color-bg);
+  border-radius: var(--radius);
+  min-height: 200px;
+}
+
+.work-kanban-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.work-kanban-col-header h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.work-kanban-col--not_started .work-kanban-col-header {
+  background: #eceff1;
+}
+
+.work-kanban-col--started .work-kanban-col-header {
+  background: #bbdefb;
+}
+
+.work-kanban-col--completed .work-kanban-col-header {
+  background: #c8e6c9;
+}
+
+.work-kanban-col--deferred .work-kanban-col-header {
+  background: #e1bee7;
+}
+
+.work-kanban-count {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.work-kanban-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.work-kanban-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.65rem 0.75rem;
+  box-shadow: var(--shadow);
+}
+
+.work-kanban-card-title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  font-size: 0.9rem;
+}
+
+.work-kanban-card-sub,
+.work-kanban-card-meta {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.work-assignee-picker {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  margin: 0;
+}
+
+.work-assignee-picker ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  max-height: 8rem;
+  overflow: auto;
+}
+
+.work-assignee-picker li {
+  margin: 0.25rem 0;
+}

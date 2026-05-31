@@ -1,0 +1,202 @@
+AppKey:
+  type: string
+  pattern: '^[a-z][a-z0-9-]{0,62}$'
+  example: case-model-designer
+
+AppInstallationStatus:
+  type: string
+  enum: [active, inactive]
+
+TenantAppCatalogEntry:
+  type: object
+  required:
+    - app_key
+    - name
+    - version
+    - description
+    - has_react_ui
+    - menu_category
+    - nav_path
+    - nav_icon
+    - installed
+    - status
+    - installed_at
+  properties:
+    app_key:
+      $ref: '#/AppKey'
+    name:
+      type: string
+    version:
+      type: string
+    description:
+      type: string
+    has_react_ui:
+      type: boolean
+    menu_category:
+      $ref: '#/AppMenuCategory'
+    nav_path:
+      type: string
+      nullable: true
+    nav_icon:
+      type: string
+      nullable: true
+    installed:
+      type: boolean
+      description: Whether the app has an installation row for this tenant
+    status:
+      allOf:
+        - $ref: '#/AppInstallationStatus'
+      nullable: true
+      description: null when never installed for this tenant
+    installed_at:
+      type: string
+      format: date-time
+      nullable: true
+
+PatchTenantAppStatusRequest:
+  type: object
+  required: [status]
+  properties:
+    status:
+      $ref: '#/AppInstallationStatus'
+
+AppMenuCategory:
+  type: string
+  enum: [administration, work]
+
+AppInstallation:
+  type: object
+  required:
+    - app_key
+    - name
+    - version
+    - status
+    - installed_at
+    - has_react_ui
+    - menu_category
+    - nav_path
+    - nav_icon
+  properties:
+    app_key:
+      $ref: '#/AppKey'
+    name:
+      type: string
+    version:
+      type: string
+    status:
+      $ref: '#/AppInstallationStatus'
+    installed_at:
+      type: string
+      format: date-time
+    has_react_ui:
+      type: boolean
+    menu_category:
+      $ref: '#/AppMenuCategory'
+    nav_path:
+      type: string
+      nullable: true
+      description: Primary React UI route for sidebar navigation
+    nav_icon:
+      type: string
+      nullable: true
+      description: Lucide icon name for sidebar navigation (e.g. LuBriefcaseBusiness)
+
+AppManifest:
+  type: object
+  required:
+    - app_key
+    - name
+    - version
+    - description
+    - has_react_ui
+    - menu_category
+    - nav_path
+    - nav_icon
+    - routes
+    - required_roles
+    - settings_schema
+    - supported_locales
+  properties:
+    app_key:
+      $ref: '#/AppKey'
+    name:
+      type: string
+    version:
+      type: string
+    description:
+      type: string
+    has_react_ui:
+      type: boolean
+    menu_category:
+      $ref: '#/AppMenuCategory'
+    nav_path:
+      type: string
+      description: Primary sidebar route when has_react_ui is true
+    nav_icon:
+      type: string
+      description: Lucide icon name for sidebar navigation (e.g. LuBriefcaseBusiness)
+    routes:
+      type: array
+      items:
+        type: object
+        required: [path, label]
+        properties:
+          path:
+            type: string
+          label:
+            type: string
+    required_roles:
+      type: array
+      items:
+        type: string
+    settings_schema:
+      type: object
+      additionalProperties:
+        $ref: '#/AppSettingFieldSchema'
+    supported_locales:
+      type: array
+      items:
+        type: string
+        enum: [de, en]
+    event_subscriptions:
+      type: array
+      items:
+        type: string
+
+AppSettingFieldSchema:
+  type: object
+  required:
+    - type
+    - default
+    - tenantConfigurable
+    - userOverridable
+  properties:
+    type:
+      type: string
+      enum: [string, boolean, number]
+    default: {}
+    allowedValues:
+      type: array
+      items: {}
+    tenantConfigurable:
+      type: boolean
+    userOverridable:
+      type: boolean
+
+AppSettings:
+  type: object
+  additionalProperties: true
+
+EffectiveAppSettings:
+  type: object
+  required: [app_key, settings]
+  properties:
+    app_key:
+      $ref: '#/AppKey'
+    settings:
+      $ref: '#/AppSettings'
+
+PatchAppSettingsRequest:
+  type: object
+  additionalProperties: true
+  description: Partial settings object; only allowed keys are accepted

@@ -1,0 +1,120 @@
+/**
+ * UI color themes — applied via data-theme on document.documentElement.
+ * Components use semantic CSS variables from global.css.
+ */
+
+/* Classic uses :root defaults from global.css */
+html[data-theme='classic'] {
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-text: #1a2332;
+  --color-muted: #5c6b7a;
+  --color-primary: #1e3a5f;
+  --color-primary-hover: #152a45;
+  --color-secondary: #4f6d8a;
+  --color-accent: #c9a227;
+  --color-border: #d8dee4;
+  --color-error: #991b1b;
+  --color-success: #1b5e20;
+  --color-warning: #b45309;
+  --color-on-primary: #ffffff;
+  --color-link: #1e3a5f;
+  --color-link-hover: #152a45;
+  --color-subtle: #eef1f4;
+  --color-hover: #f4f6f8;
+  --color-active: #eef4f8;
+  --color-active-strong: #e3f0f9;
+  --color-table-head: #f8fafb;
+  --color-table-row-hover: #fafbfc;
+  --color-table-row-selected: #eef6fc;
+  --color-table-row-selected-hover: #e3f0f9;
+  --color-input-border: #b8c5d0;
+  --color-shadow: rgba(26, 35, 50, 0.08);
+}
+
+/* Modern */
+html[data-theme='modern'] {
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-text: #222831;
+  --color-muted: #64748b;
+  --color-primary: #222831;
+  --color-primary-hover: #111418;
+  --color-secondary: #4b5563;
+  --color-accent: #14b8a6;
+  --color-border: #e2e8f0;
+  --color-error: #dc2626;
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-on-primary: #ffffff;
+  --color-link: #222831;
+  --color-link-hover: #111418;
+  --color-subtle: #f1f5f9;
+  --color-hover: #f1f5f9;
+  --color-active: #ecfdf5;
+  --color-active-strong: #ccfbf1;
+  --color-table-head: #f8fafc;
+  --color-table-row-hover: #f1f5f9;
+  --color-table-row-selected: #ecfdf5;
+  --color-table-row-selected-hover: #d1fae5;
+  --color-input-border: #cbd5e1;
+  --color-shadow: rgba(34, 40, 49, 0.08);
+}
+
+/* Forest */
+html[data-theme='forest'] {
+  --color-bg: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-text: #1f3329;
+  --color-muted: #5f7368;
+  --color-primary: #2f5d50;
+  --color-primary-hover: #234539;
+  --color-secondary: #7a9e7e;
+  --color-accent: #d9c7a3;
+  --color-border: #d5ddd8;
+  --color-error: #9b2c2c;
+  --color-success: #276749;
+  --color-warning: #b7791f;
+  --color-on-primary: #ffffff;
+  --color-link: #2f5d50;
+  --color-link-hover: #234539;
+  --color-subtle: #eef2ef;
+  --color-hover: #f0f4f1;
+  --color-active: #e8f0eb;
+  --color-active-strong: #dce8df;
+  --color-table-head: #f3f6f4;
+  --color-table-row-hover: #f0f4f1;
+  --color-table-row-selected: #e8f0eb;
+  --color-table-row-selected-hover: #dce8df;
+  --color-input-border: #b8c9be;
+  --color-shadow: rgba(47, 93, 80, 0.08);
+}
+
+/* Midnight (dark) */
+html[data-theme='midnight'] {
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-text: #e2e8f0;
+  --color-muted: #94a3b8;
+  --color-primary: #334155;
+  --color-primary-hover: #475569;
+  --color-secondary: #334155;
+  --color-accent: #d4af37;
+  --color-border: #334155;
+  --color-error: #f87171;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-on-primary: #e2e8f0;
+  --color-link: #e2e8f0;
+  --color-link-hover: #d4af37;
+  --color-subtle: #1e293b;
+  --color-hover: #273449;
+  --color-active: #2d3f5c;
+  --color-active-strong: #334155;
+  --color-table-head: #1a2438;
+  --color-table-row-hover: #273449;
+  --color-table-row-selected: #2d3f5c;
+  --color-table-row-selected-hover: #334155;
+  --color-input-border: #475569;
+  --color-shadow: rgba(0, 0, 0, 0.35);
+}
