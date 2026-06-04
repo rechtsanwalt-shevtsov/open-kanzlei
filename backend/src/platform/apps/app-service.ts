@@ -50,6 +50,7 @@ async function publishSettingsUpdated(
   tenantId: string,
   appKey: string,
   scope: 'tenant' | 'user',
+  actorUserId: string,
   userId?: string,
 ): Promise<void> {
   const installation = await client.query<{ id: string }>(
@@ -62,14 +63,33 @@ async function publishSettingsUpdated(
 
   await getEventService().publish(client, {
     tenantId,
-    eventType: 'app_settings.updated',
+    type: 'app_settings.updated',
     aggregateType: 'app_installation',
     aggregateId: installationId,
-    payload: {
+    actorUserId,
+    data: {
       app_key: appKey,
       scope,
       ...(userId ? { user_id: userId } : {}),
     },
+  });
+}
+
+async function publishAppLifecycleEvent(
+  client: pg.PoolClient,
+  tenantId: string,
+  type: 'app.installed' | 'app.activated' | 'app.deactivated',
+  installationId: string,
+  appKey: string,
+  actorUserId: string,
+): Promise<void> {
+  await getEventService().publish(client, {
+    tenantId,
+    type,
+    aggregateType: 'app_installation',
+    aggregateId: installationId,
+    actorUserId,
+    data: { app_key: appKey },
   });
 }
 
@@ -196,6 +216,7 @@ export async function setTenantAppStatus(
   tenantId: string,
   appKey: string,
   status: 'active' | 'inactive',
+  actorUserId: string,
 ): Promise<TenantAppCatalogEntryDto> {
   const manifest = getAppManifest(appKey);
   if (!manifest) throw notFound();
@@ -205,31 +226,69 @@ export async function setTenantAppStatus(
   }
 
   return withTenantTransaction(tenantId, async (client) => {
+    const prior = await client.query<{ id: string; status: 'active' | 'inactive' }>(
+      `SELECT id, status FROM platform.app_installations
+       WHERE tenant_id = $1 AND app_key = $2`,
+      [tenantId, appKey],
+    );
+    const priorRow = prior.rows[0];
     let installedAt: Date;
 
     if (status === 'active') {
       await installAppForTenant(client, tenantId, appKey);
-      const row = await client.query<{ installed_at: Date }>(
-        `SELECT installed_at FROM platform.app_installations
+      const row = await client.query<{ id: string; installed_at: Date }>(
+        `SELECT id, installed_at FROM platform.app_installations
          WHERE tenant_id = $1 AND app_key = $2`,
         [tenantId, appKey],
       );
+      const installationId = row.rows[0]!.id;
       installedAt = row.rows[0]!.installed_at;
+
+      if (!priorRow) {
+        await publishAppLifecycleEvent(
+          client,
+          tenantId,
+          'app.installed',
+          installationId,
+          appKey,
+          actorUserId,
+        );
+      } else if (priorRow.status === 'inactive') {
+        await publishAppLifecycleEvent(
+          client,
+          tenantId,
+          'app.activated',
+          installationId,
+          appKey,
+          actorUserId,
+        );
+      }
     } else {
-      const updated = await client.query<{ installed_at: Date }>(
+      const updated = await client.query<{ id: string; installed_at: Date }>(
         `UPDATE platform.app_installations
          SET status = 'inactive', updated_at = now()
          WHERE tenant_id = $1 AND app_key = $2
-         RETURNING installed_at`,
+         RETURNING id, installed_at`,
         [tenantId, appKey],
       );
       if (updated.rowCount) {
+        const installationId = updated.rows[0]!.id;
         installedAt = updated.rows[0]!.installed_at;
+        if (priorRow?.status === 'active') {
+          await publishAppLifecycleEvent(
+            client,
+            tenantId,
+            'app.deactivated',
+            installationId,
+            appKey,
+            actorUserId,
+          );
+        }
       } else {
-        const inserted = await client.query<{ installed_at: Date }>(
+        const inserted = await client.query<{ id: string; installed_at: Date }>(
           `INSERT INTO platform.app_installations (tenant_id, app_key, version, status)
            VALUES ($1, $2, $3, 'inactive')
-           RETURNING installed_at`,
+           RETURNING id, installed_at`,
           [tenantId, appKey, manifest.version],
         );
         installedAt = inserted.rows[0]!.installed_at;
@@ -306,6 +365,7 @@ export async function patchTenantAppSettings(
   tenantId: string,
   appKey: string,
   patch: Record<string, unknown>,
+  actorUserId: string,
 ): Promise<Record<string, unknown>> {
   const manifest = getManifestForApp(appKey);
   let validated: Record<string, unknown>;
@@ -341,7 +401,7 @@ export async function patchTenantAppSettings(
       [tenantId, appKey, JSON.stringify(merged)],
     );
 
-    await publishSettingsUpdated(client, tenantId, appKey, 'tenant');
+    await publishSettingsUpdated(client, tenantId, appKey, 'tenant', actorUserId);
     return merged;
   });
 }
@@ -403,7 +463,7 @@ export async function patchUserAppSettings(
       [tenantId, userId, appKey, JSON.stringify(merged)],
     );
 
-    await publishSettingsUpdated(client, tenantId, appKey, 'user', userId);
+    await publishSettingsUpdated(client, tenantId, appKey, 'user', userId, userId);
     return merged;
   });
 }

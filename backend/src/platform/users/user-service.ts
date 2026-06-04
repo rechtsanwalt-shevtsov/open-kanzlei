@@ -199,10 +199,11 @@ export async function createTenantUser(
 
     await getEventService().publish(client, {
       tenantId,
-      eventType: 'user.created',
+      type: 'user.created',
       aggregateType: 'user',
       aggregateId: userId,
-      payload: { user_id: userId, created_by: actorUserId },
+      actorUserId: actorUserId,
+      data: { user_id: userId },
     });
 
     const user = await loadUser(client, tenantId, userId);
@@ -290,10 +291,11 @@ export async function updateTenantUser(
 
     await getEventService().publish(client, {
       tenantId,
-      eventType: 'user.updated',
+      type: 'user.updated',
       aggregateType: 'user',
       aggregateId: userId,
-      payload: { user_id: userId, updated_by: actorUserId },
+      actorUserId: actorUserId,
+      data: { user_id: userId },
     });
 
     const user = await loadUser(client, tenantId, userId);

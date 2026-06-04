@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { AttributeDialog } from '../../components/admin/AttributeDialog.js';
+import {
+  AttributeDialog,
+  type AttributeDialogPayload,
+} from '../../components/admin/AttributeDialog.js';
 import { AttributeRowActions } from '../../components/admin/AttributeRowActions.js';
 import { api, apiHeaders } from '../../api/client.js';
 import { useModelAttributes } from '../../hooks/useModelAttributes.js';
@@ -15,7 +18,6 @@ import { dataTypeMessageKey } from '../../lib/data-type-label.js';
 import { encryptionModeMessageKey } from '../../lib/encryption-mode-label.js';
 import { labelFromTranslations } from '../../lib/model-label.js';
 import type { MessageKey } from '../../i18n/messages.js';
-import type { Locale } from '../../i18n/locale.js';
 import type { ModelKind } from '../../types/models.js';
 
 interface ModelSummary {
@@ -108,16 +110,12 @@ export function ModelDetailPage({ kind }: ModelDetailPageProps) {
     return e?.message ?? msg('errorGeneric');
   }
 
-  async function handleCreate(payload: {
-    name: string;
-    locale: Locale;
-    data_type: AttributeDefinition['data_type'];
-    encryption_mode: AttributeDefinition['encryption_mode'];
-  }): Promise<string | null> {
+  async function handleCreate(payload: AttributeDialogPayload): Promise<string | null> {
     if (!id) return msg('errorGeneric');
     const res = await createModelAttribute(kind, id, locale, {
       name: payload.name,
       locale: payload.locale,
+      definition_scope: 'instance',
       data_type: payload.data_type,
       encryption_mode: payload.encryption_mode,
     });
@@ -126,12 +124,7 @@ export function ModelDetailPage({ kind }: ModelDetailPageProps) {
     return null;
   }
 
-  async function handleEdit(payload: {
-    name: string;
-    locale: Locale;
-    data_type: AttributeDefinition['data_type'];
-    encryption_mode: AttributeDefinition['encryption_mode'];
-  }): Promise<string | null> {
+  async function handleEdit(payload: AttributeDialogPayload): Promise<string | null> {
     if (!editTarget) return msg('errorGeneric');
     const res = await updateAttributeDefinition(editTarget.id, locale, {
       name: payload.name,
@@ -259,6 +252,7 @@ export function ModelDetailPage({ kind }: ModelDetailPageProps) {
       <AttributeDialog
         open={createOpen}
         mode="create"
+        definitionScope="instance"
         onClose={() => setCreateOpen(false)}
         onSubmit={handleCreate}
       />
@@ -266,6 +260,7 @@ export function ModelDetailPage({ kind }: ModelDetailPageProps) {
       <AttributeDialog
         open={editTarget !== null}
         mode="edit"
+        definitionScope="instance"
         attribute={editTarget ?? undefined}
         onClose={() => setEditTarget(null)}
         onSubmit={handleEdit}

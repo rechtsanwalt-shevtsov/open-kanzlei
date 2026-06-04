@@ -5,11 +5,10 @@ import { api, apiHeaders } from '@shell/api/client.js';
 import { useI18n } from '@shell/i18n/I18nContext.js';
 import { labelFromTranslations } from '@shell/lib/model-label.js';
 import { useEffectiveSettings } from '../hooks/useEffectiveSettings.js';
-import { caseModelStatusLabel } from '../lib/case-model-status.js';
 import type { components } from '@shell/api/schema.js';
 
 type CaseModel = components['schemas']['CaseModel'];
-type SortColumn = 'label' | 'status';
+type SortColumn = 'name' | 'description';
 type SortDirection = 'asc' | 'desc';
 
 export function CaseModelsListPage() {
@@ -29,7 +28,6 @@ export function CaseModelsListPage() {
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   const itemsPerPage = Math.max(5, Number(settings.itemsPerPage) || 25);
-  const showKeys = Boolean(settings.showTechnicalKeys);
 
   async function load() {
     setLoading(true);
@@ -64,40 +62,39 @@ export function CaseModelsListPage() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [actionsOpen]);
 
+  function modelLabel(m: CaseModel): string {
+    return m.display_name ?? labelFromTranslations(m.translations, m.key, locale);
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return items;
     return items.filter((m) => {
-      const label = (m.display_name ?? labelFromTranslations(m.translations, m.key, locale)).toLowerCase();
-      return label.includes(q) || m.key.toLowerCase().includes(q);
+      const label = modelLabel(m).toLowerCase();
+      const desc = (m.description ?? '').toLowerCase();
+      return label.includes(q) || desc.includes(q) || m.key.toLowerCase().includes(q);
     });
   }, [items, search, locale]);
-
-  function modelLabel(m: CaseModel): string {
-    return m.display_name ?? labelFromTranslations(m.translations, m.key, locale);
-  }
 
   const sorted = useMemo(() => {
     if (!sortColumn) return filtered;
     const list = [...filtered];
     const dir = sortDirection === 'asc' ? 1 : -1;
     list.sort((a, b) => {
-      if (sortColumn === 'label') {
+      if (sortColumn === 'name') {
         return dir * modelLabel(a).localeCompare(modelLabel(b), locale);
       }
-      const statusA = caseModelStatusLabel(a.status, msg);
-      const statusB = caseModelStatusLabel(b.status, msg);
-      return dir * statusA.localeCompare(statusB, locale);
+      return dir * (a.description ?? '').localeCompare(b.description ?? '', locale);
     });
     return list;
-  }, [filtered, sortColumn, sortDirection, locale, msg]);
+  }, [filtered, sortColumn, sortDirection, locale]);
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / itemsPerPage));
   const pageItems = sorted.slice(page * itemsPerPage, page * itemsPerPage + itemsPerPage);
   const pageIds = useMemo(() => pageItems.map((m) => m.id), [pageItems]);
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
   const somePageSelected = pageIds.some((id) => selectedIds.has(id));
-  const colCount = (showKeys ? 3 : 2) + 1;
+  const colCount = 3;
   const rangeFrom = sorted.length === 0 ? 0 : page * itemsPerPage + 1;
   const rangeTo = Math.min(sorted.length, page * itemsPerPage + pageItems.length);
   const pageRangeLabel = msg('cmdPageRange')
@@ -295,7 +292,7 @@ export function CaseModelsListPage() {
       {!loading && !settingsLoading && (
         <div className="admin-list-card">
           <div className="admin-table-wrap">
-            <table className="admin-table admin-table--fixed-cols">
+            <table className="admin-table admin-table--fixed-cols admin-table--case-models-list">
               <thead>
                 <tr>
                   <th className="admin-table-col-check">
@@ -311,30 +308,35 @@ export function CaseModelsListPage() {
                     )}
                   </th>
                   <th
-                    className="admin-table-col-label"
-                    aria-sort={sortColumn === 'label' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="cmd-col-name"
+                    aria-sort={sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
                     <button
                       type="button"
                       className="admin-table-sort"
-                      onClick={() => handleSortColumn('label')}
+                      onClick={() => handleSortColumn('name')}
                     >
-                      {msg('modelsColLabel')}
-                      {sortIcon('label')}
+                      {msg('cmdColName')}
+                      {sortIcon('name')}
                     </button>
                   </th>
-                  {showKeys && <th className="admin-table-col-key">{msg('modelsColName')}</th>}
                   <th
-                    className="admin-table-col-status"
-                    aria-sort={sortColumn === 'status' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    className="cmd-col-description"
+                    aria-sort={
+                      sortColumn === 'description'
+                        ? sortDirection === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                    }
                   >
                     <button
                       type="button"
                       className="admin-table-sort"
-                      onClick={() => handleSortColumn('status')}
+                      onClick={() => handleSortColumn('description')}
                     >
-                      {msg('workColStatus')}
-                      {sortIcon('status')}
+                      {msg('cmdColDescription')}
+                      {sortIcon('description')}
                     </button>
                   </th>
                 </tr>
@@ -358,19 +360,13 @@ export function CaseModelsListPage() {
                             className="admin-table-checkbox"
                             checked={selected}
                             onChange={() => toggleSelect(m.id)}
-                            aria-label={
-                              m.display_name ??
-                              labelFromTranslations(m.translations, m.key, locale)
-                            }
+                            aria-label={modelLabel(m)}
                           />
                         </td>
-                        <td>
-                          <Link to={`/apps/case-model-designer/${m.id}`}>
-                            {m.display_name ?? labelFromTranslations(m.translations, m.key, locale)}
-                          </Link>
+                        <td className="cmd-col-name">
+                          <Link to={`/apps/case-model-designer/${m.id}`}>{modelLabel(m)}</Link>
                         </td>
-                        {showKeys && <td className="admin-table-col-key">{m.key}</td>}
-                        <td className="admin-table-col-status">{caseModelStatusLabel(m.status, msg)}</td>
+                        <td className="cmd-col-description">{m.description?.trim() || '—'}</td>
                       </tr>
                     );
                   })

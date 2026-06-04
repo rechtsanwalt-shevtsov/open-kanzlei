@@ -1,4 +1,5 @@
 import { badRequest, forbidden } from '../../api/errors.js';
+import { getEventService } from '../../foundation/events/event-service.js';
 import { withTenantTransaction } from '../../foundation/database/tenant-context.js';
 import {
   COLOR_THEMES,
@@ -88,6 +89,15 @@ export async function patchTenantColorTheme(
        WHERE tenant_id = $1`,
       [tenantId, colorTheme],
     );
+
+    await getEventService().publish(client, {
+      tenantId,
+      type: 'tenant_profile.updated',
+      aggregateType: 'tenant_profile',
+      aggregateId: tenantId,
+      actorUserId: userId,
+      data: {},
+    });
   });
 
   return getUiPreferences(tenantId, userId);

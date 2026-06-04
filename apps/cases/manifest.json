@@ -1,0 +1,26 @@
+{
+  "app_key": "cases",
+  "name": "Cases",
+  "version": "1.0.0",
+  "description": "Akten anlegen und verwalten (Benutzerbereich).",
+  "has_react_ui": true,
+  "menu_category": "work",
+  "nav_path": "/apps/cases",
+  "nav_icon": "LuFolderOpen",
+  "routes": [
+    { "path": "/apps/cases", "label": "Cases" },
+    { "path": "/apps/cases/settings", "label": "Einstellungen" }
+  ],
+  "required_roles": [],
+  "supported_locales": ["de", "en"],
+  "event_subscriptions": [],
+  "settings_schema": {
+    "itemsPerPage": {
+      "type": "number",
+      "default": 25,
+      "allowedValues": [5, 10, 25, 50, 100],
+      "tenantConfigurable": true,
+      "userOverridable": true
+    }
+  }
+}

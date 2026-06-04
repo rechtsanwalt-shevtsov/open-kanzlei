@@ -356,11 +356,21 @@ Webhook:
   - Felder: tenant_id, event_types, target_url, secret, is_active,
             retry_count, last_error, last_attempt_at
 
-Event-Benennung: {aggregate}.{action} (z. B. tenant.registered, case.created)
+Event-Benennung: {entity}.{action} in Vergangenheitsform (z. B. tenant.registered,
+  case_model.created, case_model.archived)
+  — vollständiger Katalog: docs/event-catalog.md
+  — TypeScript-Registry: backend/src/foundation/events/event-types.ts
 
-Beispiel-Payload (minimal):
-  { "case_id": "…", "changed_attribute_keys": ["title"] }
-  — kein title-Wert im Event
+Sichtbarkeit:
+  - public   — von Apps/Webhooks abonnierbar
+  - internal — nur Plattform-intern (z. B. auth.login_failed)
+
+Webhook-Envelope (schema_version 1):
+  { event_id, type, schema_version, tenant_id, occurred_at, actor_user_id, data }
+  — aggregate_type / aggregate_id nur in DB, nicht im externen Envelope
+  — data minimal: nur IDs, keine Klartext-Fachdaten
+  — Beispiel data: { "case_model_id": "…" } oder { "changed_attribute_keys": ["title"] }
+    (Schlüssel ohne Werte)
 
 ================================================================================
 13. WORK CONTEXT — BEWUSST ZURÜCKGESTELLT
@@ -643,7 +653,7 @@ data_type im App-MVP:
 ----------------------------------------------------------------------
 
 Bereits vorhanden:
-  case_model.created | .updated | .deleted
+  case_model.created | .updated | .archived | .deleted
 
 Neu im App-MVP:
   attribute_definition.created | .updated | .deleted

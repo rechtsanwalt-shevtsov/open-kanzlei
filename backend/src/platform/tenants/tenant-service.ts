@@ -1,6 +1,7 @@
 import type pg from 'pg';
-import { withTenantTransaction } from '../../foundation/database/tenant-context.js';
 import { badRequest } from '../../api/errors.js';
+import { getEventService } from '../../foundation/events/event-service.js';
+import { withTenantTransaction } from '../../foundation/database/tenant-context.js';
 import { isSupportedLocale } from '../../foundation/i18n/locale.js';
 
 export interface TenantProfile {
@@ -25,6 +26,7 @@ export async function getTenantProfile(tenantId: string): Promise<TenantProfile>
 export async function updateTenantProfile(
   tenantId: string,
   input: UpdateTenantProfileInput,
+  actorUserId: string,
 ): Promise<TenantProfile> {
   if (input.defaultLanguage && !isSupportedLocale(input.defaultLanguage)) {
     throw badRequest('error.validation_failed');
@@ -57,6 +59,22 @@ export async function updateTenantProfile(
         `UPDATE platform.tenant_profiles SET ${sets.join(', ')} WHERE tenant_id = $1`,
         values,
       );
+    }
+
+    const hasChanges =
+      input.defaultLanguage !== undefined ||
+      input.firmName !== undefined ||
+      input.settings !== undefined;
+
+    if (hasChanges) {
+      await getEventService().publish(client, {
+        tenantId,
+        type: 'tenant_profile.updated',
+        aggregateType: 'tenant_profile',
+        aggregateId: tenantId,
+        actorUserId,
+        data: {},
+      });
     }
 
     return getTenantProfileInTransaction(client, tenantId);

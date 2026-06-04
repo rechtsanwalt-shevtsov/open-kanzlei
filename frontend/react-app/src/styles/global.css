@@ -25,6 +25,9 @@
   --color-table-row-selected-hover: #e3f0f9;
   --color-input-border: #b8c5d0;
   --color-shadow: rgba(26, 35, 50, 0.08);
+  /* Case Model Designer — Hintergrund nur für Attributtabellen */
+  --cmd-zone-model-bg: #c8ddf5;
+  --cmd-zone-case-bg: #fde6b0;
   --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
   --radius: 8px;
   --shadow: 0 1px 3px var(--color-shadow);

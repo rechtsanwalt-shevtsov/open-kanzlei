@@ -10,6 +10,11 @@ function LegacyCaseModelRedirect() {
   return <Navigate to={`/apps/case-model-designer/${id ?? ''}`} replace />;
 }
 
+function CaseModelEditRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/apps/case-model-designer/${id ?? ''}`} replace />;
+}
+
 export const appKey = 'case-model-designer';
 
 export const appRoutes = (
@@ -17,7 +22,7 @@ export const appRoutes = (
     <Route path="apps/case-model-designer" element={<CaseModelsListPage />} />
     <Route path="apps/case-model-designer/new" element={<CaseModelFormPage />} />
     <Route path="apps/case-model-designer/settings" element={<AppSettingsPage />} />
-    <Route path="apps/case-model-designer/:id/edit" element={<CaseModelFormPage />} />
+    <Route path="apps/case-model-designer/:id/edit" element={<CaseModelEditRedirect />} />
     <Route path="apps/case-model-designer/:id" element={<CaseModelDetailPage />} />
     <Route path="admin/case-models/:id" element={<LegacyCaseModelRedirect />} />
   </Route>

@@ -1,33 +1,47 @@
 import type pg from 'pg';
 import { randomUUID } from 'node:crypto';
+import { buildStoredPayload } from './event-envelope.js';
+import { eventVisibility, type EventType } from './event-types.js';
 
 export interface DomainEventInput {
   tenantId: string;
-  eventType: string;
+  type: EventType;
   aggregateType: string;
   aggregateId: string;
-  payload?: Record<string, unknown>;
+  actorUserId?: string | null;
+  schemaVersion?: number;
+  data?: Record<string, unknown>;
 }
 
 /**
  * Persists domain events and outbox entries in the same DB transaction.
- * Konzept.txt §12 — no sensitive plaintext in payloads.
+ * Payload follows the stored envelope format; see docs/event-catalog.md.
  */
 export class EventService {
   async publish(client: pg.PoolClient, event: DomainEventInput): Promise<string> {
     const domainEventId = randomUUID();
-    const payload = event.payload ?? {};
+    const schemaVersion = event.schemaVersion ?? 1;
+    const visibility = eventVisibility(event.type);
+    const payload = buildStoredPayload({
+      schemaVersion,
+      actorUserId: event.actorUserId,
+      data: event.data,
+    });
 
     await client.query(
       `INSERT INTO events.domain_events
-         (id, tenant_id, event_type, aggregate_type, aggregate_id, payload)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+         (id, tenant_id, event_type, aggregate_type, aggregate_id,
+          schema_version, visibility, actor_user_id, payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         domainEventId,
         event.tenantId,
-        event.eventType,
+        event.type,
         event.aggregateType,
         event.aggregateId,
+        schemaVersion,
+        visibility,
+        event.actorUserId ?? null,
         JSON.stringify(payload),
       ],
     );

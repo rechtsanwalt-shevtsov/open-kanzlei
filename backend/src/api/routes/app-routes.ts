@@ -37,13 +37,13 @@ export async function appRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.patch('/v1/tenant/apps/:appKey', admin, async (req) => {
-    const { tenantId } = ctx(req);
+    const { tenantId, userId } = ctx(req);
     const appKey = appKeyParam(req);
     const body = (req.body ?? {}) as { status?: string };
     if (body.status !== 'active' && body.status !== 'inactive') {
       throw badRequest('error.validation_failed');
     }
-    const item = await appService.setTenantAppStatus(tenantId, appKey, body.status);
+    const item = await appService.setTenantAppStatus(tenantId, appKey, body.status, userId);
     return item;
   });
 
@@ -70,10 +70,10 @@ export async function appRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.patch('/v1/tenant/apps/:appKey/settings', admin, async (req) => {
-    const { tenantId } = ctx(req);
+    const { tenantId, userId } = ctx(req);
     const appKey = appKeyParam(req);
     const body = (req.body ?? {}) as Record<string, unknown>;
-    const settings = await appService.patchTenantAppSettings(tenantId, appKey, body);
+    const settings = await appService.patchTenantAppSettings(tenantId, appKey, body, userId);
     return settings;
   });
 

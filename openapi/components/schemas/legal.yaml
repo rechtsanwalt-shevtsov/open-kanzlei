@@ -18,7 +18,11 @@ StatusKey:
 
 DataType:
   type: string
-  enum: [text, number, boolean, date]
+  enum: [text, number, money, date, boolean, single_select, multi_select]
+
+DefinitionScope:
+  type: string
+  enum: [model, instance]
 
 EncryptionMode:
   type: string
@@ -30,7 +34,7 @@ CaseModelStatus:
 
 CaseModel:
   type: object
-  required: [id, key, status, translations, description_translations, display_name, created_at, updated_at]
+  required: [id, key, status, translations, description, display_name, created_at, updated_at]
   properties:
     id:
       type: string
@@ -41,8 +45,12 @@ CaseModel:
       $ref: '#/CaseModelStatus'
     translations:
       $ref: '#/Translations'
+    description:
+      type: string
+      description: Stable model description (plain text)
     description_translations:
       $ref: '#/Translations'
+      deprecated: true
     display_name:
       type: string
       description: Resolved label for the effective request locale (Accept-Language), with fallback de → en → key
@@ -72,8 +80,11 @@ CreateCaseModelRequest:
       $ref: '#/CaseModelStatus'
     translations:
       $ref: '#/Translations'
+    description:
+      type: string
     description_translations:
       $ref: '#/Translations'
+      deprecated: true
 
 UpdateCaseModelRequest:
   type: object
@@ -90,8 +101,11 @@ UpdateCaseModelRequest:
       $ref: '#/CaseModelStatus'
     translations:
       $ref: '#/Translations'
+    description:
+      type: string
     description_translations:
       $ref: '#/Translations'
+      deprecated: true
 
 TaskModel:
   type: object
@@ -388,7 +402,18 @@ UpdateInstrumentRequest:
 
 AttributeDefinition:
   type: object
-  required: [id, owner_type, owner_id, key, data_type, encryption_mode, translations, display_name]
+  required:
+    - id
+    - owner_type
+    - owner_id
+    - definition_scope
+    - key
+    - data_type
+    - encryption_mode
+    - translations
+    - is_required
+    - select_options
+    - display_name
   properties:
     id:
       type: string
@@ -399,6 +424,8 @@ AttributeDefinition:
     owner_id:
       type: string
       format: uuid
+    definition_scope:
+      $ref: '#/DefinitionScope'
     key:
       $ref: '#/ModelKey'
     data_type:
@@ -407,6 +434,14 @@ AttributeDefinition:
       $ref: '#/EncryptionMode'
     translations:
       $ref: '#/Translations'
+    is_required:
+      type: boolean
+    select_options:
+      type: array
+      items:
+        type: string
+    default_value:
+      description: Default for new instances (instance scope) or model value (model scope)
     display_name:
       type: string
       description: Resolved label for the effective request locale (Accept-Language), with fallback de → en → key
@@ -429,6 +464,8 @@ CreateAttributeDefinitionRequest:
     locale:
       type: string
       enum: [de, en]
+    definition_scope:
+      $ref: '#/DefinitionScope'
     key:
       $ref: '#/ModelKey'
     data_type:
@@ -437,6 +474,13 @@ CreateAttributeDefinitionRequest:
       $ref: '#/EncryptionMode'
     translations:
       $ref: '#/Translations'
+    is_required:
+      type: boolean
+    select_options:
+      type: array
+      items:
+        type: string
+    default_value: {}
 
 UpdateAttributeDefinitionRequest:
   type: object
@@ -453,6 +497,13 @@ UpdateAttributeDefinitionRequest:
       $ref: '#/EncryptionMode'
     translations:
       $ref: '#/Translations'
+    is_required:
+      type: boolean
+    select_options:
+      type: array
+      items:
+        type: string
+    default_value: {}
 
 AttributeValuesRequest:
   type: object

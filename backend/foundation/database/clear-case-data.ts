@@ -28,7 +28,8 @@ async function main(): Promise<void> {
       "DELETE FROM legal.documents WHERE owner_type IN ('case', 'task', 'instrument')",
     );
     await client.query(
-      "DELETE FROM meta.attribute_values WHERE owner_type IN ('case', 'task', 'instrument')",
+      `DELETE FROM meta.attribute_values
+       WHERE owner_type IN ('case', 'task', 'instrument', 'case_model')`,
     );
     await client.query('DELETE FROM legal.task_assignees');
     await client.query('DELETE FROM legal.case_assignees');

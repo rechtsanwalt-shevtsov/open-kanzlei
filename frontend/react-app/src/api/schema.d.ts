@@ -837,7 +837,10 @@ export interface components {
             key: components["schemas"]["ModelKey"];
             status: components["schemas"]["CaseModelStatus"];
             translations: components["schemas"]["Translations"];
-            description_translations: components["schemas"]["Translations"];
+            /** @description Stable model description (plain text) */
+            description: string;
+            /** @deprecated */
+            description_translations?: components["schemas"]["Translations"];
             /** @description Resolved label for the effective request locale (Accept-Language), with fallback de → en → key */
             display_name: string;
             /** Format: date-time */
@@ -857,6 +860,8 @@ export interface components {
             key?: components["schemas"]["ModelKey"];
             status?: components["schemas"]["CaseModelStatus"];
             translations?: components["schemas"]["Translations"];
+            description?: string;
+            /** @deprecated */
             description_translations?: components["schemas"]["Translations"];
         };
         UpdateCaseModelRequest: {
@@ -869,6 +874,8 @@ export interface components {
             locale?: "de" | "en";
             status?: components["schemas"]["CaseModelStatus"];
             translations?: components["schemas"]["Translations"];
+            description?: string;
+            /** @deprecated */
             description_translations?: components["schemas"]["Translations"];
         };
         CaseModelTaskModelLink: {
@@ -880,7 +887,9 @@ export interface components {
             links: components["schemas"]["CaseModelTaskModelLink"][];
         };
         /** @enum {string} */
-        DataType: "text" | "number" | "boolean" | "date";
+        DefinitionScope: "model" | "instance";
+        /** @enum {string} */
+        DataType: "text" | "number" | "money" | "date" | "boolean" | "single_select" | "multi_select";
         /** @enum {string} */
         EncryptionMode: "server_readable" | "zero_knowledge";
         AttributeDefinition: {
@@ -890,10 +899,15 @@ export interface components {
             owner_type: "case_model" | "task_model" | "instrument_model";
             /** Format: uuid */
             owner_id: string;
+            definition_scope: components["schemas"]["DefinitionScope"];
             key: components["schemas"]["ModelKey"];
             data_type: components["schemas"]["DataType"];
             encryption_mode: components["schemas"]["EncryptionMode"];
             translations: components["schemas"]["Translations"];
+            is_required: boolean;
+            select_options: string[];
+            /** @description Default for new instances (instance scope) or model value (model scope) */
+            default_value?: unknown;
             /** @description Resolved label for the effective request locale (Accept-Language), with fallback de → en → key */
             display_name: string;
             /** Format: date-time */
@@ -906,10 +920,14 @@ export interface components {
             name?: string;
             /** @enum {string} */
             locale?: "de" | "en";
+            definition_scope?: components["schemas"]["DefinitionScope"];
             key?: components["schemas"]["ModelKey"];
             data_type: components["schemas"]["DataType"];
             encryption_mode?: components["schemas"]["EncryptionMode"];
             translations?: components["schemas"]["Translations"];
+            is_required?: boolean;
+            select_options?: string[];
+            default_value?: unknown;
         };
         /** @description Language-neutral status key (e.g. active, open, closed) */
         StatusKey: string;
@@ -962,6 +980,9 @@ export interface components {
             data_type?: components["schemas"]["DataType"];
             encryption_mode?: components["schemas"]["EncryptionMode"];
             translations?: components["schemas"]["Translations"];
+            is_required?: boolean;
+            select_options?: string[];
+            default_value?: unknown;
         };
         Assignee: {
             /** Format: uuid */
@@ -1947,7 +1968,9 @@ export interface operations {
     };
     listCaseModelAttributes: {
         parameters: {
-            query?: never;
+            query?: {
+                definition_scope?: components["schemas"]["DefinitionScope"];
+            };
             header?: never;
             path: {
                 id: components["parameters"]["IdPath"];

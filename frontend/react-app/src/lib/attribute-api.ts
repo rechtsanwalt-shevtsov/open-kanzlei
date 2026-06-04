@@ -5,6 +5,7 @@ import type { ModelKind } from '../types/models.js';
 
 export type AttributeDefinition = components['schemas']['AttributeDefinition'];
 export type DataType = components['schemas']['DataType'];
+export type DefinitionScope = components['schemas']['DefinitionScope'];
 export type CreateAttributeBody = components['schemas']['CreateAttributeDefinitionRequest'];
 export type UpdateAttributeBody = components['schemas']['UpdateAttributeDefinitionRequest'];
 
@@ -16,13 +17,15 @@ export async function listModelAttributes(
   kind: ModelKind,
   modelId: string,
   locale: Locale,
+  definitionScope?: DefinitionScope,
 ) {
   const h = headers(locale);
+  const query = definitionScope ? { definition_scope: definitionScope } : undefined;
   switch (kind) {
     case 'case_model':
       return api.GET('/v1/case-models/{id}/attributes', {
         headers: h,
-        params: { path: { id: modelId } },
+        params: { path: { id: modelId }, query },
       });
     case 'task_model':
       return api.GET('/v1/task-models/{id}/attributes', {

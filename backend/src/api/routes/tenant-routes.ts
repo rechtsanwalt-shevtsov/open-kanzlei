@@ -17,6 +17,6 @@ export async function tenantRoutes(app: FastifyInstance): Promise<void> {
       firmName: body.firm_name,
       defaultLanguage: body.default_language,
       settings: body.settings,
-    });
+    }, request.user!.id);
   });
 }

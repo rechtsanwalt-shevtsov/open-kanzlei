@@ -120,10 +120,11 @@ export async function registerTenant(
 
     await getEventService().publish(client, {
       tenantId,
-      eventType: 'tenant.registered',
+      type: 'tenant.registered',
       aggregateType: 'tenant',
       aggregateId: tenantId,
-      payload: { tenant_id: tenantId },
+      actorUserId: userId,
+      data: {},
     });
 
     const sessionToken = await createSession(client, userId, tenantId);

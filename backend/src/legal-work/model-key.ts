@@ -43,6 +43,7 @@ export async function allocateUniqueAttributeKey(
   tenantId: string,
   ownerType: string,
   ownerId: string,
+  definitionScope: string,
   baseKey: string,
 ): Promise<string> {
   let candidate = baseKey;
@@ -50,9 +51,10 @@ export async function allocateUniqueAttributeKey(
   while (true) {
     const exists = await client.query(
       `SELECT 1 FROM meta.attribute_definitions
-       WHERE tenant_id = $1 AND owner_type = $2 AND owner_id = $3 AND key = $4
+       WHERE tenant_id = $1 AND owner_type = $2 AND owner_id = $3
+         AND definition_scope = $4 AND key = $5
        LIMIT 1`,
-      [tenantId, ownerType, ownerId, candidate],
+      [tenantId, ownerType, ownerId, definitionScope, candidate],
     );
     if (!exists.rowCount) return candidate;
     const suffix = `_${n}`;

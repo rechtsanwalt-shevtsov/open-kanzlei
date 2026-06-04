@@ -33,9 +33,10 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/v1/case-models', auth, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
     const body = req.body as models.CreateCaseModelInput;
     const item = await handle(() =>
-      models.createCaseModel(ctx(req).tenantId, body, { defaultLocale: req.locale }),
+      models.createCaseModel(tenantId, body, { defaultLocale: req.locale, actorUserId: userId }),
     );
     return reply.status(201).send(models.enrichCaseModel(item, req.locale));
   });
@@ -47,17 +48,20 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.patch('/v1/case-models/:id', auth, async (req) => {
+    const { tenantId, userId } = ctx(req);
     const body = req.body as models.UpdateCaseModelInput;
     const item = await handle(() =>
-      models.updateCaseModel(ctx(req).tenantId, idParam(req), body, {
+      models.updateCaseModel(tenantId, idParam(req), body, {
         defaultLocale: req.locale,
+        actorUserId: userId,
       }),
     );
     return models.enrichCaseModel(item, req.locale);
   });
 
   app.delete('/v1/case-models/:id', auth, async (req, reply) => {
-    await handle(() => models.deleteCaseModel(ctx(req).tenantId, idParam(req)));
+    const { tenantId, userId } = ctx(req);
+    await handle(() => models.deleteCaseModel(tenantId, idParam(req), userId));
     return reply.status(204).send();
   });
 
@@ -77,8 +81,13 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/v1/case-models/:id/attributes', auth, async (req) => {
+    const q = req.query as { definition_scope?: string };
+    const scope =
+      q.definition_scope === 'model' || q.definition_scope === 'instance'
+        ? q.definition_scope
+        : undefined;
     const items = await handle(() =>
-      models.listCaseModelAttributes(ctx(req).tenantId, idParam(req)),
+      models.listCaseModelAttributes(ctx(req).tenantId, idParam(req), scope),
     );
     return { items: items.map((item) => enrichAttributeDefinition(item, req.locale)) };
   });

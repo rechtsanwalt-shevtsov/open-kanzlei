@@ -160,6 +160,10 @@ case-models-attributes:
     security: [{ sessionCookie: [] }]
     parameters:
       - $ref: '../components/parameters/legal.yaml#/IdPath'
+      - name: definition_scope
+        in: query
+        schema:
+          $ref: '../components/schemas/legal.yaml#/DefinitionScope'
     responses:
       '200':
         content:

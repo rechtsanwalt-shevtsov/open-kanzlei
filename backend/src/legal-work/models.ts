@@ -4,6 +4,7 @@ import { displayNameFromTranslations } from '../foundation/i18n/display-name.js'
 import type { Locale } from '../foundation/i18n/locale.js';
 import { isSupportedLocale } from '../foundation/i18n/locale.js';
 import { getEventService } from '../foundation/events/event-service.js';
+import type { PublicEventType } from '../foundation/events/event-types.js';
 import { withTenantTransaction } from '../foundation/database/tenant-context.js';
 import {
   createAttributeDefinition,
@@ -25,6 +26,8 @@ export type CreateCaseModelInput = {
   locale?: string;
   status?: string;
   translations?: Record<string, string>;
+  description?: string;
+  /** @deprecated Use description */
   description_translations?: Record<string, string>;
 };
 
@@ -33,6 +36,8 @@ export type UpdateCaseModelInput = {
   locale?: string;
   status?: string;
   translations?: Record<string, string>;
+  description?: string;
+  /** @deprecated Use description */
   description_translations?: Record<string, string>;
 };
 
@@ -41,6 +46,7 @@ export interface CaseModelDto {
   key: string;
   status: string;
   translations: Record<string, string>;
+  description: string;
   description_translations: Record<string, string>;
   display_name?: string;
   created_at: string;
@@ -76,6 +82,7 @@ type ModelRow = {
   key: string;
   status: string;
   translations: Record<string, string>;
+  description: string;
   description_translations?: Record<string, string>;
   created_at: Date;
   updated_at: Date;
@@ -87,10 +94,26 @@ function mapCaseModel(row: ModelRow): CaseModelDto {
     key: row.key,
     status: row.status,
     translations: row.translations ?? {},
+    description: row.description ?? '',
     description_translations: row.description_translations ?? {},
     created_at: toIso(row.created_at),
     updated_at: toIso(row.updated_at),
   };
+}
+
+function resolveDescriptionFromInput(input: {
+  description?: string;
+  description_translations?: Record<string, string>;
+}): string | undefined {
+  if (input.description !== undefined) return input.description;
+  if (input.description_translations) {
+    return (
+      input.description_translations.de?.trim() ||
+      input.description_translations.en?.trim() ||
+      ''
+    );
+  }
+  return undefined;
 }
 
 export function enrichCaseModel(model: CaseModelDto, locale: Locale): CaseModelDto {
@@ -117,11 +140,12 @@ function resolveCreateCaseModelFields(
   key?: string;
   status: string;
   translations: Record<string, string>;
-  description_translations?: Record<string, string>;
+  description?: string;
   generateKeyFromName?: string;
 } {
   const status = input.status ?? 'draft';
   assertCaseModelStatus(status);
+  const description = resolveDescriptionFromInput(input);
 
   if (input.name !== undefined) {
     const name = assertNonEmptyName(input.name);
@@ -129,7 +153,7 @@ function resolveCreateCaseModelFields(
     return {
       status,
       translations: { [locale]: name },
-      description_translations: input.description_translations,
+      description,
       generateKeyFromName: name,
     };
   }
@@ -142,7 +166,7 @@ function resolveCreateCaseModelFields(
     key: input.key,
     status,
     translations: input.translations,
-    description_translations: input.description_translations,
+    description,
   };
 }
 
@@ -172,17 +196,19 @@ function mapInstrumentModel(
 async function publish(
   client: pg.PoolClient,
   tenantId: string,
-  eventType: string,
+  type: PublicEventType,
   aggregateType: string,
   aggregateId: string,
-  payload: Record<string, unknown>,
+  data: Record<string, unknown>,
+  actorUserId?: string,
 ): Promise<void> {
   await getEventService().publish(client, {
     tenantId,
-    eventType,
+    type,
     aggregateType,
     aggregateId,
-    payload,
+    data,
+    actorUserId,
   });
 }
 
@@ -191,7 +217,8 @@ async function publish(
 export async function listCaseModels(tenantId: string): Promise<CaseModelDto[]> {
   return withTenantTransaction(tenantId, async (client) => {
     const result = await client.query<ModelRow>(
-      `SELECT id, key, status, translations, description_translations, created_at, updated_at
+      `SELECT id, key, status, translations, description, description_translations,
+              created_at, updated_at
        FROM legal.case_models WHERE tenant_id = $1 ORDER BY key`,
       [tenantId],
     );
@@ -202,9 +229,10 @@ export async function listCaseModels(tenantId: string): Promise<CaseModelDto[]> 
 export async function createCaseModel(
   tenantId: string,
   input: CreateCaseModelInput,
-  options?: { defaultLocale?: Locale },
+  options?: { defaultLocale?: Locale; actorUserId?: string },
 ): Promise<CaseModelDto> {
   const defaultLocale = options?.defaultLocale ?? 'de';
+  const actorUserId = options?.actorUserId;
   const resolved = resolveCreateCaseModelFields(input, defaultLocale);
 
   return withTenantTransaction(tenantId, async (client) => {
@@ -218,21 +246,30 @@ export async function createCaseModel(
 
     try {
       const result = await client.query<ModelRow>(
-        `INSERT INTO legal.case_models (tenant_id, key, status, translations, description_translations)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING id, key, status, translations, description_translations, created_at, updated_at`,
+        `INSERT INTO legal.case_models
+           (tenant_id, key, status, translations, description, description_translations)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, key, status, translations, description, description_translations,
+                   created_at, updated_at`,
         [
           tenantId,
           key,
           resolved.status,
           JSON.stringify(resolved.translations),
-          JSON.stringify(resolved.description_translations ?? {}),
+          resolved.description ?? '',
+          JSON.stringify({}),
         ],
       );
       const model = mapCaseModel(result.rows[0]!);
-      await publish(client, tenantId, 'case_model.created', 'case_model', model.id, {
-        case_model_id: model.id,
-      });
+      await publish(
+        client,
+        tenantId,
+        'case_model.created',
+        'case_model',
+        model.id,
+        { case_model_id: model.id },
+        actorUserId,
+      );
       return model;
     } catch (err: unknown) {
       if ((err as { code?: string }).code === '23505') throw conflict('error.key_conflict');
@@ -247,7 +284,8 @@ export async function getCaseModel(
 ): Promise<CaseModelDto | null> {
   return withTenantTransaction(tenantId, async (client) => {
     const result = await client.query<ModelRow>(
-      `SELECT id, key, status, translations, description_translations, created_at, updated_at
+      `SELECT id, key, status, translations, description, description_translations,
+              created_at, updated_at
        FROM legal.case_models WHERE id = $1 AND tenant_id = $2`,
       [id, tenantId],
     );
@@ -259,7 +297,7 @@ export async function updateCaseModel(
   tenantId: string,
   id: string,
   input: UpdateCaseModelInput,
-  options?: { defaultLocale?: Locale },
+  options?: { defaultLocale?: Locale; actorUserId?: string },
 ): Promise<CaseModelDto> {
   const existing = await getCaseModel(tenantId, id);
   if (!existing) throw notFound();
@@ -270,35 +308,60 @@ export async function updateCaseModel(
     input,
     options?.defaultLocale ?? 'de',
   );
+  const actorUserId = options?.actorUserId;
+  const archiving = input.status === 'archived' && existing.status !== 'archived';
+
+  const description = resolveDescriptionFromInput(input);
 
   return withTenantTransaction(tenantId, async (client) => {
     const result = await client.query<ModelRow>(
       `UPDATE legal.case_models
        SET status = COALESCE($3, status),
            translations = COALESCE($4, translations),
-           description_translations = COALESCE($5, description_translations),
+           description = COALESCE($5, description),
            updated_at = now()
        WHERE id = $1 AND tenant_id = $2
-       RETURNING id, key, status, translations, description_translations, created_at, updated_at`,
+       RETURNING id, key, status, translations, description, description_translations,
+                 created_at, updated_at`,
       [
         id,
         tenantId,
         input.status ?? null,
         translations ? JSON.stringify(translations) : null,
-        input.description_translations
-          ? JSON.stringify(input.description_translations)
-          : null,
+        description ?? null,
       ],
     );
     const model = mapCaseModel(result.rows[0]!);
-    await publish(client, tenantId, 'case_model.updated', 'case_model', model.id, {
-      case_model_id: model.id,
-    });
+    if (archiving) {
+      await publish(
+        client,
+        tenantId,
+        'case_model.archived',
+        'case_model',
+        model.id,
+        { case_model_id: model.id },
+        actorUserId,
+      );
+    } else {
+      await publish(
+        client,
+        tenantId,
+        'case_model.updated',
+        'case_model',
+        model.id,
+        { case_model_id: model.id },
+        actorUserId,
+      );
+    }
     return model;
   });
 }
 
-export async function deleteCaseModel(tenantId: string, id: string): Promise<void> {
+export async function deleteCaseModel(
+  tenantId: string,
+  id: string,
+  actorUserId?: string,
+): Promise<void> {
   return withTenantTransaction(tenantId, async (client) => {
     const inUse = await client.query(
       `SELECT 1 FROM legal.cases WHERE case_model_id = $1 AND tenant_id = $2 LIMIT 1`,
@@ -311,9 +374,15 @@ export async function deleteCaseModel(tenantId: string, id: string): Promise<voi
       [id, tenantId],
     );
     if (!result.rowCount) throw notFound();
-    await publish(client, tenantId, 'case_model.deleted', 'case_model', id, {
-      case_model_id: id,
-    });
+    await publish(
+      client,
+      tenantId,
+      'case_model.deleted',
+      'case_model',
+      id,
+      { case_model_id: id },
+      actorUserId,
+    );
   });
 }
 
@@ -373,10 +442,11 @@ export async function setCaseModelTaskLinks(
 export async function listCaseModelAttributes(
   tenantId: string,
   caseModelId: string,
+  definitionScope?: import('./validation.js').DefinitionScope,
 ): Promise<AttributeDefinitionDto[]> {
   if (!(await getCaseModel(tenantId, caseModelId))) throw notFound();
   return withTenantTransaction(tenantId, (client) =>
-    listAttributeDefinitions(client, tenantId, 'case_model', caseModelId),
+    listAttributeDefinitions(client, tenantId, 'case_model', caseModelId, definitionScope),
   );
 }
 
@@ -398,11 +468,18 @@ export async function createCaseModelAttribute(
       userId,
       options,
     );
-    await publish(client, tenantId, 'attribute_definition.created', 'attribute_definition', def.id, {
-      attribute_definition_id: def.id,
-      owner_type: def.owner_type,
-      key: def.key,
-    });
+    await publish(
+      client,
+      tenantId,
+      'attribute_definition.created',
+      'attribute_definition',
+      def.id,
+      {
+        attribute_definition_id: def.id,
+        definition_scope: def.definition_scope,
+      },
+      userId,
+    );
     return def;
   });
 }
@@ -686,10 +763,17 @@ export async function updateAttributeDefinition(
 ): Promise<AttributeDefinitionDto> {
   return withTenantTransaction(tenantId, async (client) => {
     const def = await updateAttrDef(client, tenantId, id, input, options);
-    await publish(client, tenantId, 'attribute_definition.updated', 'attribute_definition', def.id, {
-      attribute_definition_id: def.id,
-      key: def.key,
-    });
+    await publish(
+      client,
+      tenantId,
+      'attribute_definition.updated',
+      'attribute_definition',
+      def.id,
+      {
+        attribute_definition_id: def.id,
+        definition_scope: def.definition_scope,
+      },
+    );
     return def;
   });
 }
@@ -699,17 +783,15 @@ export async function deleteAttributeDefinition(
   id: string,
 ): Promise<void> {
   return withTenantTransaction(tenantId, async (client) => {
-    const existing = await client.query<{ key: string }>(
-      `SELECT key FROM meta.attribute_definitions WHERE tenant_id = $1 AND id = $2`,
+    const existing = await client.query<{ definition_scope: string }>(
+      `SELECT definition_scope FROM meta.attribute_definitions WHERE tenant_id = $1 AND id = $2`,
       [tenantId, id],
     );
-    const key = existing.rows[0]?.key;
+    const scope = existing.rows[0]?.definition_scope ?? 'instance';
     await deleteAttrDef(client, tenantId, id);
-    if (key) {
-      await publish(client, tenantId, 'attribute_definition.deleted', 'attribute_definition', id, {
-        attribute_definition_id: id,
-        key,
-      });
-    }
+    await publish(client, tenantId, 'attribute_definition.deleted', 'attribute_definition', id, {
+      attribute_definition_id: id,
+      definition_scope: scope,
+    });
   });
 }

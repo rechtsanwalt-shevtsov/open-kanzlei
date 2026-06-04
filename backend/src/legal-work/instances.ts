@@ -1,6 +1,7 @@
 import type pg from 'pg';
 import { badRequest, notFound } from '../api/errors.js';
 import { getEventService } from '../foundation/events/event-service.js';
+import type { PublicEventType } from '../foundation/events/event-types.js';
 import { withTenantTransaction } from '../foundation/database/tenant-context.js';
 import {
   loadInstanceAttributes,
@@ -23,7 +24,7 @@ export interface CaseDto {
   status: string;
   encryption_status: string;
   encryption_version: number | null;
-  attributes?: Record<string, string | number | boolean | null>;
+  attributes?: Record<string, string | number | boolean | string[] | null>;
   assignees: AssigneeDto[];
   created_at: string;
   updated_at: string;
@@ -36,7 +37,7 @@ export interface TaskDto {
   status: string;
   encryption_status: string;
   encryption_version: number | null;
-  attributes?: Record<string, string | number | boolean | null>;
+  attributes?: Record<string, string | number | boolean | string[] | null>;
   assignees: AssigneeDto[];
   created_at: string;
   updated_at: string;
@@ -44,8 +45,8 @@ export interface TaskDto {
 
 function withStatusAttribute(
   status: string,
-  attributes: Record<string, string | number | boolean | null>,
-): Record<string, string | number | boolean | null> {
+  attributes: Record<string, string | number | boolean | string[] | null>,
+): Record<string, string | number | boolean | string[] | null> {
   return { ...attributes, status };
 }
 
@@ -70,7 +71,7 @@ export interface InstrumentDto {
   status: string;
   encryption_status: string;
   encryption_version: number | null;
-  attributes?: Record<string, string | number | boolean | null>;
+  attributes?: Record<string, string | number | boolean | string[] | null>;
   created_at: string;
   updated_at: string;
 }
@@ -87,17 +88,19 @@ type InstanceRow = {
 async function publish(
   client: pg.PoolClient,
   tenantId: string,
-  eventType: string,
+  type: PublicEventType,
   aggregateType: string,
   aggregateId: string,
-  payload: Record<string, unknown>,
+  data: Record<string, unknown>,
+  actorUserId?: string,
 ): Promise<void> {
   await getEventService().publish(client, {
     tenantId,
-    eventType,
+    type,
     aggregateType,
     aggregateId,
-    payload,
+    data,
+    actorUserId,
   });
 }
 
