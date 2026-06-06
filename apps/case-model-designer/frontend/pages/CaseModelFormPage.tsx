@@ -82,7 +82,7 @@ export function CaseModelFormPage() {
     );
 
     for (const body of attributeBodies) {
-      const attrRes = await createModelAttribute('case_model', modelId, locale, body);
+      const attrRes = await createModelAttribute(modelId, locale, body);
       if (attrRes.error) {
         setSubmitting(false);
         const err = attrRes.error as { message?: string };

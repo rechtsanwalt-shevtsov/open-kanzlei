@@ -4,9 +4,8 @@ import {
   type AttributeDefinition,
 } from '../lib/attribute-api.js';
 import { useI18n } from '../i18n/I18nContext.js';
-import type { ModelKind } from '../types/models.js';
 
-export function useModelAttributes(kind: ModelKind, modelId: string | undefined) {
+export function useModelAttributes(modelId: string | undefined) {
   const { locale } = useI18n();
   const [items, setItems] = useState<AttributeDefinition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +19,7 @@ export function useModelAttributes(kind: ModelKind, modelId: string | undefined)
     }
     setLoading(true);
     setError(null);
-    const res = await listModelAttributes(kind, modelId, locale);
+    const res = await listModelAttributes(modelId, locale);
     setLoading(false);
     if (res.error) {
       const err = res.error as { message?: string };
@@ -29,7 +28,7 @@ export function useModelAttributes(kind: ModelKind, modelId: string | undefined)
       return;
     }
     setItems(res.data?.items ?? []);
-  }, [kind, modelId, locale]);
+  }, [modelId, locale]);
 
   useEffect(() => {
     void refresh();

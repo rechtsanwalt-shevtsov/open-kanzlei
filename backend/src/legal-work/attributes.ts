@@ -1,10 +1,28 @@
 import type pg from 'pg';
-import { badRequest, conflict, notFound } from '../api/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../api/errors.js';
 import { displayNameFromTranslations } from '../foundation/i18n/display-name.js';
 import type { Locale } from '../foundation/i18n/locale.js';
 import { isSupportedLocale } from '../foundation/i18n/locale.js';
 import { getEncryptionService } from '../foundation/encryption/passthrough.js';
 import { allocateUniqueAttributeKey, slugifyModelKey } from './model-key.js';
+import {
+  assertAttributeKeyAllowedOnCreate as assertCaseAttributeKeyAllowedOnCreate,
+  assertCasePlatformAttributeUpdateAllowed,
+  isCaseInstanceStatusDefinition,
+  isPlatformCaseModelInstanceAttribute,
+} from './case-model-platform-attributes.js';
+import {
+  assertTaskAttributeKeyAllowedOnCreate,
+  assertTaskPlatformAttributeUpdateAllowed,
+  isPlatformTaskModelInstanceAttribute,
+  isTaskInstanceStatusDefinition,
+} from './task-model-platform-attributes.js';
+import {
+  normalizeSelectOptionTranslations,
+  pruneSelectOptionTranslations,
+  resolveSelectOptionLabels,
+  type SelectOptionTranslations,
+} from './select-option-translations.js';
 import {
   assertDataType,
   assertDefinitionScope,
@@ -32,9 +50,9 @@ export type CreateAttributeDefinitionInput = {
   translations?: Record<string, string>;
   is_required?: boolean;
   select_options?: string[];
+  select_option_translations?: SelectOptionTranslations;
   default_value?: unknown;
 };
-
 export type UpdateAttributeDefinitionInput = {
   name?: string;
   locale?: string;
@@ -43,6 +61,7 @@ export type UpdateAttributeDefinitionInput = {
   translations?: Record<string, string>;
   is_required?: boolean;
   select_options?: string[];
+  select_option_translations?: SelectOptionTranslations;
   default_value?: unknown;
 };
 
@@ -57,8 +76,10 @@ export interface AttributeDefinitionDto {
   translations: Record<string, string>;
   is_required: boolean;
   select_options: string[];
+  select_option_translations: SelectOptionTranslations;
   default_value: unknown;
   display_name?: string;
+  select_option_labels?: Record<string, string>;
   created_at: string;
   updated_at: string;
 }
@@ -74,14 +95,15 @@ interface DefinitionRow {
   translations: Record<string, string>;
   is_required: boolean;
   select_options: string[];
+  select_option_translations: SelectOptionTranslations;
   default_value: unknown;
   created_at: Date;
   updated_at: Date;
 }
 
 const DEFINITION_COLUMNS = `id, owner_type, owner_id, definition_scope, key, data_type,
-  encryption_mode, translations, is_required, select_options, default_value,
-  created_at, updated_at`;
+  encryption_mode, translations, is_required, select_options, select_option_translations,
+  default_value, created_at, updated_at`;
 
 function mapDefinition(row: DefinitionRow): AttributeDefinitionDto {
   return {
@@ -95,6 +117,7 @@ function mapDefinition(row: DefinitionRow): AttributeDefinitionDto {
     translations: row.translations ?? {},
     is_required: row.is_required,
     select_options: row.select_options ?? [],
+    select_option_translations: row.select_option_translations ?? {},
     default_value: row.default_value ?? null,
     created_at: toIso(row.created_at),
     updated_at: toIso(row.updated_at),
@@ -105,10 +128,119 @@ export function enrichAttributeDefinition(
   definition: AttributeDefinitionDto,
   locale: Locale,
 ): AttributeDefinitionDto {
-  return {
+  const enriched: AttributeDefinitionDto = {
     ...definition,
     display_name: displayNameFromTranslations(definition.translations, definition.key, locale),
   };
+  if (isSelectDataType(definition.data_type)) {
+    enriched.select_option_labels = resolveSelectOptionLabels(
+      definition.select_options,
+      definition.select_option_translations,
+      locale,
+    );
+  }
+  return enriched;
+}
+
+function assertAttributeKeyAllowedOnCreate(
+  ownerType: ModelOwnerType,
+  definitionScope: DefinitionScope,
+  key: string,
+): void {
+  if (ownerType === 'case_model') {
+    assertCaseAttributeKeyAllowedOnCreate(ownerType, definitionScope, key);
+    return;
+  }
+  if (ownerType === 'task_model') {
+    assertTaskAttributeKeyAllowedOnCreate(ownerType, definitionScope, key);
+  }
+}
+
+function assertAttributeDefinitionDeletable(def: AttributeDefinitionDto): void {
+  if (isPlatformCaseModelInstanceAttribute(def.owner_type, def.definition_scope, def.key)) {
+    throw forbidden('error.attribute_definition_reserved');
+  }
+  if (isPlatformTaskModelInstanceAttribute(def.owner_type, def.definition_scope, def.key)) {
+    throw forbidden('error.attribute_definition_reserved');
+  }
+}
+
+function assertAttributeDefinitionUpdateAllowed(
+  def: AttributeDefinitionDto,
+  input: UpdateAttributeDefinitionInput,
+): void {
+  if (isPlatformCaseModelInstanceAttribute(def.owner_type, def.definition_scope, def.key)) {
+    assertCasePlatformAttributeUpdateAllowed(def, input);
+    return;
+  }
+  if (isPlatformTaskModelInstanceAttribute(def.owner_type, def.definition_scope, def.key)) {
+    assertTaskPlatformAttributeUpdateAllowed(def, input);
+  }
+}
+
+async function assertRemovedSelectOptionsNotInUse(
+  client: pg.PoolClient,
+  tenantId: string,
+  existing: AttributeDefinitionDto,
+  nextOptions: string[],
+): Promise<void> {
+  const removed = existing.select_options.filter((option) => !nextOptions.includes(option));
+  if (removed.length === 0) return;
+
+  for (const option of removed) {
+    if (isCaseInstanceStatusDefinition(existing)) {
+      const inUse = await client.query(
+        `SELECT 1 FROM legal.cases
+         WHERE tenant_id = $1 AND case_model_id = $2 AND status = $3
+         LIMIT 1`,
+        [tenantId, existing.owner_id, option],
+      );
+      if (inUse.rowCount) {
+        throw conflict('error.select_option_in_use');
+      }
+      continue;
+    }
+
+    if (isTaskInstanceStatusDefinition(existing)) {
+      const inUse = await client.query(
+        `SELECT 1 FROM legal.tasks
+         WHERE tenant_id = $1 AND task_model_id = $2 AND status = $3
+         LIMIT 1`,
+        [tenantId, existing.owner_id, option],
+      );
+      if (inUse.rowCount) {
+        throw conflict('error.select_option_in_use');
+      }
+      continue;
+    }
+
+    if (existing.data_type === 'single_select') {
+      const inUse = await client.query(
+        `SELECT 1 FROM meta.attribute_values
+         WHERE tenant_id = $1 AND attribute_definition_id = $2 AND plaintext_value = $3
+         LIMIT 1`,
+        [tenantId, existing.id, option],
+      );
+      if (inUse.rowCount) {
+        throw conflict('error.select_option_in_use');
+      }
+      continue;
+    }
+
+    if (existing.data_type === 'multi_select') {
+      const values = await client.query<{ plaintext_value: string | null }>(
+        `SELECT plaintext_value FROM meta.attribute_values
+         WHERE tenant_id = $1 AND attribute_definition_id = $2`,
+        [tenantId, existing.id],
+      );
+      for (const row of values.rows) {
+        const parsed = parseAttributeValue('multi_select', row.plaintext_value);
+        if (Array.isArray(parsed) && parsed.includes(option)) {
+          throw conflict('error.select_option_in_use');
+        }
+      }
+    }
+  }
 }
 
 function resolveLocale(value: string | undefined, fallback: Locale): Locale {
@@ -151,6 +283,7 @@ function resolveCreateAttributeFields(
   translations: Record<string, string>;
   is_required: boolean;
   select_options: string[];
+  select_option_translations: SelectOptionTranslations;
   default_value: unknown | null;
   generateKeyFromName?: string;
 } {
@@ -167,6 +300,10 @@ function resolveCreateAttributeFields(
   if (isSelectDataType(input.data_type) && selectOptions.length === 0) {
     throw badRequest('error.validation_failed');
   }
+  const selectOptionTranslations = pruneSelectOptionTranslations(
+    normalizeSelectOptionTranslations(input.select_option_translations ?? {}),
+    selectOptions,
+  );
 
   const isRequired = Boolean(input.is_required);
   const defaultValue = resolveDefaultValue(
@@ -186,6 +323,7 @@ function resolveCreateAttributeFields(
       translations: { [locale]: name },
       is_required: isRequired,
       select_options: selectOptions,
+      select_option_translations: selectOptionTranslations,
       default_value: defaultValue,
       generateKeyFromName: name,
     };
@@ -203,6 +341,7 @@ function resolveCreateAttributeFields(
     translations: input.translations,
     is_required: isRequired,
     select_options: selectOptions,
+    select_option_translations: selectOptionTranslations,
     default_value: defaultValue,
   };
 }
@@ -252,8 +391,8 @@ export async function createAttributeDefinition(
   ownerType: ModelOwnerType,
   ownerId: string,
   input: CreateAttributeDefinitionInput,
-  createdBy: string,
-  options?: { defaultLocale?: Locale },
+  createdBy: string | null,
+  options?: { defaultLocale?: Locale; allowPlatformKeys?: boolean },
 ): Promise<AttributeDefinitionDto> {
   const defaultLocale = options?.defaultLocale ?? 'de';
   const resolved = resolveCreateAttributeFields(input, defaultLocale);
@@ -268,12 +407,17 @@ export async function createAttributeDefinition(
       slugifyModelKey(resolved.generateKeyFromName!),
     ));
 
+  if (!options?.allowPlatformKeys) {
+    assertAttributeKeyAllowedOnCreate(ownerType, resolved.definition_scope, key);
+  }
+
   try {
     const result = await client.query<DefinitionRow>(
       `INSERT INTO meta.attribute_definitions
          (tenant_id, owner_type, owner_id, definition_scope, key, data_type,
-          encryption_mode, translations, is_required, select_options, default_value, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          encryption_mode, translations, is_required, select_options,
+          select_option_translations, default_value, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING ${DEFINITION_COLUMNS}`,
       [
         tenantId,
@@ -286,6 +430,7 @@ export async function createAttributeDefinition(
         JSON.stringify(resolved.translations),
         resolved.is_required,
         JSON.stringify(resolved.select_options),
+        JSON.stringify(resolved.select_option_translations),
         resolved.default_value === null ? null : JSON.stringify(resolved.default_value),
         createdBy,
       ],
@@ -308,6 +453,7 @@ export async function updateAttributeDefinition(
 ): Promise<AttributeDefinitionDto> {
   const existing = await getAttributeDefinition(client, tenantId, id);
   if (!existing) throw notFound();
+  assertAttributeDefinitionUpdateAllowed(existing, input);
 
   const dataType = (input.data_type ?? existing.data_type) as DataType;
   assertDataType(dataType);
@@ -324,6 +470,18 @@ export async function updateAttributeDefinition(
     throw badRequest('error.validation_failed');
   }
 
+  await assertRemovedSelectOptionsNotInUse(client, tenantId, existing, selectOptions);
+
+  const selectOptionTranslations =
+    input.select_option_translations !== undefined
+      ? pruneSelectOptionTranslations(
+          normalizeSelectOptionTranslations(input.select_option_translations),
+          selectOptions,
+        )
+      : input.select_options !== undefined
+        ? pruneSelectOptionTranslations(existing.select_option_translations, selectOptions)
+        : existing.select_option_translations;
+
   const isRequired = input.is_required ?? existing.is_required;
   let defaultValue = existing.default_value;
   if (input.default_value !== undefined) {
@@ -333,7 +491,8 @@ export async function updateAttributeDefinition(
   const result = await client.query<DefinitionRow>(
     `UPDATE meta.attribute_definitions
      SET data_type = $3, encryption_mode = $4, translations = $5,
-         is_required = $6, select_options = $7, default_value = $8, updated_at = now()
+         is_required = $6, select_options = $7, select_option_translations = $8,
+         default_value = $9, updated_at = now()
      WHERE tenant_id = $1 AND id = $2
      RETURNING ${DEFINITION_COLUMNS}`,
     [
@@ -344,6 +503,7 @@ export async function updateAttributeDefinition(
       JSON.stringify(translations),
       isRequired,
       JSON.stringify(selectOptions),
+      JSON.stringify(selectOptionTranslations),
       defaultValue === null ? null : JSON.stringify(defaultValue),
     ],
   );
@@ -355,6 +515,10 @@ export async function deleteAttributeDefinition(
   tenantId: string,
   id: string,
 ): Promise<void> {
+  const existing = await getAttributeDefinition(client, tenantId, id);
+  if (!existing) throw notFound();
+  assertAttributeDefinitionDeletable(existing);
+
   const inUse = await client.query(
     `SELECT 1 FROM meta.attribute_values WHERE attribute_definition_id = $1 LIMIT 1`,
     [id],
@@ -469,16 +633,28 @@ async function assertRequiredInstanceAttributes(
   }
 }
 
-/** Keys handled as instance system fields, not custom attribute definitions. */
-const RESERVED_INSTANCE_ATTRIBUTE_KEYS = new Set(['status']);
+/** Keys stored as instance system fields, not in attribute_values. */
+const CASE_RESERVED_INSTANCE_ATTRIBUTE_KEYS = new Set(['status']);
+const TASK_RESERVED_INSTANCE_ATTRIBUTE_KEYS = new Set([
+  'status',
+  'predecessor_task_ids',
+  'dependent_task_ids',
+]);
+
+function reservedInstanceAttributeKeys(instanceType: InstanceOwnerType): Set<string> {
+  if (instanceType === 'task') return TASK_RESERVED_INSTANCE_ATTRIBUTE_KEYS;
+  return CASE_RESERVED_INSTANCE_ATTRIBUTE_KEYS;
+}
 
 function stripReservedInstanceKeys(
+  instanceType: InstanceOwnerType,
   values: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
   if (!values) return values;
+  const reserved = reservedInstanceAttributeKeys(instanceType);
   const stripped: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(values)) {
-    if (!RESERVED_INSTANCE_ATTRIBUTE_KEYS.has(key)) {
+    if (!reserved.has(key)) {
       stripped[key] = value;
     }
   }
@@ -494,12 +670,23 @@ export async function upsertInstanceAttributes(
   modelId: string,
   values: Record<string, unknown> | undefined,
 ): Promise<string[]> {
+  const existing = await loadInstanceAttributes(
+    client,
+    tenantId,
+    instanceType,
+    instanceId,
+    modelType,
+    modelId,
+  );
   const merged = await mergeInstanceAttributesWithDefaults(
     client,
     tenantId,
     modelType,
     modelId,
-    stripReservedInstanceKeys(values),
+    {
+      ...existing,
+      ...stripReservedInstanceKeys(instanceType, values),
+    },
   );
 
   await assertRequiredInstanceAttributes(client, tenantId, modelType, modelId, merged);

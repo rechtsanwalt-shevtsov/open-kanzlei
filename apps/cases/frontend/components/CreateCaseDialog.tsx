@@ -1,11 +1,11 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { api, apiHeaders } from '@shell/api/client.js';
 import { useI18n } from '@shell/i18n/I18nContext.js';
-import { WORK_STATUSES, workStatusLabel } from '@shell/lib/work-status.js';
 import { listModelAttributes, type AttributeDefinition } from '@shell/lib/attribute-api.js';
+import { findCaseStatusDefinition } from '@shell/lib/case-instance-status.js';
 import { labelFromTranslations } from '@shell/lib/model-label.js';
 import type { components } from '@shell/api/schema.js';
-import { FieldSelectInput } from './FieldSelectInput.js';
+import { FieldSelectInput } from '@shell/components/admin/FieldSelectInput.js';
 import {
   defaultFieldValue,
   defaultMultiSelectValue,
@@ -31,7 +31,7 @@ export function CreateCaseDialog({ open, models, onClose, onCreated }: CreateCas
   const { locale, msg } = useI18n();
   const activeModels = useMemo(() => models.filter((m) => m.status === 'active'), [models]);
   const [caseModelId, setCaseModelId] = useState('');
-  const [status, setStatus] = useState('not_started');
+  const [status, setStatus] = useState('');
   const [instanceFields, setInstanceFields] = useState<AttributeDefinition[]>([]);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [multiFieldValues, setMultiFieldValues] = useState<Record<string, string[]>>({});
@@ -42,7 +42,7 @@ export function CreateCaseDialog({ open, models, onClose, onCreated }: CreateCas
   useEffect(() => {
     if (!open) return;
     setCaseModelId(activeModels[0]?.id ?? '');
-    setStatus('not_started');
+    setStatus('');
     setInstanceFields([]);
     setFieldValues({});
     setMultiFieldValues({});
@@ -58,7 +58,7 @@ export function CreateCaseDialog({ open, models, onClose, onCreated }: CreateCas
     }
     let cancelled = false;
     setFieldsLoading(true);
-    void listModelAttributes('case_model', caseModelId, locale, 'instance').then((res) => {
+    void listModelAttributes(caseModelId, locale, 'instance').then((res) => {
       if (cancelled) return;
       setFieldsLoading(false);
       if (res.error) {
@@ -67,9 +67,16 @@ export function CreateCaseDialog({ open, models, onClose, onCreated }: CreateCas
       }
       const defs = (res.data?.items ?? []) as AttributeDefinition[];
       setInstanceFields(defs);
+      const statusDef = findCaseStatusDefinition(defs);
+      const initialStatus =
+        typeof statusDef?.default_value === 'string'
+          ? statusDef.default_value
+          : (statusDef?.select_options?.[0] ?? '');
+      setStatus(initialStatus);
       const initial: Record<string, string> = {};
       const initialMulti: Record<string, string[]> = {};
       for (const def of defs) {
+        if (def.key === 'status') continue;
         if (def.data_type === 'multi_select') {
           initialMulti[def.key] = defaultMultiSelectValue(def);
         } else {
@@ -84,11 +91,16 @@ export function CreateCaseDialog({ open, models, onClose, onCreated }: CreateCas
     };
   }, [open, caseModelId, locale]);
 
+  const statusDefinition = useMemo(
+    () => findCaseStatusDefinition(instanceFields),
+    [instanceFields],
+  );
+
   const sortedFields = useMemo(
     () =>
-      [...instanceFields].sort((a, b) =>
-        fieldLabel(a, locale).localeCompare(fieldLabel(b, locale)),
-      ),
+      [...instanceFields]
+        .filter((def) => def.key !== 'status')
+        .sort((a, b) => fieldLabel(a, locale).localeCompare(fieldLabel(b, locale))),
     [instanceFields, locale],
   );
 
@@ -129,6 +141,7 @@ export function CreateCaseDialog({ open, models, onClose, onCreated }: CreateCas
           <FieldSelectInput
             dataType={def.data_type}
             options={def.select_options ?? []}
+            optionLabels={def.select_option_labels}
             value={selectValue}
             onChange={(next) => {
               if (def.data_type === 'single_select') {
@@ -174,6 +187,7 @@ export function CreateCaseDialog({ open, models, onClose, onCreated }: CreateCas
 
     const attributes: Record<string, unknown> = {};
     for (const def of instanceFields) {
+      if (def.key === 'status') continue;
       const raw = fieldValues[def.key] ?? '';
       const multi = multiFieldValues[def.key] ?? [];
       const parsed = parseFieldValueFromState(def, raw, multi);
@@ -238,16 +252,19 @@ export function CreateCaseDialog({ open, models, onClose, onCreated }: CreateCas
                 </select>
               </label>
 
-              <label>
-                {msg('workColStatus')}
-                <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                  {WORK_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {workStatusLabel(s, msg)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {statusDefinition && (
+                <label>
+                  {statusDefinition.display_name ??
+                    labelFromTranslations(statusDefinition.translations, 'status', locale)}
+                  <FieldSelectInput
+                    dataType="single_select"
+                    options={statusDefinition.select_options ?? []}
+                    optionLabels={statusDefinition.select_option_labels}
+                    value={status}
+                    onChange={(next) => setStatus(typeof next === 'string' ? next : '')}
+                  />
+                </label>
+              )}
 
               {fieldsLoading && <p className="status">{msg('loading')}</p>}
               {!fieldsLoading && sortedFields.length > 0 && (

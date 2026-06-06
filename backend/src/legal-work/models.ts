@@ -19,6 +19,7 @@ import {
 export type { CreateAttributeDefinitionInput, UpdateAttributeDefinitionInput };
 import { assertCaseModelStatus, assertModelKey, toIso } from './validation.js';
 import { allocateUniqueCaseModelKey, slugifyModelKey } from './model-key.js';
+import { seedCaseModelStandardInstanceAttributes } from './case-model-defaults.js';
 
 export type CreateCaseModelInput = {
   key?: string;
@@ -51,30 +52,6 @@ export interface CaseModelDto {
   display_name?: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface TaskModelDto {
-  id: string;
-  key: string;
-  status: string;
-  translations: Record<string, string>;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface InstrumentModelDto {
-  id: string;
-  task_model_id: string;
-  key: string;
-  status: string;
-  translations: Record<string, string>;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CaseModelTaskLinkDto {
-  task_model_id: string;
-  sort_order: number | null;
 }
 
 type ModelRow = {
@@ -183,16 +160,6 @@ function resolveUpdateCaseModelTranslations(
   return input.translations;
 }
 
-function mapTaskModel(row: ModelRow): TaskModelDto {
-  return mapCaseModel(row);
-}
-
-function mapInstrumentModel(
-  row: ModelRow & { task_model_id: string },
-): InstrumentModelDto {
-  return { ...mapCaseModel(row), task_model_id: row.task_model_id };
-}
-
 async function publish(
   client: pg.PoolClient,
   tenantId: string,
@@ -261,6 +228,12 @@ export async function createCaseModel(
         ],
       );
       const model = mapCaseModel(result.rows[0]!);
+      await seedCaseModelStandardInstanceAttributes(
+        client,
+        tenantId,
+        model.id,
+        actorUserId ?? null,
+      );
       await publish(
         client,
         tenantId,
@@ -386,59 +359,6 @@ export async function deleteCaseModel(
   });
 }
 
-export async function listCaseModelTaskLinks(
-  tenantId: string,
-  caseModelId: string,
-): Promise<CaseModelTaskLinkDto[]> {
-  const model = await getCaseModel(tenantId, caseModelId);
-  if (!model) throw notFound();
-
-  return withTenantTransaction(tenantId, async (client) => {
-    const result = await client.query<CaseModelTaskLinkDto>(
-      `SELECT task_model_id, sort_order
-       FROM legal.case_model_task_models
-       WHERE case_model_id = $1
-       ORDER BY sort_order NULLS LAST, task_model_id`,
-      [caseModelId],
-    );
-    return result.rows;
-  });
-}
-
-export async function setCaseModelTaskLinks(
-  tenantId: string,
-  caseModelId: string,
-  links: CaseModelTaskLinkDto[],
-): Promise<CaseModelTaskLinkDto[]> {
-  const model = await getCaseModel(tenantId, caseModelId);
-  if (!model) throw notFound();
-
-  return withTenantTransaction(tenantId, async (client) => {
-    for (const link of links) {
-      const taskModel = await client.query(
-        `SELECT 1 FROM legal.task_models WHERE id = $1 AND tenant_id = $2`,
-        [link.task_model_id, tenantId],
-      );
-      if (!taskModel.rowCount) throw notFound();
-    }
-
-    await client.query(
-      `DELETE FROM legal.case_model_task_models WHERE case_model_id = $1`,
-      [caseModelId],
-    );
-
-    for (const link of links) {
-      await client.query(
-        `INSERT INTO legal.case_model_task_models (case_model_id, task_model_id, sort_order)
-         VALUES ($1, $2, $3)`,
-        [caseModelId, link.task_model_id, link.sort_order ?? null],
-      );
-    }
-
-    return listCaseModelTaskLinks(tenantId, caseModelId);
-  });
-}
-
 export async function listCaseModelAttributes(
   tenantId: string,
   caseModelId: string,
@@ -482,277 +402,6 @@ export async function createCaseModelAttribute(
     );
     return def;
   });
-}
-
-// —— Task models ——
-
-export async function listTaskModels(tenantId: string): Promise<TaskModelDto[]> {
-  return withTenantTransaction(tenantId, async (client) => {
-    const result = await client.query<ModelRow>(
-      `SELECT id, key, status, translations, created_at, updated_at
-       FROM legal.task_models WHERE tenant_id = $1 ORDER BY key`,
-      [tenantId],
-    );
-    return result.rows.map(mapTaskModel);
-  });
-}
-
-export async function createTaskModel(
-  tenantId: string,
-  input: { key: string; status?: string; translations: Record<string, string> },
-): Promise<TaskModelDto> {
-  assertModelKey(input.key);
-  return withTenantTransaction(tenantId, async (client) => {
-    try {
-      const result = await client.query<ModelRow>(
-        `INSERT INTO legal.task_models (tenant_id, key, status, translations)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, key, status, translations, created_at, updated_at`,
-        [tenantId, input.key, input.status ?? 'active', JSON.stringify(input.translations)],
-      );
-      const model = mapTaskModel(result.rows[0]!);
-      await publish(client, tenantId, 'task_model.created', 'task_model', model.id, {
-        task_model_id: model.id,
-      });
-      return model;
-    } catch (err: unknown) {
-      if ((err as { code?: string }).code === '23505') throw conflict('error.key_conflict');
-      throw err;
-    }
-  });
-}
-
-export async function getTaskModel(
-  tenantId: string,
-  id: string,
-): Promise<TaskModelDto | null> {
-  return withTenantTransaction(tenantId, async (client) => {
-    const result = await client.query<ModelRow>(
-      `SELECT id, key, status, translations, created_at, updated_at
-       FROM legal.task_models WHERE id = $1 AND tenant_id = $2`,
-      [id, tenantId],
-    );
-    return result.rows[0] ? mapTaskModel(result.rows[0]) : null;
-  });
-}
-
-export async function updateTaskModel(
-  tenantId: string,
-  id: string,
-  input: { status?: string; translations?: Record<string, string> },
-): Promise<TaskModelDto> {
-  if (!(await getTaskModel(tenantId, id))) throw notFound();
-  return withTenantTransaction(tenantId, async (client) => {
-    const result = await client.query<ModelRow>(
-      `UPDATE legal.task_models
-       SET status = COALESCE($3, status),
-           translations = COALESCE($4, translations),
-           updated_at = now()
-       WHERE id = $1 AND tenant_id = $2
-       RETURNING id, key, status, translations, created_at, updated_at`,
-      [
-        id,
-        tenantId,
-        input.status,
-        input.translations ? JSON.stringify(input.translations) : null,
-      ],
-    );
-    const model = mapTaskModel(result.rows[0]!);
-    await publish(client, tenantId, 'task_model.updated', 'task_model', model.id, {
-      task_model_id: model.id,
-    });
-    return model;
-  });
-}
-
-export async function deleteTaskModel(tenantId: string, id: string): Promise<void> {
-  return withTenantTransaction(tenantId, async (client) => {
-    const inUse = await client.query(
-      `SELECT 1 FROM legal.tasks WHERE task_model_id = $1 AND tenant_id = $2
-       UNION ALL
-       SELECT 1 FROM legal.instrument_models WHERE task_model_id = $1 AND tenant_id = $2
-       LIMIT 1`,
-      [id, tenantId],
-    );
-    if (inUse.rowCount) throw conflict('error.model_in_use');
-
-    const result = await client.query(
-      `DELETE FROM legal.task_models WHERE id = $1 AND tenant_id = $2`,
-      [id, tenantId],
-    );
-    if (!result.rowCount) throw notFound();
-    await publish(client, tenantId, 'task_model.deleted', 'task_model', id, {
-      task_model_id: id,
-    });
-  });
-}
-
-export async function listTaskModelAttributes(
-  tenantId: string,
-  taskModelId: string,
-): Promise<AttributeDefinitionDto[]> {
-  if (!(await getTaskModel(tenantId, taskModelId))) throw notFound();
-  return withTenantTransaction(tenantId, (client) =>
-    listAttributeDefinitions(client, tenantId, 'task_model', taskModelId),
-  );
-}
-
-export async function createTaskModelAttribute(
-  tenantId: string,
-  taskModelId: string,
-  userId: string,
-  input: CreateAttributeDefinitionInput,
-  options?: { defaultLocale?: Locale },
-): Promise<AttributeDefinitionDto> {
-  if (!(await getTaskModel(tenantId, taskModelId))) throw notFound();
-  return withTenantTransaction(tenantId, (client) =>
-    createAttributeDefinition(client, tenantId, 'task_model', taskModelId, input, userId, options),
-  );
-}
-
-// —— Task models ——
-
-export async function listInstrumentModels(
-  tenantId: string,
-  taskModelId: string,
-): Promise<InstrumentModelDto[]> {
-  if (!(await getTaskModel(tenantId, taskModelId))) throw notFound();
-  return withTenantTransaction(tenantId, async (client) => {
-    const result = await client.query<ModelRow & { task_model_id: string }>(
-      `SELECT id, task_model_id, key, status, translations, created_at, updated_at
-       FROM legal.instrument_models WHERE task_model_id = $1 AND tenant_id = $2 ORDER BY key`,
-      [taskModelId, tenantId],
-    );
-    return result.rows.map(mapInstrumentModel);
-  });
-}
-
-export async function createInstrumentModel(
-  tenantId: string,
-  taskModelId: string,
-  input: { key: string; status?: string; translations: Record<string, string> },
-): Promise<InstrumentModelDto> {
-  assertModelKey(input.key);
-  if (!(await getTaskModel(tenantId, taskModelId))) throw notFound();
-
-  return withTenantTransaction(tenantId, async (client) => {
-    try {
-      const result = await client.query<ModelRow & { task_model_id: string }>(
-        `INSERT INTO legal.instrument_models (tenant_id, task_model_id, key, status, translations)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING id, task_model_id, key, status, translations, created_at, updated_at`,
-        [
-          tenantId,
-          taskModelId,
-          input.key,
-          input.status ?? 'active',
-          JSON.stringify(input.translations),
-        ],
-      );
-      const model = mapInstrumentModel(result.rows[0]!);
-      await publish(client, tenantId, 'instrument_model.created', 'instrument_model', model.id, {
-        instrument_model_id: model.id,
-        task_model_id: taskModelId,
-      });
-      return model;
-    } catch (err: unknown) {
-      if ((err as { code?: string }).code === '23505') throw conflict('error.key_conflict');
-      throw err;
-    }
-  });
-}
-
-export async function getInstrumentModel(
-  tenantId: string,
-  id: string,
-): Promise<InstrumentModelDto | null> {
-  return withTenantTransaction(tenantId, async (client) => {
-    const result = await client.query<ModelRow & { task_model_id: string }>(
-      `SELECT id, task_model_id, key, status, translations, created_at, updated_at
-       FROM legal.instrument_models WHERE id = $1 AND tenant_id = $2`,
-      [id, tenantId],
-    );
-    return result.rows[0] ? mapInstrumentModel(result.rows[0]) : null;
-  });
-}
-
-export async function updateInstrumentModel(
-  tenantId: string,
-  id: string,
-  input: { status?: string; translations?: Record<string, string> },
-): Promise<InstrumentModelDto> {
-  if (!(await getInstrumentModel(tenantId, id))) throw notFound();
-  return withTenantTransaction(tenantId, async (client) => {
-    const result = await client.query<ModelRow & { task_model_id: string }>(
-      `UPDATE legal.instrument_models
-       SET status = COALESCE($3, status),
-           translations = COALESCE($4, translations),
-           updated_at = now()
-       WHERE id = $1 AND tenant_id = $2
-       RETURNING id, task_model_id, key, status, translations, created_at, updated_at`,
-      [
-        id,
-        tenantId,
-        input.status,
-        input.translations ? JSON.stringify(input.translations) : null,
-      ],
-    );
-    const model = mapInstrumentModel(result.rows[0]!);
-    await publish(client, tenantId, 'instrument_model.updated', 'instrument_model', model.id, {
-      instrument_model_id: model.id,
-    });
-    return model;
-  });
-}
-
-export async function deleteInstrumentModel(tenantId: string, id: string): Promise<void> {
-  return withTenantTransaction(tenantId, async (client) => {
-    const inUse = await client.query(
-      `SELECT 1 FROM legal.instruments WHERE instrument_model_id = $1 AND tenant_id = $2 LIMIT 1`,
-      [id, tenantId],
-    );
-    if (inUse.rowCount) throw conflict('error.model_in_use');
-
-    const result = await client.query(
-      `DELETE FROM legal.instrument_models WHERE id = $1 AND tenant_id = $2`,
-      [id, tenantId],
-    );
-    if (!result.rowCount) throw notFound();
-    await publish(client, tenantId, 'instrument_model.deleted', 'instrument_model', id, {
-      instrument_model_id: id,
-    });
-  });
-}
-
-export async function listInstrumentModelAttributes(
-  tenantId: string,
-  instrumentModelId: string,
-): Promise<AttributeDefinitionDto[]> {
-  if (!(await getInstrumentModel(tenantId, instrumentModelId))) throw notFound();
-  return withTenantTransaction(tenantId, (client) =>
-    listAttributeDefinitions(client, tenantId, 'instrument_model', instrumentModelId),
-  );
-}
-
-export async function createInstrumentModelAttribute(
-  tenantId: string,
-  instrumentModelId: string,
-  userId: string,
-  input: CreateAttributeDefinitionInput,
-  options?: { defaultLocale?: Locale },
-): Promise<AttributeDefinitionDto> {
-  if (!(await getInstrumentModel(tenantId, instrumentModelId))) throw notFound();
-  return withTenantTransaction(tenantId, (client) =>
-    createAttributeDefinition(
-      client,
-      tenantId,
-      'instrument_model',
-      instrumentModelId,
-      input,
-      userId,
-      options,
-    ),
-  );
 }
 
 export async function updateAttributeDefinition(

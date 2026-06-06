@@ -12,11 +12,9 @@ import { RegisterPage } from './pages/RegisterPage.js';
 import { AdminRoute } from './components/AdminRoute.js';
 import { AdminAppsPage } from './pages/admin/AdminAppsPage.js';
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage.js';
-import { ModelDetailPage } from './pages/admin/ModelDetailPage.js';
 import { ModelsPage } from './pages/admin/ModelsPage.js';
 import { UsersPage } from './pages/admin/UsersPage.js';
 import { CasesPage } from './pages/CasesPage.js';
-import { TasksPage } from './pages/TasksPage.js';
 import { bundledAppRoutes } from './app-routes/bundled-app-routes.js';
 
 export function App() {
@@ -34,7 +32,6 @@ export function App() {
               </Route>
               <Route element={<ProtectedRoute />}>
                 <Route path="cases" element={<CasesPage />} />
-                <Route path="tasks" element={<TasksPage />} />
                 <Route path="profile" element={<ProfilePage />} />
                 {bundledAppRoutes}
                 <Route element={<AdminRoute />}>
@@ -42,14 +39,6 @@ export function App() {
                   <Route path="admin/apps" element={<AdminAppsPage />} />
                   <Route path="admin/users" element={<UsersPage />} />
                   <Route path="admin/models" element={<ModelsPage />} />
-                  <Route
-                    path="admin/task-models/:id"
-                    element={<ModelDetailPage kind="task_model" />}
-                  />
-                  <Route
-                    path="admin/instrument-models/:id"
-                    element={<ModelDetailPage kind="instrument_model" />}
-                  />
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -33,6 +33,10 @@ import { InstanceDefaultValueCell } from '../components/InstanceDefaultValueCell
 import { SystemFieldValueCell } from '../components/SystemFieldValueCell.js';
 import { useEffectiveSettings } from '../hooks/useEffectiveSettings.js';
 import {
+  findCaseStatusDefinition,
+  isCaseInstanceStatusAttribute,
+} from '@shell/lib/case-instance-status.js';
+import {
   buildModelTabSystemFieldRows,
   systemFieldSearchText,
   type SystemFieldRow,
@@ -49,10 +53,20 @@ type CustomFieldRow = {
   attribute: AttributeDefinition;
 };
 
-type ListRow = SystemFieldRow | CustomFieldRow;
+type PlatformStatusRow = {
+  kind: 'platform_status';
+  id: string;
+  attribute: AttributeDefinition;
+};
+
+type ListRow = SystemFieldRow | CustomFieldRow | PlatformStatusRow;
 
 function isCustomRow(row: ListRow): row is CustomFieldRow {
   return row.kind === 'custom';
+}
+
+function isPlatformStatusRow(row: ListRow): row is PlatformStatusRow {
+  return row.kind === 'platform_status';
 }
 
 export function CaseModelDetailPage() {
@@ -97,8 +111,8 @@ export function CaseModelDetailPage() {
     const headers = apiHeaders(locale);
     const [modelRes, modelAttrs, instanceAttrs] = await Promise.all([
       api.GET('/v1/case-models/{id}', { headers, params: { path: { id } } }),
-      listModelAttributes('case_model', id, locale, 'model'),
-      listModelAttributes('case_model', id, locale, 'instance'),
+      listModelAttributes(id, locale, 'model'),
+      listModelAttributes(id, locale, 'instance'),
     ]);
     setLoading(false);
     if (modelRes.error || modelAttrs.error || instanceAttrs.error) {
@@ -152,15 +166,31 @@ export function CaseModelDetailPage() {
       }));
       return [...systemRows, ...customRows];
     }
-    return instanceScopeItems.map((attribute) => ({
-      kind: 'custom' as const,
-      id: attribute.id,
-      attribute,
-    }));
+    const statusAttribute = findCaseStatusDefinition(instanceScopeItems);
+    const customAttributes = instanceScopeItems.filter(
+      (attribute) => !isCaseInstanceStatusAttribute(attribute),
+    );
+    const rows: ListRow[] = [];
+    if (statusAttribute) {
+      rows.push({
+        kind: 'platform_status',
+        id: statusAttribute.id,
+        attribute: statusAttribute,
+      });
+    }
+    rows.push(
+      ...customAttributes.map((attribute) => ({
+        kind: 'custom' as const,
+        id: attribute.id,
+        attribute,
+      })),
+    );
+    return rows;
   }, [model, activeTab, modelScopeItems, instanceScopeItems, locale, msg, advanced]);
 
   function rowLabel(row: ListRow): string {
     if (row.kind === 'system') return msg(row.labelKey);
+    if (row.kind === 'platform_status') return msg('cmdInstanceStatus');
     const a = row.attribute;
     return a.display_name ?? labelFromTranslations(a.translations, a.key, locale);
   }
@@ -171,6 +201,9 @@ export function CaseModelDetailPage() {
     return allRows.filter((row) => {
       if (row.kind === 'system') {
         return systemFieldSearchText(row, msg).includes(q);
+      }
+      if (row.kind === 'platform_status') {
+        return [rowLabel(row), row.attribute.key, msg('cmdFieldTypeEnum')].join(' ').toLowerCase().includes(q);
       }
       const a = row.attribute;
       return [
@@ -193,7 +226,9 @@ export function CaseModelDetailPage() {
       if (sortColumn === 'name') {
         return dir * rowLabel(a).localeCompare(rowLabel(b), locale);
       }
-      if (a.kind === 'system' || b.kind === 'system') return 0;
+      if (a.kind === 'system' || b.kind === 'system' || a.kind === 'platform_status' || b.kind === 'platform_status') {
+        return 0;
+      }
       const aa = a.attribute;
       const ab = b.attribute;
       if (sortColumn === 'type') {
@@ -309,7 +344,7 @@ export function CaseModelDetailPage() {
 
   async function handleCreate(payload: AttributeDialogPayload): Promise<string | null> {
     if (!id) return msg('errorGeneric');
-    const res = await createModelAttribute('case_model', id, locale, payload);
+    const res = await createModelAttribute(id, locale, payload);
     if (res.error) return apiErrorMessage(res.error);
     await refresh();
     return null;
@@ -570,6 +605,46 @@ export function CaseModelDetailPage() {
                   </tr>
                 ) : (
                   pageItems.map((row) => {
+                    if (row.kind === 'platform_status') {
+                      const a = row.attribute;
+                      const name = rowLabel(row);
+                      return (
+                        <tr key={row.id} className="admin-table-row--system">
+                          <td className="admin-table-col-check" />
+                          <td>
+                            <button
+                              type="button"
+                              className="admin-table-link admin-table-link--button"
+                              onClick={() => setEditTarget(a)}
+                            >
+                              {name}
+                            </button>
+                            <span className="admin-table-sub"> ({msg('cmdSystemField')})</span>
+                          </td>
+                          {advanced && (
+                            <td className="admin-table-col-key">
+                              <code>{a.key}</code>
+                            </td>
+                          )}
+                          <td className="admin-table-col-status">
+                            {msg(dataTypeMessageKey(a.data_type))}
+                          </td>
+                          <td>{a.is_required ? msg('yes') : msg('no')}</td>
+                          <td>
+                            <InstanceDefaultValueCell
+                              attribute={a}
+                              locale={locale}
+                              saving={fieldSaving}
+                              onSavingChange={setFieldSaving}
+                              onUpdated={() => void refresh()}
+                            />
+                          </td>
+                          <td className="admin-table-col-encryption">
+                            {msg(encryptionModeMessageKey(a.encryption_mode))}
+                          </td>
+                        </tr>
+                      );
+                    }
                     if (row.kind === 'system') {
                       return (
                         <tr key={row.id} className="admin-table-row--system">
@@ -679,6 +754,11 @@ export function CaseModelDetailPage() {
         definitionScope={editTarget?.definition_scope ?? definitionScope}
         attribute={editTarget ?? undefined}
         extendedFields
+        lockFields={
+          editTarget && isCaseInstanceStatusAttribute(editTarget)
+            ? { name: true, dataType: true, isRequired: true, encryption: true }
+            : undefined
+        }
         onClose={() => setEditTarget(null)}
         onSubmit={handleEdit}
       />

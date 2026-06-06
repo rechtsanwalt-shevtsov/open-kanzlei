@@ -23,7 +23,7 @@ tags:
       Reserved for neutral work-context queries (no prioritization or workflow logic).
       Endpoints will be added in later phases.
   - name: LegalWork
-    description: Case, task and instrument models and instances
+    description: Case models, task models, and instances
   - name: Platform
     description: Tenant users and teams (administration)
   - name: Apps
@@ -73,24 +73,18 @@ paths:
     $ref: './paths/legal.yaml#/case-models-list'
   /v1/case-models/{id}:
     $ref: './paths/legal.yaml#/case-models-item'
-  /v1/case-models/{id}/task-models:
-    $ref: './paths/legal.yaml#/case-models-task-links'
   /v1/case-models/{id}/attributes:
     $ref: './paths/legal.yaml#/case-models-attributes'
+
+  /v1/case-models/{id}/task-model-exclusions:
+    $ref: './paths/legal.yaml#/case-model-task-model-exclusions'
 
   /v1/task-models:
     $ref: './paths/legal.yaml#/task-models-list'
   /v1/task-models/{id}:
     $ref: './paths/legal.yaml#/task-models-item'
-  /v1/task-models/{id}/instrument-models:
-    $ref: './paths/legal.yaml#/task-models-instrument-models'
   /v1/task-models/{id}/attributes:
     $ref: './paths/legal.yaml#/task-models-attributes'
-
-  /v1/instrument-models/{id}:
-    $ref: './paths/legal.yaml#/instrument-models-item'
-  /v1/instrument-models/{id}/attributes:
-    $ref: './paths/legal.yaml#/instrument-models-attributes'
 
   /v1/attribute-definitions/{id}:
     $ref: './paths/legal.yaml#/attribute-definitions-item'
@@ -99,18 +93,13 @@ paths:
     $ref: './paths/legal.yaml#/cases-list'
   /v1/cases/{id}:
     $ref: './paths/legal.yaml#/cases-item'
-  /v1/cases/{id}/tasks:
-    $ref: './paths/legal.yaml#/cases-tasks'
+  /v1/cases/{caseId}/tasks:
+    $ref: './paths/legal.yaml#/case-tasks-list'
 
   /v1/tasks:
     $ref: './paths/legal.yaml#/tasks-list'
   /v1/tasks/{id}:
     $ref: './paths/legal.yaml#/tasks-item'
-  /v1/tasks/{id}/instruments:
-    $ref: './paths/legal.yaml#/tasks-instruments'
-
-  /v1/instruments/{id}:
-    $ref: './paths/legal.yaml#/instruments-item'
 
 components:
   securitySchemes:

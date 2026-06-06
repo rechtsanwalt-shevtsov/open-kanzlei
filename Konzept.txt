@@ -23,14 +23,13 @@ Arbeitskontext bereit. Darauf basierend entscheiden externe Werkzeuge
 (UI, KI-Agenten, Automationen) selbständig über Ausführung, Reihenfolge
 und Priorisierung.
 
-Juristische Arbeit wird CMMN-inspiriert betrachtet:
-  - Zentrale Gruppierung: Task (z. B. "Klageschrift verfassen")
-  - Task enthält Instruments (z. B. "Schreiben aufsetzen", "Termin vereinbaren")
-  - OpenKanzlei liefert primär Daten zu Tasks und Instruments
-  - Externe Werkzeuge entscheiden, welche Instruments in welcher Reihenfolge laufen
+Juristische Arbeit wird CMMN-inspiriert betrachtet: Fälle (Cases) bündeln
+Arbeitskontext, Attribute und Dokumente; Tasks sind konkrete Arbeitseinheiten
+innerhalb eines Cases. OpenKanzlei modelliert Case-Modelle, Case-Instanzen,
+Task-Modelle und Task-Instanzen — ohne Workflow-Engine oder Stage-Ebene.
 
-Cases sind Datencontainer für Tasks und Dokumente.
-Arbeitsverwaltung und -überwachung erfolgen vorrangig ausgehend von Tasks.
+Externe Werkzeuge (UI, KI-Agenten, Automationen) können auf Case-Daten aufsetzen
+und dort eigene Arbeitslogik interpretieren.
 
 Work Context wird NICHT als separate Entität im Backend modelliert.
 Später können externe Werkzeuge Kontext über APIs und Events zusammensetzen.
@@ -122,10 +121,6 @@ openkanzlei/
 │   ├── legal-work/                 # Domain ohne HTTP im MVP; Repositories vorbereitet
 │   │   ├── case-models/
 │   │   ├── cases/
-│   │   ├── task-models/
-│   │   ├── tasks/
-│   │   ├── instrument-models/
-│   │   ├── instruments/
 │   │   ├── documents/
 │   │   └── attributes/
 │   │
@@ -160,12 +155,13 @@ Drei logische Scopes (kein scope_type-Feld in der DB nötig):
 
   1. Tenant Profile     — globale Tenant-Identität und Einstellungen
   2. Shared Resources   — Kontakte, Organisationen, Vorlagen, … (später)
-  3. Cases              — Arbeitscontainer: Tasks, Instruments, Dokumente
+  3. Cases              — Arbeitscontainer: Case-Instanzen, Attribute, Dokumente
+  4. Tasks              — Arbeitseinheiten innerhalb eines Cases
 
 Technische DB-Struktur darf flach bleiben; Trennung über Schemas/Module.
 
 ================================================================================
-6. MODELL / INSTANZ — CASES, STAGES, TASKS
+6. MODELL / INSTANZ — CASES
 ================================================================================
 
 Entscheidung: Attribute werden NUR auf Modellen definiert, nicht auf Instanzen.
@@ -174,30 +170,16 @@ Instanzen enthalten ausschließlich die Attribute ihres Modells.
 Beispiel:
   Case-Modell "Fallakte"
     → Instanzen: "Müller gegen Mayer", "XY GmbH gegen ABC AG"
-  Task-Modell "Klageschrift verfassen"
-    → konkrete Task-Instanzen an Cases
-  Instrument-Modell "Schreiben aufsetzen"
-    → konkrete Instrument-Instanzen an Tasks
 
 Modelle (Definitionen, tenant-scoped):
   - case_models
-  - task_models          — tenant-weit wiederverwendbar (NICHT an ein Case-Modell gebunden)
-  - instrument_models    — gehören zu einem task_model
-
-Optionale Verknüpfung Case-Modell ↔ Task-Modell:
-  - case_model_task_models (Many-to-Many, optional sort_order)
-  - Nur Modell-Metadaten ("typische Tasks für Fallakte")
-  - Erzeugt KEINE Instanzen, steuert KEINEN Ablauf
 
 Instanzen (lazy — Entscheidung B):
-  - POST /cases erzeugt nur Case-Instanz
-  - Tasks und Instruments werden explizit per POST angelegt (on demand)
-  - Keine automatische Erzeugung aller Task/Instrument-Shells beim Case-Anlegen
+  - POST /cases erzeugt Case-Instanz
+  - Keine automatische Erzeugung weiterer Hierarchie-Ebenen
 
 Hierarchie Instanzen:
-  cases      → case_model_id
-  tasks     → case_id + task_model_id
-  instruments      → task_id + instrument_model_id
+  cases → case_model_id
 
 Systemfelder auf Instanzen (keine sensiblen Fachdaten als Spalten):
   - id, tenant_id, *_model_id
@@ -205,11 +187,42 @@ Systemfelder auf Instanzen (keine sensiblen Fachdaten als Spalten):
   - encryption_status, encryption_version
   - created_at, updated_at
 
-WICHTIG — title und reference/Aktenzeichen:
-  - KEINE Standardspalten auf cases
-  - title enthält sensible Mandantendaten → modelldefiniertes Attribut
-  - reference/Aktenzeichen ebenfalls modelldefiniertes Attribut
-  - encryption_mode: zero_knowledge (langfristig)
+WICHTIG — title (Instanz-Anzeigename):
+  - KEINE Standardspalte auf cases
+  - Plattform-Instanzattribut key „title“, encryption_mode: zero_knowledge, Pflicht
+  - Kein Ableiten serverlesbarer Keys/Indizes aus dem Titel
+
+WICHTIG — reference/Aktenzeichen:
+  - modelldefiniertes Attribut (optional), nicht Plattform-Standard
+
+================================================================================
+6b. MODELL / INSTANZ — TASKS
+================================================================================
+
+Entscheidung: Attribute werden NUR auf Task-Modellen definiert, nicht auf Instanzen.
+
+Modelle: task_models (tenant-scoped, unabhängig von case_models)
+
+Instanzen (lazy):
+  - POST /v1/tasks oder POST /v1/cases/{caseId}/tasks
+  - Pflicht: case_id + task_model_id
+  - Backend prüft Opt-out: case_model_task_model_exclusions
+
+Hierarchie: cases → tasks (case_id FK)
+
+Systemspalten Task-Instanz:
+  status, predecessor_task_ids[], dependent_task_ids[] (+ id, tenant_id, …)
+
+Plattform-Instanzattribute Task-Modell:
+  status, title (zero_knowledge, Pflicht), weight (number, optional),
+  due_date (date, optional — Fristende; Vergabe durch Apps),
+  predecessor_task_ids, dependent_task_ids
+  Referenzen: Hybrid (Spalten + attributes.*), Validierung nur Existenz im Tenant,
+  keine Status-Kopplungslogik im Backend
+
+Assignees: legal.task_assignees (n:1 Benutzer)
+
+Code: task-models.ts, tasks.ts, task-model-platform-attributes.ts; Migration 021, 024
 
 ================================================================================
 7. BENUTZERDEFINIERTE ATTRIBUTE
@@ -219,7 +232,12 @@ Unterscheidung:
 
   1. Systemfelder — normale DB-Spalten (id, tenant_id, status, timestamps, …)
 
-  2. Benutzerdefinierte Attribute — KEINE eigenen DB-Spalten pro Attribut
+  2. Plattform-Standard-Instanzattribute — feste Attributdefinitionen pro Modelltyp,
+     vom Backend beim Modell-Anlegen gesetzt; stabile Keys; nicht über die normale
+     Attribute-API löschbar oder strukturell änderbar (nur Instanzwerte pflegbar)
+
+  3. Benutzerdefinierte Attribute (Tenant/Fach) — vom Admin oder Apps am Modell
+     definiert; KEINE eigenen DB-Spalten pro Attribut
 
 Tabellen:
   attribute_definitions
@@ -231,16 +249,45 @@ Tabellen:
 
   attribute_values
     - tenant_id, attribute_definition_id
-    - owner_type (Instanz: case | task | instrument), owner_id
+    - owner_type (Instanz: case), owner_id
     - plaintext_value / encrypted_value
     - encryption_status, encryption_version
 
 Regeln:
-  - Definitionen nur auf owner_type: case_model, task_model, instrument_model
-  - Werte nur auf Instanzen (case, task, instrument)
+  - Definitionen auf owner_type: case_model | task_model
+  - Werte auf Instanzen: case | task
   - Schreiben nur erlaubt, wenn Attribut am Modell der Instanz definiert ist
   - Verschlüsselungsentscheidung über attribute_definitions.encryption_mode,
     NICHT über Tabellen- oder Spaltennamen
+
+Plattform-Standard-Instanzattribut — Case-Modell (case_model, scope instance):
+  Key (reserviert): status
+  - data_type: single_select — erlaubte Werte pro Case-Modell in select_options
+  - select_option_translations (JSONB): Anzeigenamen pro Option und Sprache
+  - default_value: Standard-Status für neue Case-Instanzen (Key aus select_options)
+  - Standard-Seed bei Modell-Anlage: not_started, started, completed, deferred
+    mit DE/EN-Labels (überschreibbar am Modell)
+  Key (reserviert): title
+  - data_type: text, encryption_mode: zero_knowledge, is_required: true
+  - Pflicht bei Anlage neuer Case-Instanz (attributes.title)
+  Speicherung Instanz status:
+    - Systemspalte legal.cases.status (NOT NULL, für Filter/Indizes)
+    - zusätzlich in API attributes.status gespiegelt (RESERVED_INSTANCE_ATTRIBUTE_KEYS)
+    - Validierung gegen select_options des jeweiligen Case-Modells (nicht global fest)
+  Schutz Definition:
+    - DELETE /v1/attribute-definitions/{id} → 403
+    - manuelles Anlegen von key „status“ am Case-Modell → 403
+    - PATCH erlaubt: select_options, select_option_translations, default_value,
+      translations (Attributlabel); nicht erlaubt: key, data_type, encryption_mode, is_required
+  Schutz select_options:
+    - Entfernen/Umbenennen eines Option-Keys nur, wenn keine Case-Instanz des Modells
+      diesen status-Wert trägt → 409 error.select_option_in_use
+    - Hinzufügen neuer Optionen und Ändern von Labels jederzeit erlaubt
+  Code: case-model-platform-attributes.ts, case-model-defaults.ts, case-instance-status.ts,
+    select-option-translations.ts; Migration 019, 022 (title auf bestehende Case-Modelle)
+
+Hinweis: Modell-Lebenszyklus (case_models.status: draft|active|archived) ist ein
+separates Systemfeld — nicht mit Instanz-status verwechseln.
 
 ================================================================================
 8. DOKUMENTE
@@ -267,7 +314,7 @@ Langfristiges Ziel:
   - Entschlüsselung nur beim berechtigten Client
   - Betreiber hat keinen Zugriff auf juristische Inhalte
 
-Betrifft später u. a.: Cases, Tasks, Instruments, Attribute, Notizen, Dokumente,
+Betrifft später u. a.: Cases, Attribute, Notizen, Dokumente,
 Mandanten-/Gegnerinformationen.
 
 Ausgenommen (technische Plattformdaten):
@@ -380,7 +427,7 @@ Kein WorkContextService mit fachlicher Interpretation, Priorisierung oder
 Koordination im Backend.
 
 Backend stellt nur Work-Context-FÄHIGE Grundlagen:
-  - Cases, Tasks, Instruments als neutrale Datenobjekte
+  - Cases als neutrale Datenobjekte
   - Modell/Instanz-System und Attribute
   - Events und Webhooks
   - Filter- und Query-Möglichkeiten
@@ -392,7 +439,7 @@ Externe Werkzeuge interpretieren dieselben Rohdaten unterschiedlich
 API-Gruppe Work Context:
   - In OpenAPI als Tag/Pfadpräfix reservieren (/v1/work-context/…)
   - Zunächst ohne Endpunkte (leere work-context.yaml)
-  - Später: einzelne neutrale Abfrage-APIs (z. B. offene Tasks eines Benutzers)
+  - Später: einzelne neutrale Abfrage-APIs (z. B. offene Cases eines Benutzers)
   - KEINE Endpunkte für Priorisierung, next-task, Kanban-Logik
 
 Platzhalter:
@@ -411,8 +458,7 @@ PostgreSQL-Schemas zur logischen Trennung:
 
   platform.*   — tenants, tenant_profiles, users, roles, sessions,
                  app_installations, app_tenant_settings, app_user_settings, …
-  legal.*      — case_models, cases, task_models, tasks, instrument_models, instruments,
-                 case_model_task_models, documents
+  legal.*      — case_models, cases, documents
   events.*     — domain_events, outbox_events, webhook_subscriptions
   meta.*       — attribute_definitions, attribute_values
 
@@ -432,7 +478,6 @@ Zuerst NUR implementieren:
   PATCH  /v1/tenant/profile
 
 Noch NICHT implementieren (MVP):
-  - Case / Task / Instrument APIs
   - Work-Context Endpunkte (nur Gruppe/Tag reservieren)
   - Juristische Fachlogik
   - Workflow Engine
@@ -448,7 +493,7 @@ Schritt 1 — Repository + Vertrag + Schema + Docker
   [ ] docker-compose.yml (PostgreSQL; Backend/Frontend optional initial)
   [ ] openapi/ — MVP auth + tenant; Tag WorkContext + leere work-context.yaml
   [ ] SQL-Migrationen: platform, events, legal (Modelle + lazy Instanzen),
-      meta (attribute_*), case_model_task_models
+      meta (attribute_*)
   [ ] backend/ Minimal: package.json, TypeScript, migrate-Skript, GET /health
   [ ] work-context/README.md (Platzhalter)
 
@@ -464,13 +509,13 @@ Schritt 3 — Frontend MVP
   [ ] API-Client gegen OpenAPI
 
 Schritt 4 — Legal-Modelle und Instanzen (nach MVP)
-  [ ] CRUD Case-/Task-/Instrument-Modelle
-  [ ] Lazy Instanzen (Cases, Tasks, Instruments)
-  [ ] Attributdefinitionen auf Modellen, Werte auf Instanzen
+  [x] CRUD Case-Modelle
+  [x] Lazy Instanzen (Cases)
+  [x] Attributdefinitionen auf Modellen, Werte auf Instanzen
 
 Schritt 5 — Erste Work-Context-Abfrage-APIs (später)
   [ ] Neutrale Filter-Endpunkte unter /v1/work-context/…
-  [ ] z. B. GET offene Tasks eines Benutzers — ohne Priorisierung
+  [ ] z. B. GET offene Cases eines Benutzers — ohne Priorisierung
 
 ================================================================================
 18. PLATTFORM UND APPS
@@ -680,10 +725,9 @@ Scope dieser App (explizit):
   ÜBERNIMMT:
     - gesamte Admin-UI nur für Case-Models inkl. Attribute
   BLEIBT in bestehender Admin-UI:
-    - Task-Modelle, Instrument-Modelle, CreateModelDialog für task/instrument
-    - /admin/models (ohne Case-Model-Zeilen oder mit Link „In App öffnen“)
+    - /admin/models — Case-Model-Übersicht mit Link „In App öffnen“
   NICHT in dieser App:
-    - Case-/Task-/Instrument-Instanzen, Kanban, Dokumente, Workflow, KI, ZK
+    - Case-Instanzen (Cases-App), Kanban, Dokumente, Workflow, KI, ZK
 
 App-Ordnerstruktur (implementiert):
 
@@ -834,7 +878,7 @@ Phase G — App-Plattform ausbauen [x]
 
 Abnahme App-MVP:
   - Tenant-Admin kann Case-Modelle und Attribute nur über die App verwalten
-  - Task-/Instrument-Modelle weiterhin unter /admin/models
+  - /admin/models listet Case-Modelle mit Link zur App
   - effective_settings sichtbar; tenant/user overrides wie im Schema
   - Events attribute_definition.* und app_settings.updated in domain_events
   - Keine App-Daten außerhalb der Plattform-DB
@@ -851,7 +895,6 @@ Abnahme App-MVP:
   | Aktenzeichen/reference   | Modell-Attribut                           |
   | Attribute definieren     | Nur auf Modellen, nicht auf Instanzen     |
   | Instanziierung           | Lazy (B)                                  |
-  | Task-Modelle             | Tenant-weit wiederverwendbar              |
   | Login                    | tenant_slug + username + password         |
   | E-Mail                   | Nicht global unique                       |
   | Projekt-Lizenz           | Apache 2.0                                |

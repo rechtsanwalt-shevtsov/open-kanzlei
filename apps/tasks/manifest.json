@@ -1,0 +1,26 @@
+{
+  "app_key": "tasks",
+  "name": "Tasks",
+  "version": "1.0.0",
+  "description": "Aufgaben anlegen und verwalten (Benutzerbereich).",
+  "has_react_ui": true,
+  "menu_category": "work",
+  "nav_path": "/apps/tasks",
+  "nav_icon": "LuListTodo",
+  "routes": [
+    { "path": "/apps/tasks", "label": "Tasks" },
+    { "path": "/apps/tasks/settings", "label": "Einstellungen" }
+  ],
+  "required_roles": [],
+  "supported_locales": ["de", "en"],
+  "event_subscriptions": [],
+  "settings_schema": {
+    "itemsPerPage": {
+      "type": "number",
+      "default": 25,
+      "allowedValues": [5, 10, 25, 50, 100],
+      "tenantConfigurable": true,
+      "userOverridable": true
+    }
+  }
+}

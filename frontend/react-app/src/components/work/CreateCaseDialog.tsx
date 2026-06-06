@@ -84,7 +84,7 @@ export function CreateCaseDialog({
     }
     let cancelled = false;
     setFieldsLoading(true);
-    void listModelAttributes('case_model', caseModelId, locale, 'instance').then((res) => {
+    void listModelAttributes(caseModelId, locale, 'instance').then((res) => {
       if (cancelled) return;
       setFieldsLoading(false);
       if (res.error) {

@@ -1,8 +1,9 @@
-import { useI18n } from '@shell/i18n/I18nContext.js';
+import { useI18n } from '../../i18n/I18nContext.js';
 
 interface FieldSelectInputProps {
   dataType: 'single_select' | 'multi_select';
   options: string[];
+  optionLabels?: Record<string, string>;
   value: string | string[];
   onChange: (value: string | string[] | null) => void;
   disabled?: boolean;
@@ -10,9 +11,14 @@ interface FieldSelectInputProps {
   compact?: boolean;
 }
 
+function labelFor(option: string, optionLabels?: Record<string, string>): string {
+  return optionLabels?.[option] ?? option;
+}
+
 export function FieldSelectInput({
   dataType,
   options,
+  optionLabels,
   value,
   onChange,
   disabled = false,
@@ -36,7 +42,7 @@ export function FieldSelectInput({
         <option value="">—</option>
         {options.map((opt) => (
           <option key={opt} value={opt}>
-            {opt}
+            {labelFor(opt, optionLabels)}
           </option>
         ))}
       </select>
@@ -44,7 +50,9 @@ export function FieldSelectInput({
   }
 
   const selected = new Set(Array.isArray(value) ? value : []);
-  const listClass = compact ? 'cas-field-option-list cas-field-option-list--compact' : 'cas-field-option-list';
+  const listClass = compact
+    ? 'cas-field-option-list cas-field-option-list--compact'
+    : 'cas-field-option-list';
 
   return (
     <ul className={listClass} role="listbox" aria-multiselectable="true">
@@ -65,7 +73,7 @@ export function FieldSelectInput({
                   onChange(next.size > 0 ? [...next] : null);
                 }}
               />
-              <span>{opt}</span>
+              <span>{labelFor(opt, optionLabels)}</span>
             </label>
           </li>
         ))

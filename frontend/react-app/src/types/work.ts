@@ -1,7 +1,6 @@
 import type { components } from '../api/schema.js';
 
 export type CaseInstance = components['schemas']['Case'];
-export type TaskInstance = components['schemas']['Task'];
 export type Assignee = components['schemas']['Assignee'];
 
 export type WorkViewMode = 'list' | 'kanban';

@@ -6,7 +6,8 @@ import { useI18n } from '@shell/i18n/I18nContext.js';
 import { listModelAttributes, type AttributeDefinition } from '@shell/lib/attribute-api.js';
 import { dataTypeMessageKey } from '@shell/lib/data-type-label.js';
 import { labelFromTranslations } from '@shell/lib/model-label.js';
-import { WORK_STATUSES, workStatusLabel } from '@shell/lib/work-status.js';
+import { findCaseStatusDefinition } from '@shell/lib/case-instance-status.js';
+import { selectOptionLabel } from '@shell/lib/select-option-labels.js';
 import type { components } from '@shell/api/schema.js';
 import { CaseFieldValueCell } from '../components/CaseFieldValueCell.js';
 import { caseTitle } from '../lib/case-display.js';
@@ -52,12 +53,7 @@ export function CaseDetailPage() {
       setModelLabel(item.case_model_id);
     }
 
-    const attrsRes = await listModelAttributes(
-      'case_model',
-      item.case_model_id,
-      locale,
-      'instance',
-    );
+    const attrsRes = await listModelAttributes(item.case_model_id, locale, 'instance');
     if (attrsRes.error) {
       setError(msg('errorGeneric'));
       setLoading(false);
@@ -115,8 +111,16 @@ export function CaseDetailPage() {
     return def.display_name ?? labelFromTranslations(def.translations, def.key, locale);
   }
 
+  const statusDefinition = useMemo(
+    () => findCaseStatusDefinition(fields),
+    [fields],
+  );
+
   const sortedFields = useMemo(
-    () => [...fields].sort((a, b) => fieldName(a).localeCompare(fieldName(b), locale)),
+    () =>
+      [...fields]
+        .filter((def) => def.key !== 'status')
+        .sort((a, b) => fieldName(a).localeCompare(fieldName(b), locale)),
     [fields, locale],
   );
 
@@ -174,28 +178,30 @@ export function CaseDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="admin-table-row--system">
-                    <td>
-                      {msg('workColStatus')}
-                      <span className="admin-table-sub"> ({msg('cmdSystemField')})</span>
-                    </td>
-                    <td className="admin-table-col-status">{msg('cmdFieldTypeEnum')}</td>
-                    <td>
-                      <select
-                        className="admin-table-inline-input"
-                        value={caseItem.status}
-                        disabled={fieldSaving}
-                        onChange={(e) => void patchStatus(e.target.value)}
-                        aria-label={msg('workColStatus')}
-                      >
-                        {WORK_STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {workStatusLabel(s, msg)}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
+                  {statusDefinition && (
+                    <tr className="admin-table-row--system">
+                      <td>
+                        {statusDefinition.display_name ?? fieldName(statusDefinition)}
+                        <span className="admin-table-sub"> ({msg('cmdSystemField')})</span>
+                      </td>
+                      <td className="admin-table-col-status">{msg('cmdFieldTypeEnum')}</td>
+                      <td>
+                        <select
+                          className="admin-table-inline-input"
+                          value={caseItem.status}
+                          disabled={fieldSaving}
+                          onChange={(e) => void patchStatus(e.target.value)}
+                          aria-label={statusDefinition.display_name ?? fieldName(statusDefinition)}
+                        >
+                          {(statusDefinition.select_options ?? []).map((optionKey) => (
+                            <option key={optionKey} value={optionKey}>
+                              {selectOptionLabel(optionKey, statusDefinition)}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  )}
                   {sortedFields.length === 0 ? (
                     <tr>
                       <td colSpan={3}>{msg('casFieldsEmpty')}</td>

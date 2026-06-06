@@ -5,10 +5,11 @@ import { api, apiHeaders } from '@shell/api/client.js';
 import { useI18n } from '@shell/i18n/I18nContext.js';
 import { labelFromTranslations } from '@shell/lib/model-label.js';
 import { useEffectiveSettings } from '../hooks/useEffectiveSettings.js';
+import { caseModelStatusLabel } from '../lib/case-model-status.js';
 import type { components } from '@shell/api/schema.js';
 
 type CaseModel = components['schemas']['CaseModel'];
-type SortColumn = 'name' | 'description';
+type SortColumn = 'name' | 'description' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 export function CaseModelsListPage() {
@@ -72,9 +73,15 @@ export function CaseModelsListPage() {
     return items.filter((m) => {
       const label = modelLabel(m).toLowerCase();
       const desc = (m.description ?? '').toLowerCase();
-      return label.includes(q) || desc.includes(q) || m.key.toLowerCase().includes(q);
+      const statusLabel = caseModelStatusLabel(m.status, msg).toLowerCase();
+      return (
+        label.includes(q) ||
+        desc.includes(q) ||
+        m.key.toLowerCase().includes(q) ||
+        statusLabel.includes(q)
+      );
     });
-  }, [items, search, locale]);
+  }, [items, search, locale, msg]);
 
   const sorted = useMemo(() => {
     if (!sortColumn) return filtered;
@@ -84,17 +91,26 @@ export function CaseModelsListPage() {
       if (sortColumn === 'name') {
         return dir * modelLabel(a).localeCompare(modelLabel(b), locale);
       }
+      if (sortColumn === 'status') {
+        return (
+          dir *
+          caseModelStatusLabel(a.status, msg).localeCompare(
+            caseModelStatusLabel(b.status, msg),
+            locale,
+          )
+        );
+      }
       return dir * (a.description ?? '').localeCompare(b.description ?? '', locale);
     });
     return list;
-  }, [filtered, sortColumn, sortDirection, locale]);
+  }, [filtered, sortColumn, sortDirection, locale, msg]);
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / itemsPerPage));
   const pageItems = sorted.slice(page * itemsPerPage, page * itemsPerPage + itemsPerPage);
   const pageIds = useMemo(() => pageItems.map((m) => m.id), [pageItems]);
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
   const somePageSelected = pageIds.some((id) => selectedIds.has(id));
-  const colCount = 3;
+  const colCount = 4;
   const rangeFrom = sorted.length === 0 ? 0 : page * itemsPerPage + 1;
   const rangeTo = Math.min(sorted.length, page * itemsPerPage + pageItems.length);
   const pageRangeLabel = msg('cmdPageRange')
@@ -339,6 +355,25 @@ export function CaseModelsListPage() {
                       {sortIcon('description')}
                     </button>
                   </th>
+                  <th
+                    className="admin-table-col-status"
+                    aria-sort={
+                      sortColumn === 'status'
+                        ? sortDirection === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                    }
+                  >
+                    <button
+                      type="button"
+                      className="admin-table-sort"
+                      onClick={() => handleSortColumn('status')}
+                    >
+                      {msg('workColStatus')}
+                      {sortIcon('status')}
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -367,6 +402,9 @@ export function CaseModelsListPage() {
                           <Link to={`/apps/case-model-designer/${m.id}`}>{modelLabel(m)}</Link>
                         </td>
                         <td className="cmd-col-description">{m.description?.trim() || '—'}</td>
+                        <td className="admin-table-col-status">
+                          {caseModelStatusLabel(m.status, msg)}
+                        </td>
                       </tr>
                     );
                   })

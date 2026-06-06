@@ -344,22 +344,6 @@ export interface paths {
         patch: operations["updateCaseModel"];
         trace?: never;
     };
-    "/v1/case-models/{id}/task-models": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listCaseModelTaskModels"];
-        put: operations["setCaseModelTaskModels"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/case-models/{id}/attributes": {
         parameters: {
             query?: never;
@@ -376,6 +360,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/case-models/{id}/task-model-exclusions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listCaseModelTaskModelExclusions"];
+        put: operations["setCaseModelTaskModelExclusions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/task-models": {
         parameters: {
             query?: never;
@@ -383,8 +383,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List task models */
         get: operations["listTaskModels"];
         put?: never;
+        /** Create task model */
         post: operations["createTaskModel"];
         delete?: never;
         options?: never;
@@ -408,22 +410,6 @@ export interface paths {
         patch: operations["updateTaskModel"];
         trace?: never;
     };
-    "/v1/task-models/{id}/instrument-models": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listInstrumentModelsForTaskModel"];
-        put?: never;
-        post: operations["createInstrumentModel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/task-models/{id}/attributes": {
         parameters: {
             query?: never;
@@ -434,38 +420,6 @@ export interface paths {
         get: operations["listTaskModelAttributes"];
         put?: never;
         post: operations["createTaskModelAttribute"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/instrument-models/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getInstrumentModel"];
-        put?: never;
-        post?: never;
-        delete: operations["deleteInstrumentModel"];
-        options?: never;
-        head?: never;
-        patch: operations["updateInstrumentModel"];
-        trace?: never;
-    };
-    "/v1/instrument-models/{id}/attributes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listInstrumentModelAttributes"];
-        put?: never;
-        post: operations["createInstrumentModelAttribute"];
         delete?: never;
         options?: never;
         head?: never;
@@ -520,16 +474,16 @@ export interface paths {
         patch: operations["updateCase"];
         trace?: never;
     };
-    "/v1/cases/{id}/tasks": {
+    "/v1/cases/{caseId}/tasks": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["listTasksForCase"];
+        get: operations["listCaseTasks"];
         put?: never;
-        post: operations["createTask"];
+        post: operations["createCaseTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -545,7 +499,7 @@ export interface paths {
         };
         get: operations["listTasks"];
         put?: never;
-        post?: never;
+        post: operations["createTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -566,38 +520,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["updateTask"];
-        trace?: never;
-    };
-    "/v1/tasks/{id}/instruments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listInstrumentsForTask"];
-        put?: never;
-        post: operations["createInstrument"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/instruments/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getInstrument"];
-        put?: never;
-        post?: never;
-        delete: operations["deleteInstrument"];
-        options?: never;
-        head?: never;
-        patch: operations["updateInstrument"];
         trace?: never;
     };
 }
@@ -878,14 +800,6 @@ export interface components {
             /** @deprecated */
             description_translations?: components["schemas"]["Translations"];
         };
-        CaseModelTaskModelLink: {
-            /** Format: uuid */
-            task_model_id: string;
-            sort_order?: number | null;
-        };
-        SetCaseModelTaskModelsRequest: {
-            links: components["schemas"]["CaseModelTaskModelLink"][];
-        };
         /** @enum {string} */
         DefinitionScope: "model" | "instance";
         /** @enum {string} */
@@ -896,7 +810,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            owner_type: "case_model" | "task_model" | "instrument_model";
+            owner_type: "case_model" | "task_model";
             /** Format: uuid */
             owner_id: string;
             definition_scope: components["schemas"]["DefinitionScope"];
@@ -906,6 +820,16 @@ export interface components {
             translations: components["schemas"]["Translations"];
             is_required: boolean;
             select_options: string[];
+            /** @description Map of option key to locale labels (e.g. {"waiting_client":{"de":"…","en":"…"}}) */
+            select_option_translations: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
+            /** @description Resolved option labels for the effective request locale (read-only in responses) */
+            select_option_labels?: {
+                [key: string]: string;
+            };
             /** @description Default for new instances (instance scope) or model value (model scope) */
             default_value?: unknown;
             /** @description Resolved label for the effective request locale (Accept-Language), with fallback de → en → key */
@@ -927,51 +851,49 @@ export interface components {
             translations?: components["schemas"]["Translations"];
             is_required?: boolean;
             select_options?: string[];
+            select_option_translations?: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
             default_value?: unknown;
         };
-        /** @description Language-neutral status key (e.g. active, open, closed) */
-        StatusKey: string;
+        CaseModelTaskModelExclusions: {
+            /** @description Task models excluded from this case model (opt-out; all others allowed) */
+            task_model_ids: string[];
+        };
         TaskModel: {
             /** Format: uuid */
             id: string;
             key: components["schemas"]["ModelKey"];
-            status: components["schemas"]["StatusKey"];
+            status: components["schemas"]["CaseModelStatus"];
             translations: components["schemas"]["Translations"];
+            description: string;
+            /** @deprecated */
+            description_translations?: components["schemas"]["Translations"];
+            display_name: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
         };
+        /** @description Provide either name (server generates key and translations[locale]) or legacy key + translations. */
         CreateTaskModelRequest: {
-            key: components["schemas"]["ModelKey"];
-            status?: components["schemas"]["StatusKey"];
-            translations: components["schemas"]["Translations"];
+            name?: string;
+            /** @enum {string} */
+            locale?: "de" | "en";
+            key?: components["schemas"]["ModelKey"];
+            status?: components["schemas"]["CaseModelStatus"];
+            translations?: components["schemas"]["Translations"];
+            description?: string;
         };
         UpdateTaskModelRequest: {
-            status?: components["schemas"]["StatusKey"];
+            name?: string;
+            /** @enum {string} */
+            locale?: "de" | "en";
+            status?: components["schemas"]["CaseModelStatus"];
             translations?: components["schemas"]["Translations"];
-        };
-        InstrumentModel: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            task_model_id: string;
-            key: components["schemas"]["ModelKey"];
-            status: components["schemas"]["StatusKey"];
-            translations: components["schemas"]["Translations"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        CreateInstrumentModelRequest: {
-            key: components["schemas"]["ModelKey"];
-            status?: components["schemas"]["StatusKey"];
-            translations: components["schemas"]["Translations"];
-        };
-        UpdateInstrumentModelRequest: {
-            status?: components["schemas"]["StatusKey"];
-            translations?: components["schemas"]["Translations"];
+            description?: string;
         };
         UpdateAttributeDefinitionRequest: {
             name?: string;
@@ -982,8 +904,15 @@ export interface components {
             translations?: components["schemas"]["Translations"];
             is_required?: boolean;
             select_options?: string[];
+            select_option_translations?: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
             default_value?: unknown;
         };
+        /** @description Language-neutral status key (e.g. active, open, closed) */
+        StatusKey: string;
         Assignee: {
             /** Format: uuid */
             user_id: string;
@@ -1031,8 +960,11 @@ export interface components {
             /** Format: uuid */
             task_model_id: string;
             status: components["schemas"]["StatusKey"];
+            predecessor_task_ids: string[];
+            dependent_task_ids: string[];
             encryption_status: string;
             encryption_version?: number | null;
+            /** @description Attribute values keyed by definition key (includes status, title, task references) */
             attributes?: {
                 [key: string]: unknown;
             };
@@ -1042,10 +974,25 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
-        CreateTaskRequest: {
+        CreateCaseTaskRequest: {
             /** Format: uuid */
             task_model_id: string;
             status?: components["schemas"]["StatusKey"];
+            predecessor_task_ids?: string[];
+            dependent_task_ids?: string[];
+            attributes?: {
+                [key: string]: unknown;
+            };
+            assignee_user_ids?: string[];
+        };
+        CreateTaskRequest: {
+            /** Format: uuid */
+            case_id: string;
+            /** Format: uuid */
+            task_model_id: string;
+            status?: components["schemas"]["StatusKey"];
+            predecessor_task_ids?: string[];
+            dependent_task_ids?: string[];
             attributes?: {
                 [key: string]: unknown;
             };
@@ -1053,42 +1000,12 @@ export interface components {
         };
         UpdateTaskRequest: {
             status?: components["schemas"]["StatusKey"];
+            predecessor_task_ids?: string[];
+            dependent_task_ids?: string[];
             attributes?: {
                 [key: string]: unknown;
             };
             assignee_user_ids?: string[];
-        };
-        Instrument: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            task_id: string;
-            /** Format: uuid */
-            instrument_model_id: string;
-            status: components["schemas"]["StatusKey"];
-            encryption_status: string;
-            encryption_version?: number | null;
-            attributes?: {
-                [key: string]: unknown;
-            };
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        CreateInstrumentRequest: {
-            /** Format: uuid */
-            instrument_model_id: string;
-            status?: components["schemas"]["StatusKey"];
-            attributes?: {
-                [key: string]: unknown;
-            };
-        };
-        UpdateInstrumentRequest: {
-            status?: components["schemas"]["StatusKey"];
-            attributes?: {
-                [key: string]: unknown;
-            };
         };
     };
     responses: {
@@ -1911,61 +1828,6 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    listCaseModelTaskModels: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        items: components["schemas"]["CaseModelTaskModelLink"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    setCaseModelTaskModels: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetCaseModelTaskModelsRequest"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        items: components["schemas"]["CaseModelTaskModelLink"][];
-                    };
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
     listCaseModelAttributes: {
         parameters: {
             query?: {
@@ -2020,6 +1882,57 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listCaseModelTaskModelExclusions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseModelTaskModelExclusions"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setCaseModelTaskModelExclusions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseModelTaskModelExclusions"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseModelTaskModelExclusions"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listTaskModels: {
@@ -2144,63 +2057,11 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    listInstrumentModelsForTaskModel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        items: components["schemas"]["InstrumentModel"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    createInstrumentModel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateInstrumentModelRequest"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstrumentModel"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
     listTaskModelAttributes: {
         parameters: {
-            query?: never;
+            query?: {
+                definition_scope?: components["schemas"]["DefinitionScope"];
+            };
             header?: never;
             path: {
                 id: components["parameters"]["IdPath"];
@@ -2224,134 +2085,6 @@ export interface operations {
         };
     };
     createTaskModelAttribute: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateAttributeDefinitionRequest"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AttributeDefinition"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    getInstrumentModel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstrumentModel"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    deleteInstrumentModel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    updateInstrumentModel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateInstrumentModelRequest"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstrumentModel"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    listInstrumentModelAttributes: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        items: components["schemas"]["AttributeDefinition"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    createInstrumentModelAttribute: {
         parameters: {
             query?: never;
             header?: never;
@@ -2554,12 +2287,14 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    listTasksForCase: {
+    listCaseTasks: {
         parameters: {
-            query?: never;
+            query?: {
+                task_model_id?: string;
+            };
             header?: never;
             path: {
-                id: components["parameters"]["IdPath"];
+                caseId: string;
             };
             cookie?: never;
         };
@@ -2579,13 +2314,65 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    createTask: {
+    createCaseTask: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["IdPath"];
+                caseId: string;
             };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCaseTaskRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listTasks: {
+        parameters: {
+            query?: {
+                case_id?: string;
+                task_model_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Task"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody: {
@@ -2604,29 +2391,8 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-        };
-    };
-    listTasks: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        items: components["schemas"]["Task"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
         };
     };
     getTask: {
@@ -2695,132 +2461,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Task"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    listInstrumentsForTask: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        items: components["schemas"]["Instrument"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    createInstrument: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateInstrumentRequest"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Instrument"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    getInstrument: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Instrument"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    deleteInstrument: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    updateInstrument: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["IdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateInstrumentRequest"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Instrument"];
                 };
             };
             400: components["responses"]["BadRequest"];

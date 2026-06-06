@@ -107,107 +107,6 @@ UpdateCaseModelRequest:
       $ref: '#/Translations'
       deprecated: true
 
-TaskModel:
-  type: object
-  required: [id, key, status, translations, created_at, updated_at]
-  properties:
-    id:
-      type: string
-      format: uuid
-    key:
-      $ref: '#/ModelKey'
-    status:
-      $ref: '#/StatusKey'
-    translations:
-      $ref: '#/Translations'
-    created_at:
-      type: string
-      format: date-time
-    updated_at:
-      type: string
-      format: date-time
-
-CreateTaskModelRequest:
-  type: object
-  required: [key, translations]
-  properties:
-    key:
-      $ref: '#/ModelKey'
-    status:
-      $ref: '#/StatusKey'
-    translations:
-      $ref: '#/Translations'
-
-UpdateTaskModelRequest:
-  type: object
-  properties:
-    status:
-      $ref: '#/StatusKey'
-    translations:
-      $ref: '#/Translations'
-
-InstrumentModel:
-  type: object
-  required: [id, task_model_id, key, status, translations, created_at, updated_at]
-  properties:
-    id:
-      type: string
-      format: uuid
-    task_model_id:
-      type: string
-      format: uuid
-    key:
-      $ref: '#/ModelKey'
-    status:
-      $ref: '#/StatusKey'
-    translations:
-      $ref: '#/Translations'
-    created_at:
-      type: string
-      format: date-time
-    updated_at:
-      type: string
-      format: date-time
-
-CreateInstrumentModelRequest:
-  type: object
-  required: [key, translations]
-  properties:
-    key:
-      $ref: '#/ModelKey'
-    status:
-      $ref: '#/StatusKey'
-    translations:
-      $ref: '#/Translations'
-
-UpdateInstrumentModelRequest:
-  type: object
-  properties:
-    status:
-      $ref: '#/StatusKey'
-    translations:
-      $ref: '#/Translations'
-
-CaseModelTaskModelLink:
-  type: object
-  required: [task_model_id]
-  properties:
-    task_model_id:
-      type: string
-      format: uuid
-    sort_order:
-      type: integer
-      nullable: true
-
-SetCaseModelTaskModelsRequest:
-  type: object
-  required: [links]
-  properties:
-    links:
-      type: array
-      items:
-        $ref: '#/CaseModelTaskModelLink'
-
 Assignee:
   type: object
   required: [user_id, username]
@@ -282,124 +181,6 @@ UpdateCaseRequest:
         type: string
         format: uuid
 
-Task:
-  type: object
-  required: [id, case_id, task_model_id, status, encryption_status, assignees, created_at, updated_at]
-  properties:
-    id:
-      type: string
-      format: uuid
-    case_id:
-      type: string
-      format: uuid
-    task_model_id:
-      type: string
-      format: uuid
-    status:
-      $ref: '#/StatusKey'
-    encryption_status:
-      type: string
-    encryption_version:
-      type: integer
-      nullable: true
-    attributes:
-      type: object
-      additionalProperties: true
-    assignees:
-      type: array
-      items:
-        $ref: '#/Assignee'
-    created_at:
-      type: string
-      format: date-time
-    updated_at:
-      type: string
-      format: date-time
-
-CreateTaskRequest:
-  type: object
-  required: [task_model_id]
-  properties:
-    task_model_id:
-      type: string
-      format: uuid
-    status:
-      $ref: '#/StatusKey'
-    attributes:
-      type: object
-      additionalProperties: true
-    assignee_user_ids:
-      type: array
-      items:
-        type: string
-        format: uuid
-
-UpdateTaskRequest:
-  type: object
-  properties:
-    status:
-      $ref: '#/StatusKey'
-    attributes:
-      type: object
-      additionalProperties: true
-    assignee_user_ids:
-      type: array
-      items:
-        type: string
-        format: uuid
-
-Instrument:
-  type: object
-  required: [id, task_id, instrument_model_id, status, encryption_status, created_at, updated_at]
-  properties:
-    id:
-      type: string
-      format: uuid
-    task_id:
-      type: string
-      format: uuid
-    instrument_model_id:
-      type: string
-      format: uuid
-    status:
-      $ref: '#/StatusKey'
-    encryption_status:
-      type: string
-    encryption_version:
-      type: integer
-      nullable: true
-    attributes:
-      type: object
-      additionalProperties: true
-    created_at:
-      type: string
-      format: date-time
-    updated_at:
-      type: string
-      format: date-time
-
-CreateInstrumentRequest:
-  type: object
-  required: [instrument_model_id]
-  properties:
-    instrument_model_id:
-      type: string
-      format: uuid
-    status:
-      $ref: '#/StatusKey'
-    attributes:
-      type: object
-      additionalProperties: true
-
-UpdateInstrumentRequest:
-  type: object
-  properties:
-    status:
-      $ref: '#/StatusKey'
-    attributes:
-      type: object
-      additionalProperties: true
-
 AttributeDefinition:
   type: object
   required:
@@ -413,6 +194,7 @@ AttributeDefinition:
     - translations
     - is_required
     - select_options
+    - select_option_translations
     - display_name
   properties:
     id:
@@ -420,7 +202,7 @@ AttributeDefinition:
       format: uuid
     owner_type:
       type: string
-      enum: [case_model, task_model, instrument_model]
+      enum: [case_model, task_model]
     owner_id:
       type: string
       format: uuid
@@ -440,6 +222,18 @@ AttributeDefinition:
       type: array
       items:
         type: string
+    select_option_translations:
+      type: object
+      additionalProperties:
+        type: object
+        additionalProperties:
+          type: string
+      description: Map of option key to locale labels (e.g. {"waiting_client":{"de":"…","en":"…"}})
+    select_option_labels:
+      type: object
+      additionalProperties:
+        type: string
+      description: Resolved option labels for the effective request locale (read-only in responses)
     default_value:
       description: Default for new instances (instance scope) or model value (model scope)
     display_name:
@@ -480,6 +274,12 @@ CreateAttributeDefinitionRequest:
       type: array
       items:
         type: string
+    select_option_translations:
+      type: object
+      additionalProperties:
+        type: object
+        additionalProperties:
+          type: string
     default_value: {}
 
 UpdateAttributeDefinitionRequest:
@@ -503,6 +303,12 @@ UpdateAttributeDefinitionRequest:
       type: array
       items:
         type: string
+    select_option_translations:
+      type: object
+      additionalProperties:
+        type: object
+        additionalProperties:
+          type: string
     default_value: {}
 
 AttributeValuesRequest:
@@ -513,3 +319,215 @@ AttributeValuesRequest:
       type: object
       additionalProperties: true
       description: Map of attribute key to value
+
+TaskModel:
+  type: object
+  required: [id, key, status, translations, description, display_name, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/CaseModelStatus'
+    translations:
+      $ref: '#/Translations'
+    description:
+      type: string
+    description_translations:
+      $ref: '#/Translations'
+      deprecated: true
+    display_name:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateTaskModelRequest:
+  type: object
+  description: >
+    Provide either name (server generates key and translations[locale]) or legacy key + translations.
+  properties:
+    name:
+      type: string
+      minLength: 1
+    locale:
+      type: string
+      enum: [de, en]
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/CaseModelStatus'
+    translations:
+      $ref: '#/Translations'
+    description:
+      type: string
+
+UpdateTaskModelRequest:
+  type: object
+  properties:
+    name:
+      type: string
+      minLength: 1
+    locale:
+      type: string
+      enum: [de, en]
+    status:
+      $ref: '#/CaseModelStatus'
+    translations:
+      $ref: '#/Translations'
+    description:
+      type: string
+
+Task:
+  type: object
+  required:
+    - id
+    - case_id
+    - task_model_id
+    - status
+    - predecessor_task_ids
+    - dependent_task_ids
+    - encryption_status
+    - assignees
+    - created_at
+    - updated_at
+  properties:
+    id:
+      type: string
+      format: uuid
+    case_id:
+      type: string
+      format: uuid
+    task_model_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/StatusKey'
+    predecessor_task_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+    dependent_task_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+    encryption_status:
+      type: string
+    encryption_version:
+      type: integer
+      nullable: true
+    attributes:
+      type: object
+      additionalProperties: true
+      description: Attribute values keyed by definition key (includes status, title, task references)
+    assignees:
+      type: array
+      items:
+        $ref: '#/Assignee'
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateTaskRequest:
+  type: object
+  required: [case_id, task_model_id]
+  properties:
+    case_id:
+      type: string
+      format: uuid
+    task_model_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/StatusKey'
+    predecessor_task_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+    dependent_task_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+    attributes:
+      type: object
+      additionalProperties: true
+    assignee_user_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+
+CreateCaseTaskRequest:
+  type: object
+  required: [task_model_id]
+  properties:
+    task_model_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/StatusKey'
+    predecessor_task_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+    dependent_task_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+    attributes:
+      type: object
+      additionalProperties: true
+    assignee_user_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+
+UpdateTaskRequest:
+  type: object
+  properties:
+    status:
+      $ref: '#/StatusKey'
+    predecessor_task_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+    dependent_task_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+    attributes:
+      type: object
+      additionalProperties: true
+    assignee_user_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+
+CaseModelTaskModelExclusions:
+  type: object
+  required: [task_model_ids]
+  properties:
+    task_model_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+      description: Task models excluded from this case model (opt-out; all others allowed)

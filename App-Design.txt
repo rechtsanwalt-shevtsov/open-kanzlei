@@ -240,8 +240,72 @@ Primäre Erstell-Aktion: führendes „+ “ vor dem Label (+ Case-Modell anlege
   - Drei-Punkte-Menü oder Icon-Button über shell-Komponenten (AttributeRowActions o. ä.)
   - Einzel-Löschen/Bearbeiten zusätzlich zu Bulk-Aktionen erlaubt
 
+9.4 Select-Attribute (single_select / multi_select)
 
-10. Lade- und Fehlerzustände
+  Gilt für Auswahlfelder in Case-Modell-Attributen (Instanz- und Modell-Scope).
+  Referenz: AttributeDialog, SelectOptionsEditor, FieldSelectInput (Shell);
+  Case Model Designer: CaseModelDetailPage, CaseFieldsEditor, InstanceDefaultValueCell.
+
+  Grundsatz
+  - single_select und multi_select nutzen dieselbe UI für die Definition der
+    Auswahlwerte — kein Textarea, keine sichtbaren technischen Keys.
+  - Anzeige immer über übersetzte Bezeichnungen (Labels); gespeichert werden stabile
+    Keys in select_options und Labels pro Sprache in select_option_translations.
+  - Bearbeitung der Auswahlwerte erfolgt im Attribut-Dialog beim Speichern, nicht
+    inline in der Tabellenzeile (Ausnahme: Standardwert, siehe unten).
+
+  Auswahlwerte bearbeiten (SelectOptionsEditor)
+  - Darstellung: kompakte Tabelle innerhalb fieldset.select-options-fieldset
+  - Spalten: Drag-Handle | Bezeichnung | Löschen
+  - Pro Zeile ein Eingabefeld für die Bezeichnung in der aktuellen UI-Sprache
+  - Drag & Drop über das Griff-Icon (LuGripVertical) ändert die Reihenfolge
+  - Button unten: „Werte hinzufügen“ (i18n: cmdStatusOptionAdd)
+  - Mindestens eine Zeile mit ausgefüllter Bezeichnung erforderlich
+  - Keys werden beim Anlegen aus der Bezeichnung abgeleitet (slugify); beim Bearbeiten
+    bleiben bestehende Keys stabil — Umbenennung ändert nur das Label der aktuellen
+    Sprache, nicht den gespeicherten Key
+  - Beim Speichern des Dialogs: select_options (geordnete Keys) und
+    select_option_translations (Map key → { de, en, … }) an die API
+
+  Attribut-Dialog (Anlegen / Bearbeiten)
+  - Name, Datentyp, Pflichtfeld, Verschlüsselung wie bei anderen Datentypen
+  - Bei single_select und multi_select: SelectOptionsEditor statt Freitext-Textarea
+  - Standardwert:
+      • single_select: Dropdown mit übersetzten Labels (Wert = Key)
+      • multi_select: Checkbox-Liste (FieldSelectInput), Mehrfachauswahl möglich
+  - Plattform-Status (Systemfeld „Status“ auf Instanz-Tab): gleicher Dialog, aber
+    Name, Datentyp, Pflichtfeld und Verschlüsselung sind schreibgeschützt; nur
+    Auswahlwerte und Standardwert sind editierbar. Zeile in der Tabelle wie andere
+    Felder — Klick auf den Namen öffnet den Dialog (kein separater Inline-Editor).
+
+  Modell anlegen (CaseFieldsEditor)
+  - Beim Anlegen eines Case-Modells mit neuen Feldern: für single_select und
+    multi_select ebenfalls SelectOptionsEditor (nicht Textarea)
+  - Beim Submit werden select_options und select_option_translations mit erzeugt
+
+  Standardwert in der Feldliste (InstanceDefaultValueCell)
+  - single_select: Inline-Dropdown mit übersetzten Labels
+  - multi_select: Inline-Checkbox-Liste (FieldSelectInput, compact)
+  - Änderungen werden sofort per PATCH default_value gespeichert (Keys, nicht Labels)
+
+  i18n (Auswahlwerte-Editor)
+  - cmdStatusOptionLabel       Spaltenüberschrift / Platzhalter „Bezeichnung“
+  - cmdStatusOptionAdd         Button „Werte hinzufügen“
+  - cmdStatusOptionDrag        Aria-Label Drag-Handle
+  - cmdStatusOptionLabelRequired  Validierung: mindestens ein Wert mit Bezeichnung
+  - fieldsSelectOptions        Legend „Auswahlwerte“ im Dialog
+
+  CSS-Klassen (admin.css)
+  - select-options-fieldset, select-options-editor, select-options-add
+  - select-options-drag-handle, select-options-row--dragging, select-options-row--drag-over
+  - admin-table-col-drag (Drag-Spalte)
+  - cas-field-option-list, cas-field-option-label (Multi-Select Standardwert / Werteingabe)
+
+  Nicht-Ziel
+  - Kein Freitext-Textarea für Auswahlwerte (weder im Dialog noch beim Modell-Anlegen)
+  - Keine sichtbare Key-Spalte für Endnutzer; Keys nur im Advanced-Modus indirekt
+    über API/Backend relevant
+
 ---------------------------
 
 - Laden: p mit msg('loading') oberhalb der Tabelle (nicht in admin-list-card)
@@ -298,6 +362,7 @@ Apps unter /apps/<app-key>/*:
 [ ] Detailseite mit Breadcrumb, hint, Unterliste im gleichen Muster
 [ ] Einstellungsseite mit Vier-Spalten-Tabelle aus settings_schema
 [ ] Formularseiten mit Breadcrumb und admin-dialog-actions
+[ ] Select-Attribute (single_select / multi_select): SelectOptionsEditor, keine Textarea
 [ ] Alle Texte in i18n (de/en)
 [ ] Keine festen Farben — nur CSS-Variablen
 [ ] Icons aus react-icons/lu, Größen wie oben
@@ -316,6 +381,8 @@ Apps unter /apps/<app-key>/*:
   Buttons:       button-outline, button-icon, button-primary
   Einstellungen: admin-table--settings, admin-settings-col-*, admin-settings-select
   Formulare:     form, form-error, form-success, admin-dialog, admin-dialog-actions
+  Select-Attr.:  select-options-fieldset, select-options-editor, select-options-add,
+                 select-options-drag-handle, cas-field-option-list, cas-field-option-label
   Suche:         admin-search, admin-search-wrap
   Pagination:    admin-list-pagination
 

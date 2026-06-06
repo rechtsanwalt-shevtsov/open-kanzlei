@@ -14,6 +14,15 @@ import { useI18n } from '../../i18n/I18nContext.js';
 import type { Locale } from '../../i18n/locale.js';
 import { labelFromTranslations } from '../../lib/model-label.js';
 import type { DefinitionScope } from '../../lib/attribute-api.js';
+import {
+  buildSelectOptionsPayload,
+  createEmptySelectOptionRow,
+  normalizeSelectOptionRows,
+  toSelectOptionRows,
+  type SelectOptionRow,
+} from '../../lib/select-options.js';
+import { FieldSelectInput } from './FieldSelectInput.js';
+import { SelectOptionsEditor } from './SelectOptionsEditor.js';
 
 export type AttributeDialogPayload = {
   name: string;
@@ -23,7 +32,15 @@ export type AttributeDialogPayload = {
   encryption_mode: EncryptionMode;
   is_required?: boolean;
   select_options?: string[];
+  select_option_translations?: Record<string, Record<string, string>>;
   default_value?: unknown;
+};
+
+export type AttributeDialogLockFields = {
+  name?: boolean;
+  dataType?: boolean;
+  isRequired?: boolean;
+  encryption?: boolean;
 };
 
 interface AttributeDialogProps {
@@ -33,31 +50,13 @@ interface AttributeDialogProps {
   attribute?: AttributeDefinition;
   defaultEncryptionMode?: EncryptionMode;
   extendedFields?: boolean;
+  lockFields?: AttributeDialogLockFields;
   onClose: () => void;
   onSubmit: (payload: AttributeDialogPayload) => Promise<string | null>;
 }
 
-function parseOptionsText(text: string): string[] {
-  return [
-    ...new Set(
-      text
-        .split(/[\n,]/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-    ),
-  ];
-}
-
-function formatOptionsText(options: string[]): string {
-  return options.join('\n');
-}
-
-function formatDefaultForInput(
-  dataType: DataType,
-  value: unknown,
-): string {
+function formatDefaultForInput(dataType: DataType, value: unknown): string {
   if (value === null || value === undefined) return '';
-  if (dataType === 'multi_select' && Array.isArray(value)) return value.join('\n');
   if (dataType === 'boolean') return value === true ? 'true' : 'false';
   return String(value);
 }
@@ -71,8 +70,6 @@ function parseDefaultFromInput(dataType: DataType, raw: string): unknown {
       return Number(trimmed);
     case 'boolean':
       return trimmed === 'true';
-    case 'multi_select':
-      return parseOptionsText(trimmed);
     default:
       return trimmed;
   }
@@ -85,6 +82,7 @@ export function AttributeDialog({
   attribute,
   defaultEncryptionMode = 'zero_knowledge',
   extendedFields = false,
+  lockFields,
   onClose,
   onSubmit,
 }: AttributeDialogProps) {
@@ -93,11 +91,14 @@ export function AttributeDialog({
   const [dataType, setDataType] = useState<DataType>('text');
   const [encryptionMode, setEncryptionMode] = useState<EncryptionMode>(defaultEncryptionMode);
   const [isRequired, setIsRequired] = useState(false);
-  const [optionsText, setOptionsText] = useState('');
+  const [optionRows, setOptionRows] = useState<SelectOptionRow[]>([]);
   const [defaultText, setDefaultText] = useState('');
+  const [defaultMultiKeys, setDefaultMultiKeys] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const isSingleSelect = dataType === 'single_select';
+  const isMultiSelect = dataType === 'multi_select';
   const showSelectOptions = isSelectDataType(dataType);
   const showEncryption = definitionScope === 'instance';
 
@@ -112,25 +113,56 @@ export function AttributeDialog({
       setDataType(attribute.data_type);
       setEncryptionMode(attribute.encryption_mode);
       setIsRequired(Boolean(attribute.is_required));
-      setOptionsText(formatOptionsText(attribute.select_options ?? []));
+      if (isSelectDataType(attribute.data_type)) {
+        const rows = toSelectOptionRows(attribute, locale);
+        setOptionRows(rows.length > 0 ? rows : [createEmptySelectOptionRow()]);
+      } else {
+        setOptionRows([]);
+      }
       setDefaultText(formatDefaultForInput(attribute.data_type, attribute.default_value));
+      setDefaultMultiKeys(
+        attribute.data_type === 'multi_select' && Array.isArray(attribute.default_value)
+          ? attribute.default_value
+          : [],
+      );
     } else {
       setName('');
       setDataType('text');
       setEncryptionMode(defaultEncryptionMode);
       setIsRequired(false);
-      setOptionsText('');
+      setOptionRows([]);
       setDefaultText('');
+      setDefaultMultiKeys([]);
     }
     setError(null);
   }, [open, mode, attribute, locale, defaultEncryptionMode]);
+
+  useEffect(() => {
+    if (!open || !showSelectOptions) return;
+    if (optionRows.length === 0) {
+      setOptionRows([createEmptySelectOptionRow()]);
+    }
+  }, [open, showSelectOptions, optionRows.length]);
+
+  const normalizedSelectOptions = useMemo(
+    () => normalizeSelectOptionRows(optionRows),
+    [optionRows],
+  );
+
+  const optionLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        normalizedSelectOptions.map((opt) => [opt.key, opt.label.trim() || opt.key]),
+      ),
+    [normalizedSelectOptions],
+  );
 
   const defaultInputType = useMemo(() => {
     if (dataType === 'boolean') return 'select';
     if (dataType === 'date') return 'date';
     if (dataType === 'number' || dataType === 'money') return 'number';
     if (dataType === 'single_select') return 'select';
-    if (dataType === 'multi_select') return 'textarea';
+    if (dataType === 'multi_select') return 'multi';
     return 'text';
   }, [dataType]);
 
@@ -143,20 +175,35 @@ export function AttributeDialog({
       return;
     }
 
-    const selectOptions = showSelectOptions ? parseOptionsText(optionsText) : [];
-    if (showSelectOptions && selectOptions.length === 0) {
-      setError(msg('errorGeneric'));
-      return;
+    let selectOptions: string[] | undefined;
+    let selectOptionTranslations: Record<string, Record<string, string>> | undefined;
+
+    if (extendedFields && showSelectOptions) {
+      const payload = buildSelectOptionsPayload(optionRows, locale, attribute);
+      if (payload.select_options.length === 0) {
+        setError(msg('cmdStatusOptionLabelRequired'));
+        return;
+      }
+      selectOptions = payload.select_options;
+      selectOptionTranslations = payload.select_option_translations;
     }
 
     let defaultValue: unknown = null;
-    if (extendedFields && defaultText.trim()) {
-      defaultValue = parseDefaultFromInput(dataType, defaultText);
-      if (dataType === 'single_select' && typeof defaultValue === 'string') {
-        if (!selectOptions.includes(defaultValue)) {
+    if (extendedFields) {
+      if (isSingleSelect && defaultText.trim()) {
+        defaultValue = defaultText.trim();
+        if (!selectOptions?.includes(defaultValue as string)) {
           setError(msg('errorGeneric'));
           return;
         }
+      } else if (isMultiSelect) {
+        defaultValue = defaultMultiKeys.length > 0 ? defaultMultiKeys : null;
+        if (defaultMultiKeys.some((key) => !selectOptions?.includes(key))) {
+          setError(msg('errorGeneric'));
+          return;
+        }
+      } else if (defaultText.trim()) {
+        defaultValue = parseDefaultFromInput(dataType, defaultText);
       }
     }
 
@@ -171,6 +218,7 @@ export function AttributeDialog({
         ? {
             is_required: isRequired,
             select_options: showSelectOptions ? selectOptions : undefined,
+            select_option_translations: showSelectOptions ? selectOptionTranslations : undefined,
             default_value: defaultValue,
           }
         : {}),
@@ -201,13 +249,20 @@ export function AttributeDialog({
         <form onSubmit={handleSubmit} className="form">
           <label>
             {msg('cmdModelName')}
-            <input value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoFocus={!lockFields?.name}
+              disabled={lockFields?.name}
+            />
           </label>
 
           <label>
             {msg('modelsColType')}
             <select
               value={dataType}
+              disabled={lockFields?.dataType}
               onChange={(e) => setDataType(e.target.value as DataType)}
             >
               {DATA_TYPES.map((t) => (
@@ -223,6 +278,7 @@ export function AttributeDialog({
               <input
                 type="checkbox"
                 checked={isRequired}
+                disabled={lockFields?.isRequired}
                 onChange={(e) => setIsRequired(e.target.checked)}
               />
               {msg('fieldsRequiredLabel')}
@@ -230,20 +286,17 @@ export function AttributeDialog({
           )}
 
           {extendedFields && showSelectOptions && (
-            <label>
-              {msg('fieldsSelectOptions')}
-              <textarea
-                rows={4}
-                value={optionsText}
-                onChange={(e) => setOptionsText(e.target.value)}
-                placeholder={msg('fieldsSelectOptionsHint')}
-              />
-            </label>
+            <fieldset className="select-options-fieldset">
+              <legend>{msg('fieldsSelectOptions')}</legend>
+              <SelectOptionsEditor rows={optionRows} onChange={setOptionRows} />
+            </fieldset>
           )}
 
           {extendedFields && (
-            <label>
-              {definitionScope === 'model' ? msg('cmdColValue') : msg('fieldsDefaultValue')}
+            <div className="attribute-default-value">
+              <span className="attribute-default-value-label">
+                {definitionScope === 'model' ? msg('cmdColValue') : msg('fieldsDefaultValue')}
+              </span>
               {defaultInputType === 'select' && dataType === 'boolean' ? (
                 <select
                   value={defaultText}
@@ -253,33 +306,42 @@ export function AttributeDialog({
                   <option value="true">{msg('yes')}</option>
                   <option value="false">{msg('no')}</option>
                 </select>
-              ) : defaultInputType === 'select' && dataType === 'single_select' ? (
+              ) : defaultInputType === 'select' && isSingleSelect ? (
                 <select
                   value={defaultText}
                   onChange={(e) => setDefaultText(e.target.value)}
                 >
                   <option value="">—</option>
-                  {parseOptionsText(optionsText).map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
+                  {normalizedSelectOptions.map((opt) => (
+                    <option key={opt.key} value={opt.key}>
+                      {opt.label.trim() || opt.key}
                     </option>
                   ))}
                 </select>
-              ) : defaultInputType === 'textarea' ? (
-                <textarea
-                  rows={3}
-                  value={defaultText}
-                  onChange={(e) => setDefaultText(e.target.value)}
-                  placeholder={msg('fieldsSelectOptionsHint')}
+              ) : defaultInputType === 'multi' && isMultiSelect ? (
+                <FieldSelectInput
+                  dataType="multi_select"
+                  options={normalizedSelectOptions.map((opt) => opt.key)}
+                  optionLabels={optionLabels}
+                  value={defaultMultiKeys}
+                  onChange={(value) =>
+                    setDefaultMultiKeys(Array.isArray(value) ? value : [])
+                  }
                 />
               ) : (
                 <input
-                  type={defaultInputType === 'number' ? 'number' : defaultInputType === 'date' ? 'date' : 'text'}
+                  type={
+                    defaultInputType === 'number'
+                      ? 'number'
+                      : defaultInputType === 'date'
+                        ? 'date'
+                        : 'text'
+                  }
                   value={defaultText}
                   onChange={(e) => setDefaultText(e.target.value)}
                 />
               )}
-            </label>
+            </div>
           )}
 
           {showEncryption && (
@@ -287,6 +349,7 @@ export function AttributeDialog({
               {msg('attributesEncryption')}
               <select
                 value={encryptionMode}
+                disabled={lockFields?.encryption}
                 onChange={(e) => setEncryptionMode(e.target.value as EncryptionMode)}
               >
                 {ENCRYPTION_MODES.map((m) => (

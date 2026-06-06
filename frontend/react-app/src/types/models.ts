@@ -1,4 +1,4 @@
-export type ModelKind = 'case_model' | 'task_model' | 'instrument_model';
+export type ModelKind = 'case_model';
 
 export interface ModelListItem {
   id: string;
@@ -6,12 +6,4 @@ export interface ModelListItem {
   key: string;
   label: string;
   status: string;
-  taskModelId?: string;
-  taskModelKey?: string;
-}
-
-export interface TaskModelOption {
-  id: string;
-  key: string;
-  label: string;
 }

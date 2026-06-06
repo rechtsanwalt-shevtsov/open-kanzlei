@@ -9,7 +9,7 @@ export interface ModelOption {
   label: string;
 }
 
-export function useModelOptions(kind: 'case' | 'task') {
+export function useModelOptions() {
   const { locale } = useI18n();
   const [options, setOptions] = useState<ModelOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,10 +17,7 @@ export function useModelOptions(kind: 'case' | 'task') {
   const refresh = useCallback(async () => {
     setLoading(true);
     const headers = apiHeaders(locale);
-    const res =
-      kind === 'case'
-        ? await api.GET('/v1/case-models', { headers })
-        : await api.GET('/v1/task-models', { headers });
+    const res = await api.GET('/v1/case-models', { headers });
     setLoading(false);
     if (res.error) {
       setOptions([]);
@@ -34,7 +31,7 @@ export function useModelOptions(kind: 'case' | 'task') {
         label: labelFromTranslations(m.translations, m.key, locale),
       })),
     );
-  }, [kind, locale]);
+  }, [locale]);
 
   useEffect(() => {
     void refresh();

@@ -15,11 +15,14 @@ export type MessageKey =
   | 'error.key_conflict'
   | 'error.model_in_use'
   | 'error.attribute_not_defined'
+  | 'error.attribute_definition_reserved'
   | 'error.invalid_attribute_value'
+  | 'error.select_option_in_use'
   | 'error.forbidden'
   | 'error.username_taken'
   | 'error.last_admin'
-  | 'error.cannot_demote_self';
+  | 'error.cannot_demote_self'
+  | 'error.task_model_not_allowed_on_case_model';
 
 const messages: Record<MessageKey, Record<Locale, string>> = {
   'error.unauthorized': {
@@ -78,9 +81,17 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
     de: 'Attribut ist am Modell nicht definiert.',
     en: 'Attribute is not defined on the model.',
   },
+  'error.attribute_definition_reserved': {
+    de: 'Dieses Plattform-Attribut kann nicht geändert oder gelöscht werden.',
+    en: 'This platform attribute cannot be modified or deleted.',
+  },
   'error.invalid_attribute_value': {
     de: 'Ungültiger Attributwert.',
     en: 'Invalid attribute value.',
+  },
+  'error.select_option_in_use': {
+    de: 'Auswahlwert wird noch von Instanzen verwendet und kann nicht entfernt werden.',
+    en: 'Select option is still used by instances and cannot be removed.',
   },
   'error.forbidden': {
     de: 'Keine Berechtigung für diese Aktion.',
@@ -97,6 +108,10 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
   'error.cannot_demote_self': {
     de: 'Sie können Ihre eigene Administrator-Rolle nicht entziehen.',
     en: 'You cannot remove your own administrator role.',
+  },
+  'error.task_model_not_allowed_on_case_model': {
+    de: 'Dieses Task-Modell ist für das Case-Modell nicht erlaubt.',
+    en: 'This task model is not allowed on the case model.',
   },
 };
 

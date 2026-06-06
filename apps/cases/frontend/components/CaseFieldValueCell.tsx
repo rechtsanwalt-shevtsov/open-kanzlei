@@ -6,7 +6,7 @@ import type { AttributeDefinition } from '@shell/lib/attribute-api.js';
 import type { Locale } from '@shell/i18n/locale.js';
 import { formatFieldValue } from '../lib/case-display.js';
 import { parseFieldValue } from '../lib/field-value.js';
-import { FieldSelectInput } from './FieldSelectInput.js';
+import { FieldSelectInput } from '@shell/components/admin/FieldSelectInput.js';
 
 interface CaseFieldValueCellProps {
   caseId: string;
@@ -80,6 +80,7 @@ export function CaseFieldValueCell({
       <FieldSelectInput
         dataType={definition.data_type}
         options={options}
+        optionLabels={definition.select_option_labels}
         value={definition.data_type === 'single_select' ? draft : multiDraft}
         disabled={saving}
         compact

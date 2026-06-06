@@ -19,3 +19,19 @@ declare module '@apps/case-model-designer/manifest.json' {
   };
   export default manifest;
 }
+
+declare module '@apps/task-model-designer/manifest.json' {
+  const manifest: {
+    app_key: string;
+    settings_schema: Record<string, unknown>;
+  };
+  export default manifest;
+}
+
+declare module '@apps/tasks/manifest.json' {
+  const manifest: {
+    app_key: string;
+    settings_schema: Record<string, unknown>;
+  };
+  export default manifest;
+}

@@ -11,7 +11,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, apiHeaders } from '@shell/api/client.js';
 import { useI18n } from '@shell/i18n/I18nContext.js';
 import { labelFromTranslations } from '@shell/lib/model-label.js';
-import { workStatusLabel } from '@shell/lib/work-status.js';
+import { listModelAttributes, type AttributeDefinition } from '@shell/lib/attribute-api.js';
+import { findCaseStatusDefinition } from '@shell/lib/case-instance-status.js';
+import { selectOptionLabel } from '@shell/lib/select-option-labels.js';
 import type { components } from '@shell/api/schema.js';
 import { CreateCaseDialog } from '../components/CreateCaseDialog.js';
 import { useEffectiveSettings } from '../hooks/useEffectiveSettings.js';
@@ -32,6 +34,9 @@ export function CasesListPage() {
   const { settings, loading: settingsLoading } = useEffectiveSettings();
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [models, setModels] = useState<CaseModel[]>([]);
+  const [statusDefsByModel, setStatusDefsByModel] = useState<Map<string, AttributeDefinition>>(
+    () => new Map(),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -58,6 +63,12 @@ export function CasesListPage() {
     return map;
   }, [models, locale]);
 
+  function formatCaseStatus(caseItem: CaseItem): string {
+    const statusDef = statusDefsByModel.get(caseItem.case_model_id);
+    if (statusDef) return selectOptionLabel(caseItem.status, statusDef);
+    return caseItem.status;
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -72,7 +83,19 @@ export function CasesListPage() {
       return;
     }
     setCases(casesRes.data?.items ?? []);
-    setModels(modelsRes.data?.items ?? []);
+    const loadedModels = modelsRes.data?.items ?? [];
+    setModels(loadedModels);
+
+    const statusEntries = await Promise.all(
+      loadedModels.map(async (model) => {
+        const attrsRes = await listModelAttributes(model.id, locale, 'instance');
+        const statusDef = findCaseStatusDefinition(
+          (attrsRes.data?.items ?? []) as AttributeDefinition[],
+        );
+        return statusDef ? ([model.id, statusDef] as const) : null;
+      }),
+    );
+    setStatusDefsByModel(new Map(statusEntries.filter(Boolean) as Array<[string, AttributeDefinition]>));
     setLoading(false);
   }, [locale, msg]);
 
@@ -397,7 +420,7 @@ export function CasesListPage() {
                         </td>
                         <td className="cas-col-model">{modelLabel}</td>
                         <td className="admin-table-col-status">
-                          {workStatusLabel(c.status, msg)}
+                          {formatCaseStatus(c)}
                         </td>
                         <td>{formatCaseDate(c.created_at, locale)}</td>
                       </tr>

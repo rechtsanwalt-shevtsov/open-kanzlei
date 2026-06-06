@@ -256,7 +256,7 @@ Tabelle `events.domain_events`:
 | | |
 |---|---|
 | **Beschreibung** | Eine neue Attributdefinition wurde angelegt. |
-| **Entsteht bei** | `POST /v1/case-models/{id}/attributes`, `POST /v1/task-models/{id}/attributes`, `POST /v1/instrument-models/{id}/attributes` |
+| **Entsteht bei** | `POST /v1/case-models/{id}/attributes` |
 | **Public** | Ja |
 | **schema_version** | 1 |
 | **Details abrufen** | Entsprechende GET-Attribute-Endpunkte |
@@ -303,11 +303,9 @@ Diese Events sind public und werden bereits ausgelöst. Sie werden in einer spä
 
 | Event | Beschreibung |
 |-------|--------------|
-| `task_model.created` / `.updated` / `.deleted` | Task-Modell-Lebenszyklus |
-| `instrument_model.created` / `.updated` / `.deleted` | Instrument-Modell-Lebenszyklus |
 | `case.created` / `.updated` / `.deleted` | Case-Instanz-Lebenszyklus |
+| `task_model.created` / `.updated` / `.archived` / `.deleted` | Task-Modell-Lebenszyklus |
 | `task.created` / `.updated` / `.deleted` | Task-Instanz-Lebenszyklus |
-| `instrument.created` / `.updated` / `.deleted` | Instrument-Instanz-Lebenszyklus |
 
 Instanz-Events können optional `changed_attribute_keys` in `data` enthalten (Schlüssel, keine Werte).
 

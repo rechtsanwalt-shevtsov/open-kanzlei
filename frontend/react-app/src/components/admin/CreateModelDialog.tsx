@@ -1,41 +1,30 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api, apiHeaders } from '../../api/client.js';
 import { useI18n } from '../../i18n/I18nContext.js';
-import type { ModelKind, TaskModelOption } from '../../types/models.js';
 
 interface CreateModelDialogProps {
   open: boolean;
-  taskModels: TaskModelOption[];
   onClose: () => void;
   onCreated: () => void;
 }
 
 const KEY_PATTERN = /^[a-z][a-z0-9_]{0,62}$/;
 
-export function CreateModelDialog({
-  open,
-  taskModels,
-  onClose,
-  onCreated,
-}: CreateModelDialogProps) {
+export function CreateModelDialog({ open, onClose, onCreated }: CreateModelDialogProps) {
   const { locale, msg } = useI18n();
-  const [kind, setKind] = useState<ModelKind>('task_model');
   const [key, setKey] = useState('');
   const [labelDe, setLabelDe] = useState('');
   const [labelEn, setLabelEn] = useState('');
-  const [taskModelId, setTaskModelId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setKind('task_model');
     setKey('');
     setLabelDe('');
     setLabelEn('');
-    setTaskModelId(taskModels[0]?.id ?? '');
     setError(null);
-  }, [open, taskModels]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -52,10 +41,6 @@ export function CreateModelDialog({
       setError(msg('modelsLabelRequired'));
       return;
     }
-    if (kind === 'instrument_model' && !taskModelId) {
-      setError(msg('modelsTaskRequired'));
-      return;
-    }
 
     setSubmitting(true);
     const body = {
@@ -67,18 +52,7 @@ export function CreateModelDialog({
     };
     const headers = apiHeaders(locale);
 
-    let res;
-    if (kind === 'case_model') {
-      res = await api.POST('/v1/case-models', { headers, body });
-    } else if (kind === 'task_model') {
-      res = await api.POST('/v1/task-models', { headers, body });
-    } else {
-      res = await api.POST('/v1/task-models/{id}/instrument-models', {
-        headers,
-        params: { path: { id: taskModelId } },
-        body,
-      });
-    }
+    const res = await api.POST('/v1/case-models', { headers, body });
 
     setSubmitting(false);
 
@@ -103,36 +77,6 @@ export function CreateModelDialog({
       >
         <h2 id="create-model-title">{msg('modelsCreateTitle')}</h2>
         <form onSubmit={handleSubmit} className="form">
-          <label>
-            {msg('modelsType')}
-            <select value={kind} onChange={(e) => setKind(e.target.value as ModelKind)}>
-              <option value="task_model">{msg('modelsTypeTask')}</option>
-              <option value="instrument_model">{msg('modelsTypeInstrument')}</option>
-            </select>
-          </label>
-
-          {kind === 'instrument_model' && (
-            <label>
-              {msg('modelsParentTask')}
-              <select
-                value={taskModelId}
-                onChange={(e) => setTaskModelId(e.target.value)}
-                required
-                disabled={taskModels.length === 0}
-              >
-                {taskModels.length === 0 ? (
-                  <option value="">{msg('modelsNoTaskModels')}</option>
-                ) : (
-                  taskModels.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.label} ({t.key})
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-          )}
-
           <label>
             {msg('modelsKey')}
             <input
@@ -165,11 +109,7 @@ export function CreateModelDialog({
             <button type="button" className="button-secondary" onClick={onClose}>
               {msg('cancel')}
             </button>
-            <button
-              type="submit"
-              className="button-primary"
-              disabled={submitting || (kind === 'instrument_model' && taskModels.length === 0)}
-            >
+            <button type="submit" className="button-primary" disabled={submitting}>
               {submitting ? msg('loading') : msg('modelsCreate')}
             </button>
           </div>

@@ -1,36 +1,22 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CreateModelDialog } from '../../components/admin/CreateModelDialog.js';
-import type { ModelKind } from '../../types/models.js';
 import { useModelsList } from '../../hooks/useModelsList.js';
 import { useI18n } from '../../i18n/I18nContext.js';
 import type { MessageKey } from '../../i18n/messages.js';
 
-function kindLabel(msg: (k: MessageKey) => string, kind: ModelKind): string {
-  switch (kind) {
-    case 'case_model':
-      return msg('modelsTypeCase');
-    case 'task_model':
-      return msg('modelsTypeTask');
-    case 'instrument_model':
-      return msg('modelsTypeInstrument');
-  }
+function kindLabel(msg: (k: MessageKey) => string): string {
+  return msg('modelsTypeCase');
 }
 
 export function ModelsPage() {
   const { msg } = useI18n();
 
-  function modelPath(kind: ModelKind, id: string): string {
-    switch (kind) {
-      case 'case_model':
-        return `/admin/case-models/${id}`;
-      case 'task_model':
-        return `/admin/task-models/${id}`;
-      case 'instrument_model':
-        return `/admin/instrument-models/${id}`;
-    }
+  function modelPath(id: string): string {
+    return `/apps/case-model-designer/${id}`;
   }
-  const { items, taskModels, loading, error, refresh } = useModelsList();
+
+  const { items, loading, error, refresh } = useModelsList();
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -41,7 +27,7 @@ export function ModelsPage() {
       (row) =>
         row.label.toLowerCase().includes(q) ||
         row.key.toLowerCase().includes(q) ||
-        kindLabel(msg, row.kind).toLowerCase().includes(q),
+        kindLabel(msg).toLowerCase().includes(q),
     );
   }, [items, search, msg]);
 
@@ -113,7 +99,7 @@ export function ModelsPage() {
                   <tr key={`${row.kind}-${row.id}`}>
                     <td>
                       <Link
-                        to={modelPath(row.kind, row.id)}
+                        to={modelPath(row.id)}
                         className="admin-table-link admin-table-link--anchor"
                       >
                         {row.label}
@@ -121,13 +107,7 @@ export function ModelsPage() {
                     </td>
                     <td className="admin-table-muted">{row.key}</td>
                     <td>
-                      <span className="admin-type-badge">{kindLabel(msg, row.kind)}</span>
-                      {row.taskModelKey && (
-                        <span className="admin-table-sub">
-                          {' '}
-                          → {row.taskModelKey}
-                        </span>
-                      )}
+                      <span className="admin-type-badge">{kindLabel(msg)}</span>
                     </td>
                   </tr>
                 ))
@@ -139,7 +119,6 @@ export function ModelsPage() {
 
       <CreateModelDialog
         open={createOpen}
-        taskModels={taskModels}
         onClose={() => setCreateOpen(false)}
         onCreated={async () => {
           await refresh();

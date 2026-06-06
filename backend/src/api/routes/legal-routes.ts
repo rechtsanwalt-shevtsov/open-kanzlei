@@ -4,6 +4,9 @@ import { requireAuth } from '../middleware/auth.js';
 import { enrichAttributeDefinition } from '../../legal-work/attributes.js';
 import * as models from '../../legal-work/models.js';
 import * as instances from '../../legal-work/instances.js';
+import * as taskModels from '../../legal-work/task-models.js';
+import * as tasks from '../../legal-work/tasks.js';
+import * as exclusions from '../../legal-work/case-model-task-exclusions.js';
 
 function ctx(request: FastifyRequest) {
   const user = request.user!;
@@ -12,6 +15,10 @@ function ctx(request: FastifyRequest) {
 
 function idParam(request: FastifyRequest): string {
   return (request.params as { id: string }).id;
+}
+
+function caseIdParam(request: FastifyRequest): string {
+  return (request.params as { caseId: string }).caseId;
 }
 
 async function handle<T>(fn: () => Promise<T>): Promise<T> {
@@ -65,21 +72,6 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(204).send();
   });
 
-  app.get('/v1/case-models/:id/task-models', auth, async (req) => {
-    const items = await handle(() =>
-      models.listCaseModelTaskLinks(ctx(req).tenantId, idParam(req)),
-    );
-    return { items };
-  });
-
-  app.put('/v1/case-models/:id/task-models', auth, async (req) => {
-    const body = req.body as { links: models.CaseModelTaskLinkDto[] };
-    const items = await handle(() =>
-      models.setCaseModelTaskLinks(ctx(req).tenantId, idParam(req), body.links ?? []),
-    );
-    return { items };
-  });
-
   app.get('/v1/case-models/:id/attributes', auth, async (req) => {
     const q = req.query as { definition_scope?: string };
     const scope =
@@ -103,106 +95,84 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(201).send(enrichAttributeDefinition(item, req.locale));
   });
 
+  app.get('/v1/case-models/:id/task-model-exclusions', auth, async (req) => {
+    const taskModelIds = await handle(() =>
+      exclusions.listCaseModelTaskModelExclusions(ctx(req).tenantId, idParam(req)),
+    );
+    return { task_model_ids: taskModelIds };
+  });
+
+  app.put('/v1/case-models/:id/task-model-exclusions', auth, async (req) => {
+    const body = req.body as { task_model_ids?: string[] };
+    const taskModelIds = await handle(() =>
+      exclusions.setCaseModelTaskModelExclusions(
+        ctx(req).tenantId,
+        idParam(req),
+        body.task_model_ids ?? [],
+      ),
+    );
+    return { task_model_ids: taskModelIds };
+  });
+
   // Task models
   app.get('/v1/task-models', auth, async (req) => {
-    const items = await handle(() => models.listTaskModels(ctx(req).tenantId));
-    return { items };
+    const items = await handle(() => taskModels.listTaskModels(ctx(req).tenantId));
+    return { items: items.map((item) => taskModels.enrichTaskModel(item, req.locale)) };
   });
 
   app.post('/v1/task-models', auth, async (req, reply) => {
-    const body = req.body as {
-      key: string;
-      status?: string;
-      translations: Record<string, string>;
-    };
+    const { tenantId, userId } = ctx(req);
+    const body = req.body as taskModels.CreateTaskModelInput;
     const item = await handle(() =>
-      models.createTaskModel(ctx(req).tenantId, body),
+      taskModels.createTaskModel(tenantId, body, {
+        defaultLocale: req.locale,
+        actorUserId: userId,
+      }),
     );
-    return reply.status(201).send(item);
+    return reply.status(201).send(taskModels.enrichTaskModel(item, req.locale));
   });
 
   app.get('/v1/task-models/:id', auth, async (req) => {
-    const item = await handle(() => models.getTaskModel(ctx(req).tenantId, idParam(req)));
+    const item = await handle(() => taskModels.getTaskModel(ctx(req).tenantId, idParam(req)));
     if (!item) throw notFound();
-    return item;
+    return taskModels.enrichTaskModel(item, req.locale);
   });
 
   app.patch('/v1/task-models/:id', auth, async (req) => {
-    const body = req.body as { status?: string; translations?: Record<string, string> };
-    return handle(() => models.updateTaskModel(ctx(req).tenantId, idParam(req), body));
+    const { tenantId, userId } = ctx(req);
+    const body = req.body as taskModels.UpdateTaskModelInput;
+    const item = await handle(() =>
+      taskModels.updateTaskModel(tenantId, idParam(req), body, {
+        defaultLocale: req.locale,
+        actorUserId: userId,
+      }),
+    );
+    return taskModels.enrichTaskModel(item, req.locale);
   });
 
   app.delete('/v1/task-models/:id', auth, async (req, reply) => {
-    await handle(() => models.deleteTaskModel(ctx(req).tenantId, idParam(req)));
+    const { tenantId, userId } = ctx(req);
+    await handle(() => taskModels.deleteTaskModel(tenantId, idParam(req), userId));
     return reply.status(204).send();
   });
 
-  app.get('/v1/task-models/:id/instrument-models', auth, async (req) => {
-    const items = await handle(() =>
-      models.listInstrumentModels(ctx(req).tenantId, idParam(req)),
-    );
-    return { items };
-  });
-
-  app.post('/v1/task-models/:id/instrument-models', auth, async (req, reply) => {
-    const body = req.body as {
-      key: string;
-      status?: string;
-      translations: Record<string, string>;
-    };
-    const item = await handle(() =>
-      models.createInstrumentModel(ctx(req).tenantId, idParam(req), body),
-    );
-    return reply.status(201).send(item);
-  });
-
   app.get('/v1/task-models/:id/attributes', auth, async (req) => {
+    const q = req.query as { definition_scope?: string };
+    const scope =
+      q.definition_scope === 'model' || q.definition_scope === 'instance'
+        ? q.definition_scope
+        : undefined;
     const items = await handle(() =>
-      models.listTaskModelAttributes(ctx(req).tenantId, idParam(req)),
+      taskModels.listTaskModelAttributes(ctx(req).tenantId, idParam(req), scope),
     );
     return { items: items.map((item) => enrichAttributeDefinition(item, req.locale)) };
   });
 
   app.post('/v1/task-models/:id/attributes', auth, async (req, reply) => {
     const { tenantId, userId } = ctx(req);
-    const body = req.body as models.CreateAttributeDefinitionInput;
+    const body = req.body as taskModels.CreateAttributeDefinitionInput;
     const item = await handle(() =>
-      models.createTaskModelAttribute(tenantId, idParam(req), userId, body, {
-        defaultLocale: req.locale,
-      }),
-    );
-    return reply.status(201).send(enrichAttributeDefinition(item, req.locale));
-  });
-
-  // Instrument models
-  app.get('/v1/instrument-models/:id', auth, async (req) => {
-    const item = await handle(() => models.getInstrumentModel(ctx(req).tenantId, idParam(req)));
-    if (!item) throw notFound();
-    return item;
-  });
-
-  app.patch('/v1/instrument-models/:id', auth, async (req) => {
-    const body = req.body as { status?: string; translations?: Record<string, string> };
-    return handle(() => models.updateInstrumentModel(ctx(req).tenantId, idParam(req), body));
-  });
-
-  app.delete('/v1/instrument-models/:id', auth, async (req, reply) => {
-    await handle(() => models.deleteInstrumentModel(ctx(req).tenantId, idParam(req)));
-    return reply.status(204).send();
-  });
-
-  app.get('/v1/instrument-models/:id/attributes', auth, async (req) => {
-    const items = await handle(() =>
-      models.listInstrumentModelAttributes(ctx(req).tenantId, idParam(req)),
-    );
-    return { items: items.map((item) => enrichAttributeDefinition(item, req.locale)) };
-  });
-
-  app.post('/v1/instrument-models/:id/attributes', auth, async (req, reply) => {
-    const { tenantId, userId } = ctx(req);
-    const body = req.body as models.CreateAttributeDefinitionInput;
-    const item = await handle(() =>
-      models.createInstrumentModelAttribute(tenantId, idParam(req), userId, body, {
+      taskModels.createTaskModelAttribute(tenantId, idParam(req), userId, body, {
         defaultLocale: req.locale,
       }),
     );
@@ -269,87 +239,64 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(204).send();
   });
 
-  app.get('/v1/cases/:id/tasks', auth, async (req) => {
+  // Tasks
+  app.get('/v1/tasks', auth, async (req) => {
+    const q = req.query as { case_id?: string; task_model_id?: string };
     const items = await handle(() =>
-      instances.listTasks(ctx(req).tenantId, idParam(req)),
+      tasks.listTasks(ctx(req).tenantId, {
+        case_id: q.case_id,
+        task_model_id: q.task_model_id,
+      }),
     );
     return { items };
   });
 
-  app.post('/v1/cases/:id/tasks', auth, async (req, reply) => {
-    const body = req.body as {
-      task_model_id: string;
-      status?: string;
-      attributes?: Record<string, unknown>;
-    };
+  app.post('/v1/tasks', auth, async (req, reply) => {
+    const body = req.body as tasks.CreateTaskBody;
+    const item = await handle(() => tasks.createTask(ctx(req).tenantId, body));
+    return reply.status(201).send(item);
+  });
+
+  app.get('/v1/cases/:caseId/tasks', auth, async (req) => {
+    const q = req.query as { task_model_id?: string };
+    const items = await handle(() =>
+      tasks.listTasks(ctx(req).tenantId, {
+        case_id: caseIdParam(req),
+        task_model_id: q.task_model_id,
+      }),
+    );
+    return { items };
+  });
+
+  app.post('/v1/cases/:caseId/tasks', auth, async (req, reply) => {
+    const body = req.body as Omit<tasks.CreateTaskBody, 'case_id'>;
     const item = await handle(() =>
-      instances.createTask(ctx(req).tenantId, idParam(req), body),
+      tasks.createTask(ctx(req).tenantId, {
+        case_id: caseIdParam(req),
+        task_model_id: body.task_model_id,
+        status: body.status,
+        predecessor_task_ids: body.predecessor_task_ids,
+        dependent_task_ids: body.dependent_task_ids,
+        attributes: body.attributes,
+        assignee_user_ids: body.assignee_user_ids,
+      }),
     );
     return reply.status(201).send(item);
   });
 
-  // Tasks (instances)
-  app.get('/v1/tasks', auth, async (req) => {
-    const items = await handle(() => instances.listAllTasks(ctx(req).tenantId));
-    return { items };
-  });
-
   app.get('/v1/tasks/:id', auth, async (req) => {
-    const item = await handle(() => instances.getTask(ctx(req).tenantId, idParam(req)));
+    const item = await handle(() => tasks.getTask(ctx(req).tenantId, idParam(req)));
     if (!item) throw notFound();
     return item;
   });
 
   app.patch('/v1/tasks/:id', auth, async (req) => {
-    const body = req.body as {
-      status?: string;
-      attributes?: Record<string, unknown>;
-      assignee_user_ids?: string[];
-    };
-    return handle(() => instances.updateTask(ctx(req).tenantId, idParam(req), body));
+    const body = req.body as tasks.UpdateTaskBody;
+    return handle(() => tasks.updateTask(ctx(req).tenantId, idParam(req), body));
   });
 
   app.delete('/v1/tasks/:id', auth, async (req, reply) => {
-    await handle(() => instances.deleteTask(ctx(req).tenantId, idParam(req)));
-    return reply.status(204).send();
-  });
-
-  app.get('/v1/tasks/:id/instruments', auth, async (req) => {
-    const items = await handle(() =>
-      instances.listInstruments(ctx(req).tenantId, idParam(req)),
-    );
-    return { items };
-  });
-
-  app.post('/v1/tasks/:id/instruments', auth, async (req, reply) => {
-    const body = req.body as {
-      instrument_model_id: string;
-      status?: string;
-      attributes?: Record<string, unknown>;
-    };
-    const item = await handle(() =>
-      instances.createInstrument(ctx(req).tenantId, idParam(req), body),
-    );
-    return reply.status(201).send(item);
-  });
-
-  // Instruments (instances)
-  app.get('/v1/instruments/:id', auth, async (req) => {
-    const item = await handle(() => instances.getInstrument(ctx(req).tenantId, idParam(req)));
-    if (!item) throw notFound();
-    return item;
-  });
-
-  app.patch('/v1/instruments/:id', auth, async (req) => {
-    const body = req.body as {
-      status?: string;
-      attributes?: Record<string, unknown>;
-    };
-    return handle(() => instances.updateInstrument(ctx(req).tenantId, idParam(req), body));
-  });
-
-  app.delete('/v1/instruments/:id', auth, async (req, reply) => {
-    await handle(() => instances.deleteInstrument(ctx(req).tenantId, idParam(req)));
+    await handle(() => tasks.deleteTask(ctx(req).tenantId, idParam(req)));
     return reply.status(204).send();
   });
 }

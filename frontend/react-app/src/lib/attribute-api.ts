@@ -1,7 +1,6 @@
 import { api, apiHeaders } from '../api/client.js';
 import type { components } from '../api/schema.js';
 import type { Locale } from '../i18n/locale.js';
-import type { ModelKind } from '../types/models.js';
 
 export type AttributeDefinition = components['schemas']['AttributeDefinition'];
 export type DataType = components['schemas']['DataType'];
@@ -14,59 +13,53 @@ function headers(locale: Locale) {
 }
 
 export async function listModelAttributes(
-  kind: ModelKind,
   modelId: string,
   locale: Locale,
   definitionScope?: DefinitionScope,
 ) {
   const h = headers(locale);
   const query = definitionScope ? { definition_scope: definitionScope } : undefined;
-  switch (kind) {
-    case 'case_model':
-      return api.GET('/v1/case-models/{id}/attributes', {
-        headers: h,
-        params: { path: { id: modelId }, query },
-      });
-    case 'task_model':
-      return api.GET('/v1/task-models/{id}/attributes', {
-        headers: h,
-        params: { path: { id: modelId } },
-      });
-    case 'instrument_model':
-      return api.GET('/v1/instrument-models/{id}/attributes', {
-        headers: h,
-        params: { path: { id: modelId } },
-      });
-  }
+  return api.GET('/v1/case-models/{id}/attributes', {
+    headers: h,
+    params: { path: { id: modelId }, query },
+  });
 }
 
 export async function createModelAttribute(
-  kind: ModelKind,
   modelId: string,
   locale: Locale,
   body: CreateAttributeBody,
 ) {
+  return api.POST('/v1/case-models/{id}/attributes', {
+    headers: headers(locale),
+    params: { path: { id: modelId } },
+    body,
+  });
+}
+
+export async function listTaskModelAttributes(
+  modelId: string,
+  locale: Locale,
+  definitionScope?: DefinitionScope,
+) {
   const h = headers(locale);
-  switch (kind) {
-    case 'case_model':
-      return api.POST('/v1/case-models/{id}/attributes', {
-        headers: h,
-        params: { path: { id: modelId } },
-        body,
-      });
-    case 'task_model':
-      return api.POST('/v1/task-models/{id}/attributes', {
-        headers: h,
-        params: { path: { id: modelId } },
-        body,
-      });
-    case 'instrument_model':
-      return api.POST('/v1/instrument-models/{id}/attributes', {
-        headers: h,
-        params: { path: { id: modelId } },
-        body,
-      });
-  }
+  const query = definitionScope ? { definition_scope: definitionScope } : undefined;
+  return api.GET('/v1/task-models/{id}/attributes', {
+    headers: h,
+    params: { path: { id: modelId }, query },
+  });
+}
+
+export async function createTaskModelAttribute(
+  modelId: string,
+  locale: Locale,
+  body: CreateAttributeBody,
+) {
+  return api.POST('/v1/task-models/{id}/attributes', {
+    headers: headers(locale),
+    params: { path: { id: modelId } },
+    body,
+  });
 }
 
 export async function updateAttributeDefinition(

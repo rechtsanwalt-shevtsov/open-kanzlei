@@ -62,11 +62,9 @@ curl -s -b cookies.txt http://localhost:3000/v1/tenant/profile
 
 Alle Endpunkte erfordern eine Session (Cookie nach Login).
 
-**Modelle:** `GET/POST /v1/case-models`, `GET/POST /v1/task-models`,  
-`GET/POST /v1/task-models/{id}/instrument-models`, Attributdefinitionen unter `…/attributes`
+**Modelle:** `GET/POST /v1/case-models`, Attributdefinitionen unter `…/attributes`
 
-**Instanzen (lazy):** `POST /v1/cases` (nur Case), Tasks per `POST /v1/cases/{id}/tasks`,  
-Instruments per `POST /v1/tasks/{id}/instruments`
+**Instanzen (lazy):** `POST /v1/cases` erzeugt Case-Instanzen
 
 **Attribute:** Definitionen nur auf Modellen; Werte auf Instanzen im Feld `attributes`  
 (z. B. `"title": "Müller gegen Mayer"` — kein title als DB-Spalte).

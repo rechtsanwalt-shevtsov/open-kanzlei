@@ -31,31 +31,6 @@ export async function loadCaseAssignees(
   return map;
 }
 
-export async function loadTaskAssignees(
-  client: pg.PoolClient,
-  tenantId: string,
-  taskIds: string[],
-): Promise<Map<string, AssigneeDto[]>> {
-  const map = new Map<string, AssigneeDto[]>();
-  if (taskIds.length === 0) return map;
-
-  const result = await client.query<AssigneeDto & { task_id: string }>(
-    `SELECT ta.task_id, u.id AS user_id, u.username
-     FROM legal.task_assignees ta
-     JOIN platform.users u ON u.id = ta.user_id AND u.tenant_id = ta.tenant_id
-     WHERE ta.tenant_id = $1 AND ta.task_id = ANY($2::uuid[])
-     ORDER BY u.username`,
-    [tenantId, taskIds],
-  );
-
-  for (const row of result.rows) {
-    const list = map.get(row.task_id) ?? [];
-    list.push({ user_id: row.user_id, username: row.username });
-    map.set(row.task_id, list);
-  }
-  return map;
-}
-
 async function assertUsersInTenant(
   client: pg.PoolClient,
   tenantId: string,
@@ -91,6 +66,31 @@ export async function setCaseAssignees(
       [caseId, userId, tenantId],
     );
   }
+}
+
+export async function loadTaskAssignees(
+  client: pg.PoolClient,
+  tenantId: string,
+  taskIds: string[],
+): Promise<Map<string, AssigneeDto[]>> {
+  const map = new Map<string, AssigneeDto[]>();
+  if (taskIds.length === 0) return map;
+
+  const result = await client.query<AssigneeDto & { task_id: string }>(
+    `SELECT ta.task_id, u.id AS user_id, u.username
+     FROM legal.task_assignees ta
+     JOIN platform.users u ON u.id = ta.user_id AND u.tenant_id = ta.tenant_id
+     WHERE ta.tenant_id = $1 AND ta.task_id = ANY($2::uuid[])
+     ORDER BY u.username`,
+    [tenantId, taskIds],
+  );
+
+  for (const row of result.rows) {
+    const list = map.get(row.task_id) ?? [];
+    list.push({ user_id: row.user_id, username: row.username });
+    map.set(row.task_id, list);
+  }
+  return map;
 }
 
 export async function setTaskAssignees(

@@ -23,22 +23,17 @@ export const PUBLIC_EVENT_TYPES = [
   'attribute_definition.created',
   'attribute_definition.updated',
   'attribute_definition.deleted',
-  'task_model.created',
-  'task_model.updated',
-  'task_model.deleted',
-  'instrument_model.created',
-  'instrument_model.updated',
-  'instrument_model.deleted',
-  // Legal — instances (public, documented as phase 2)
+  // Legal — instances
   'case.created',
   'case.updated',
   'case.deleted',
+  'task_model.created',
+  'task_model.updated',
+  'task_model.archived',
+  'task_model.deleted',
   'task.created',
   'task.updated',
   'task.deleted',
-  'instrument.created',
-  'instrument.updated',
-  'instrument.deleted',
 ] as const;
 
 export const INTERNAL_EVENT_TYPES = [

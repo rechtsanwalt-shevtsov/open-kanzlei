@@ -13,7 +13,7 @@ import type { WorkFilter, WorkViewMode } from '../types/work.js';
 export function CasesPage() {
   const { msg } = useI18n();
   const { items, loading, error, refresh } = useCases();
-  const { options: models } = useModelOptions('case');
+  const { options: models } = useModelOptions();
   const { items: users } = useTenantUsers();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<WorkFilter>({ kind: 'all' });

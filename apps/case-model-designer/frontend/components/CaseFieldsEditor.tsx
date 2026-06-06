@@ -1,18 +1,25 @@
 import { useId } from 'react';
 import { useI18n } from '@shell/i18n/I18nContext.js';
+import { SelectOptionsEditor } from '@shell/components/admin/SelectOptionsEditor.js';
 import type { DataType } from '@shell/lib/attribute-api.js';
 import {
   DATA_TYPES,
   dataTypeMessageKey,
   isSelectDataType,
 } from '@shell/lib/data-type-label.js';
+import {
+  buildSelectOptionsPayload,
+  createEmptySelectOptionRow,
+  normalizeSelectOptionRows,
+  type SelectOptionRow,
+} from '@shell/lib/select-options.js';
 
 export type CaseFieldDraft = {
   id: string;
   name: string;
   dataType: DataType;
   isRequired: boolean;
-  optionsText: string;
+  optionRows: SelectOptionRow[];
 };
 
 function newDraft(): CaseFieldDraft {
@@ -21,19 +28,8 @@ function newDraft(): CaseFieldDraft {
     name: '',
     dataType: 'text',
     isRequired: false,
-    optionsText: '',
+    optionRows: [],
   };
-}
-
-function parseOptionsText(text: string): string[] {
-  return [
-    ...new Set(
-      text
-        .split(/[\n,]/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-    ),
-  ];
 }
 
 export function createEmptyCaseFieldDraft(): CaseFieldDraft {
@@ -55,6 +51,16 @@ export function CaseFieldsEditor({ fields, onChange }: CaseFieldsEditorProps) {
 
   function removeField(id: string) {
     onChange(fields.filter((f) => f.id !== id));
+  }
+
+  function handleDataTypeChange(id: string, dataType: DataType) {
+    const field = fields.find((f) => f.id === id);
+    if (!field) return;
+    const patch: Partial<CaseFieldDraft> = { dataType };
+    if (isSelectDataType(dataType) && field.optionRows.length === 0) {
+      patch.optionRows = [createEmptySelectOptionRow()];
+    }
+    updateField(id, patch);
   }
 
   return (
@@ -97,7 +103,7 @@ export function CaseFieldsEditor({ fields, onChange }: CaseFieldsEditorProps) {
                   <select
                     value={field.dataType}
                     onChange={(e) =>
-                      updateField(field.id, { dataType: e.target.value as DataType })
+                      handleDataTypeChange(field.id, e.target.value as DataType)
                     }
                   >
                     {DATA_TYPES.map((t) => (
@@ -120,17 +126,17 @@ export function CaseFieldsEditor({ fields, onChange }: CaseFieldsEditorProps) {
                 </label>
 
                 {showOptions && (
-                  <label>
-                    {msg('fieldsSelectOptions')}
-                    <textarea
-                      rows={3}
-                      value={field.optionsText}
-                      onChange={(e) =>
-                        updateField(field.id, { optionsText: e.target.value })
+                  <fieldset className="select-options-fieldset">
+                    <legend>{msg('fieldsSelectOptions')}</legend>
+                    <SelectOptionsEditor
+                      rows={
+                        field.optionRows.length > 0
+                          ? field.optionRows
+                          : [createEmptySelectOptionRow()]
                       }
-                      placeholder={msg('fieldsSelectOptionsHint')}
+                      onChange={(optionRows) => updateField(field.id, { optionRows })}
                     />
-                  </label>
+                  </fieldset>
                 )}
               </li>
             );
@@ -151,14 +157,16 @@ export function CaseFieldsEditor({ fields, onChange }: CaseFieldsEditorProps) {
 
 export function validateCaseFieldDrafts(
   fields: CaseFieldDraft[],
-  msg: (key: 'cmdModelNameRequired' | 'errorGeneric') => string,
+  msg: (key: 'cmdModelNameRequired' | 'errorGeneric' | 'cmdStatusOptionLabelRequired') => string,
 ): string | null {
   for (const field of fields) {
     const name = field.name.trim();
     if (!name) continue;
 
-    if (isSelectDataType(field.dataType) && parseOptionsText(field.optionsText).length === 0) {
-      return msg('errorGeneric');
+    if (isSelectDataType(field.dataType)) {
+      if (normalizeSelectOptionRows(field.optionRows).length === 0) {
+        return msg('cmdStatusOptionLabelRequired');
+      }
     }
   }
 
@@ -178,9 +186,23 @@ export function caseFieldDraftsToCreateBodies(
   return fields
     .filter((f) => f.name.trim())
     .map((f) => {
-      const selectOptions = isSelectDataType(f.dataType)
-        ? parseOptionsText(f.optionsText)
-        : undefined;
+      if (isSelectDataType(f.dataType)) {
+        const { select_options, select_option_translations } = buildSelectOptionsPayload(
+          f.optionRows,
+          locale,
+        );
+        return {
+          name: f.name.trim(),
+          locale,
+          definition_scope: 'instance' as const,
+          data_type: f.dataType,
+          encryption_mode: encryptionMode,
+          is_required: f.isRequired,
+          select_options,
+          select_option_translations,
+        };
+      }
+
       return {
         name: f.name.trim(),
         locale,
@@ -188,7 +210,6 @@ export function caseFieldDraftsToCreateBodies(
         data_type: f.dataType,
         encryption_mode: encryptionMode,
         is_required: f.isRequired,
-        ...(selectOptions?.length ? { select_options: selectOptions } : {}),
       };
     });
 }
