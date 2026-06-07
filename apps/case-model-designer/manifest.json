@@ -12,7 +12,7 @@
     { "path": "/apps/case-model-designer/new", "label": "Neues Case-Modell" },
     { "path": "/apps/case-model-designer/settings", "label": "Einstellungen" }
   ],
-  "required_roles": ["admin"],
+  "required_teams": [],
   "supported_locales": ["de", "en"],
   "event_subscriptions": [],
   "settings_schema": {

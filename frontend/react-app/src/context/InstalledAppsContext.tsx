@@ -19,15 +19,13 @@ export interface SidebarAppItem {
   name: string;
   nav_path: string;
   nav_icon: string | null;
-  menu_category: InstalledApp['menu_category'];
 }
 
 interface InstalledAppsContextValue {
-  workApps: SidebarAppItem[];
-  administrationApps: SidebarAppItem[];
+  sidebarApps: SidebarAppItem[];
   allApps: InstalledApp[];
   loading: boolean;
-  refreshInstalledApps: () => Promise<void>;
+  refreshInstalledApps: (opts?: { silent?: boolean }) => Promise<void>;
 }
 
 const InstalledAppsContext = createContext<InstalledAppsContextValue | null>(null);
@@ -39,7 +37,6 @@ function toSidebarItem(app: InstalledApp): SidebarAppItem | null {
     name: app.name,
     nav_path: app.nav_path,
     nav_icon: app.nav_icon,
-    menu_category: app.menu_category,
   };
 }
 
@@ -49,14 +46,14 @@ export function InstalledAppsProvider({ children }: { children: ReactNode }) {
   const [allApps, setAllApps] = useState<InstalledApp[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refreshInstalledApps = useCallback(async () => {
+  const refreshInstalledApps = useCallback(async (opts?: { silent?: boolean }) => {
     if (!user) {
       setAllApps([]);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     const res = await api.GET('/v1/apps', { headers: apiHeaders(locale) });
     if (res.error || !res.response.ok) {
       setAllApps([]);
@@ -81,25 +78,14 @@ export function InstalledAppsProvider({ children }: { children: ReactNode }) {
     [allApps, locale],
   );
 
-  const workApps = useMemo(
-    () => sidebarApps.filter((app) => app.menu_category === 'work'),
-    [sidebarApps],
-  );
-
-  const administrationApps = useMemo(
-    () => sidebarApps.filter((app) => app.menu_category === 'administration'),
-    [sidebarApps],
-  );
-
   const value = useMemo(
     () => ({
-      workApps,
-      administrationApps,
+      sidebarApps,
       allApps,
       loading,
       refreshInstalledApps,
     }),
-    [workApps, administrationApps, allApps, loading, refreshInstalledApps],
+    [sidebarApps, allApps, loading, refreshInstalledApps],
   );
 
   return (

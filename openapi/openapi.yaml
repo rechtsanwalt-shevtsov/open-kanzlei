@@ -49,8 +49,8 @@ paths:
     $ref: './paths/apps.yaml#/apps-list'
   /v1/tenant/apps:
     $ref: './paths/apps.yaml#/tenant-apps-catalog'
-  /v1/tenant/apps/{appKey}:
-    $ref: './paths/apps.yaml#/tenant-app-status'
+  /v1/tenant/apps/{appKey}/teams/{teamId}:
+    $ref: './paths/apps.yaml#/tenant-app-team-status'
   /v1/apps/{appKey}/manifest:
     $ref: './paths/apps.yaml#/apps-manifest'
   /v1/apps/{appKey}/settings/effective:

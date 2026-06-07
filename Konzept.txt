@@ -116,7 +116,7 @@ openkanzlei/
 │   │   ├── auth/
 │   │   ├── tenants/
 │   │   ├── users/
-│   │   └── roles/
+│   │   └── teams/
 │   │
 │   ├── legal-work/                 # Domain ohne HTTP im MVP; Repositories vorbereitet
 │   │   ├── case-models/
@@ -142,7 +142,7 @@ openkanzlei/
 
 Schichten:
   foundation/  — Technik, keine juristische Fachlogik
-  platform/    — Mandanten, Benutzer, Rollen
+  platform/    — Mandanten, Benutzer, Teams
   legal-work/  — Juristische Domain (logisch getrennt von Platform)
   api/         — HTTP-Schicht, OpenAPI-konform
   workers/     — Outbox → Webhook, ohne Fachlogik
@@ -318,7 +318,7 @@ Betrifft später u. a.: Cases, Attribute, Notizen, Dokumente,
 Mandanten-/Gegnerinformationen.
 
 Ausgenommen (technische Plattformdaten):
-  tenant_id, user_id, username, Rollen, Metadaten, Timestamps, Eventtypen,
+  tenant_id, user_id, username, Team-Mitgliedschaften, Metadaten, Timestamps, Eventtypen,
   Systemstatus, Webhook-Konfigurationen.
 
 MVP-Regel (explizit):
@@ -348,8 +348,28 @@ Architektur-Vorbereitung im MVP:
 
 Tenant-Registrierung (UI):
   - Kanzleiname, Administrator-E-Mail, Passwort (+ admin_username, tenant_slug)
-  - Anlegen: Tenant, Tenant Profile, erster Admin-User, Admin-Rolle
+  - Anlegen: Tenant, Tenant Profile, Standard-Teams, erster Admin-User
+  - Erster Admin-User wird Mitglied in Teams „Administratoren“ (key admin) und
+    „Benutzer“ (key regular) — nur bei Tenant-Anlage
   - Optional: Domain Event tenant.registered
+
+Teams und Rechteverwaltung:
+  - Kein separates Rollen-System; Berechtigungen über Team-Mitgliedschaft (n:m)
+  - Standard-Teams pro Tenant (bei Registrierung angelegt):
+      key admin    — Anzeigename „Administratoren“ (stabil, nicht umbenennbar)
+      key regular  — Anzeigename „Benutzer“ (umbenennbar durch Tenant-Admin)
+  - Jeder Benutzer gehört mindestens einem Team an
+  - Administratorenrechte: Mitgliedschaft im Team mit key admin
+  - Weitere Administratoren werden nur den explizit zugewiesenen Teams hinzugefügt
+    (keine automatische Mitgliedschaft im Team regular)
+  - Der erste Administrator kann aus dem Team regular entfernt werden
+  - Tenant-Admin kann weitere Teams anlegen, Team „Benutzer“ umbenennen,
+    Team-Zugehörigkeiten verwalten, Teams und Benutzer löschen
+  - Löschen von Teams und Benutzern nur durch Mitglieder des Teams admin
+  - Team „Administratoren“ (key admin) kann nicht gelöscht werden
+  - Teams mit zugewiesenen Benutzern können nicht gelöscht werden
+  - Mindestens ein aktiver Benutzer muss im Team admin verbleiben
+  - Tabellen: platform.teams (key, name), platform.user_teams
 
 Login:
   - tenant_slug + username + password (NICHT E-Mail als globale ID)
@@ -374,7 +394,7 @@ Locale-Auflösung (Reihenfolge):
 
 Gespeicherte Fachdaten bleiben sprachneutral (status = open, key = claim_value).
 Lokalisierung nur in Darstellung/API-Labels (Fehlermeldungen, Enum-Labels,
-Rollenbezeichnungen, Attribut-Labels via translations JSONB).
+Team-Namen, Attribut-Labels via translations JSONB).
 
 MVP-Sprachen: Deutsch (de), Englisch (en) — erweiterbar.
 
@@ -456,7 +476,7 @@ Platzhalter:
 
 PostgreSQL-Schemas zur logischen Trennung:
 
-  platform.*   — tenants, tenant_profiles, users, roles, sessions,
+  platform.*   — tenants, tenant_profiles, users, teams, user_teams, sessions,
                  app_installations, app_tenant_settings, app_user_settings, …
   legal.*      — case_models, cases, documents
   events.*     — domain_events, outbox_events, webhook_subscriptions
@@ -527,7 +547,7 @@ OpenKanzlei wird als Plattform mit austauschbaren Apps verstanden.
 
 Die Plattform stellt bereit (ohne feste Arbeitslogik):
   - Datenhaltung, Tenant-Isolation
-  - Benutzer und Rollen
+  - Benutzer und Teams (Rechteverwaltung)
   - APIs, Events, Webhooks (Webhooks später ausbauen)
   - App-Registrierung und App-Einstellungen
   - spätere Zero-Knowledge-Verschlüsselung (vorbereitet, MVP ohne echte ZK)
@@ -580,7 +600,7 @@ Jede App besitzt ein Manifest mit mindestens:
   version           — Semver der App
   description
   routes            — Frontend-Routen der App (Navigation)
-  required_roles    — z. B. ["admin"] (KEIN separates Permission-System im MVP)
+  required_teams    — veraltet; Zugriff über Team-Aktivierung in app_team_activations
   settings_schema   — Definition aller Einstellungen (siehe 18.3)
   supported_locales — z. B. ["de", "en"]
   event_subscriptions — optional, MVP nicht auswerten
@@ -593,7 +613,7 @@ Frontend importiert dasselbe JSON für UI-Hilfen (keine Duplikat-TS-Datei mehr).
 ----------------------------------------------------------------------
 
   1. App Default Settings     — defaults aus settings_schema im Manifest
-  2. Tenant App Settings      — vom Tenant-Admin (Rolle admin), tenantweit
+  2. Tenant App Settings      — vom Tenant-Admin (Team key admin), tenantweit
   3. User App Settings        — vom Benutzer, nur wo userOverridable = true
 
 Effektive Einstellungen (serverseitig berechnet):
@@ -602,7 +622,7 @@ Effektive Einstellungen (serverseitig berechnet):
 
 Regeln:
   - Plattform validiert alle Werte anhand settings_schema
-  - Tenant-Settings: PATCH nur mit Rolle admin
+  - Tenant-Settings: PATCH nur mit Team-Mitgliedschaft admin
   - User-Settings: nur Keys mit userOverridable = true
   - App-Settings sind UI-/Vorschlagswerte; sie erzwingen keine Fachregeln
     auf Plattform-POSTs (z. B. defaultCaseModelStatus nur Formular-Default,
@@ -754,7 +774,7 @@ Grundregel: keine direkten DB-Zugriffe; nur Plattform-APIs.
   - Externer App-Store / Drittanbieter-Installation
   - iframe / Micro-Frontend-Deployment
   - event_subscriptions aus Manifest auswerten
-  - Feingranulares Permission-System (nur required_roles)
+  - Feingranulares Permission-System (nur required_teams)
   - Case-Instanzen-UI in der App (bestehende /cases-Seite bleibt)
   - Kanzlei-Vorlagen mit app-spezifischer Initial-Aktivierung (nur vorbereitet
     in 18.1; MVP aktiviert alle bekannten Apps bei Registrierung)
@@ -810,7 +830,7 @@ Zwei Ebenen „Installation“:
 
 20.5 Plattform-Erweiterungen
   - event_subscriptions aus Manifest auswerten
-  - Feingranulares Permission-System über required_roles hinaus
+  - Feingranulares Permission-System über required_teams hinaus
   - Tests für App-Settings, Katalog, Tenant-Isolation
 
 ================================================================================
@@ -868,8 +888,8 @@ Phase F — später (nicht in dieser Runde)
 
 Phase G — App-Plattform ausbauen [x]
   [x] apps/<app-key>/ im Monorepo; case-model-designer migriert
-  [x] OpenAPI: GET /v1/tenant/apps, PATCH /v1/tenant/apps/{appKey}
-  [x] Backend: Registry-Scan, listTenantAppCatalog, setTenantAppStatus
+  [x] OpenAPI: GET /v1/tenant/apps, PATCH /v1/tenant/apps/{appKey}/teams/{teamId}
+  [x] Backend: Registry-Scan, listTenantAppCatalog, setTeamAppStatus, app_team_activations
   [x] Frontend: AdminAppsPage Katalog + Toggle; Sidebar-Refresh
   [x] apps/-Scan beim Serverstart; /app-assets/{appKey}/; npm run build:apps
   [ ] Tests: admin-only Katalog; User sieht nur aktive Apps; Tenant-Isolation
@@ -904,12 +924,12 @@ Abnahme App-MVP:
   | App-MVP Typ              | First-Party im Monorepo, kein App-Store   |
   | App-Installation         | Pro Tenant; Registry plattformweit (Opt. A)|
   | App-Katalog Admin        | GET /v1/tenant/apps; Toggle nur admin     |
-  | Neue Tenants (MVP)       | Alle bekannten Apps sofort aktiv          |
+  | Neue Tenants (MVP)       | Alle Apps für alle Teams zunächst inaktiv   |
   | Neue Tenants (später)    | Initial-Apps über Kanzlei-Vorlage         |
   | App-Ordner                 | apps/<app-key>/manifest.json + frontend/  |
   | Registry                   | Scan APPS_PATH beim Serverstart           |
   | App-Assets                 | /app-assets/{appKey}/ aus frontend/dist/  |
-  | App-Berechtigung         | required_roles ["admin"] im Manifest      |
+  | App-Berechtigung         | Team-Aktivierung pro App (app_team_activations) |
   | Case-Model-UI            | Nur in case-model-designer-App            |
   | Case-Model API-Pfade     | Bestehende /case-models, /attributes      |
   | CaseModel status         | draft, active, archived (Enum)              |

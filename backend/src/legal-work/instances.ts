@@ -1,5 +1,10 @@
 import type pg from 'pg';
 import { notFound } from '../api/errors.js';
+import {
+  assertCaseHasNoTasks,
+  deleteCaseDocuments,
+  deleteInstanceAttributeValues,
+} from './entity-guards.js';
 import { getEventService } from '../foundation/events/event-service.js';
 import type { PublicEventType } from '../foundation/events/event-types.js';
 import { withTenantTransaction } from '../foundation/database/tenant-context.js';
@@ -290,11 +295,17 @@ export async function updateCase(
 
 export async function deleteCase(tenantId: string, id: string): Promise<void> {
   return withTenantTransaction(tenantId, async (client) => {
-    const result = await client.query(
-      `DELETE FROM legal.cases WHERE id = $1 AND tenant_id = $2`,
+    const existing = await client.query(
+      `SELECT 1 FROM legal.cases WHERE id = $1 AND tenant_id = $2`,
       [id, tenantId],
     );
-    if (!result.rowCount) throw notFound();
+    if (!existing.rowCount) throw notFound();
+
+    await assertCaseHasNoTasks(client, tenantId, id);
+    await deleteInstanceAttributeValues(client, tenantId, 'case', id);
+    await deleteCaseDocuments(client, tenantId, id);
+
+    await client.query(`DELETE FROM legal.cases WHERE id = $1 AND tenant_id = $2`, [id, tenantId]);
     await publish(client, tenantId, 'case.deleted', 'case', id, { case_id: id });
   });
 }

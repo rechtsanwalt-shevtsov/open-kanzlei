@@ -3,31 +3,35 @@ import { api, apiHeaders, readApiError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useI18n } from '../i18n/I18nContext.js';
 import type { components } from '../api/schema.js';
+import { userIsAdmin } from '../lib/is-admin.js';
 
 export type TenantAppCatalogEntry = components['schemas']['TenantAppCatalogEntry'];
 
 interface TenantAppsContextValue {
   catalog: TenantAppCatalogEntry[];
   loading: boolean;
-  refreshCatalog: () => Promise<void>;
-  setAppStatus: (appKey: string, status: 'active' | 'inactive') => Promise<string | null>;
+  refreshCatalog: (opts?: { silent?: boolean }) => Promise<void>;
+  setTeamAppStatus: (
+    appKey: string,
+    teamId: string,
+    status: 'active' | 'inactive',
+  ) => Promise<string | null>;
 }
 
-// Lightweight hook for admin app catalog — no context provider required yet.
 export function useTenantAppCatalog(): TenantAppsContextValue {
   const { locale, msg } = useI18n();
   const { user } = useAuth();
   const [catalog, setCatalog] = useState<TenantAppCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refreshCatalog = useCallback(async () => {
-    if (!user?.roles.includes('admin')) {
+  const refreshCatalog = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!user || !userIsAdmin(user.teams)) {
       setCatalog([]);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     const res = await api.GET('/v1/tenant/apps', { headers: apiHeaders(locale) });
     if (res.error || !res.response.ok) {
       setCatalog([]);
@@ -43,21 +47,25 @@ export function useTenantAppCatalog(): TenantAppsContextValue {
     void refreshCatalog();
   }, [refreshCatalog]);
 
-  const setAppStatus = useCallback(
-    async (appKey: string, status: 'active' | 'inactive'): Promise<string | null> => {
-      const res = await api.PATCH('/v1/tenant/apps/{appKey}', {
+  const setTeamAppStatus = useCallback(
+    async (
+      appKey: string,
+      teamId: string,
+      status: 'active' | 'inactive',
+    ): Promise<string | null> => {
+      const res = await api.PATCH('/v1/tenant/apps/{appKey}/teams/{teamId}', {
         headers: apiHeaders(locale),
-        params: { path: { appKey } },
+        params: { path: { appKey, teamId } },
         body: { status },
       });
       if (res.error || !res.response.ok) {
         return readApiError(res.error, msg('errorGeneric'));
       }
-      await refreshCatalog();
+      await refreshCatalog({ silent: true });
       return null;
     },
     [locale, msg, refreshCatalog],
   );
 
-  return { catalog, loading, refreshCatalog, setAppStatus };
+  return { catalog, loading, refreshCatalog, setTeamAppStatus };
 }

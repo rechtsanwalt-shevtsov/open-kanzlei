@@ -42,11 +42,11 @@ tenant-apps-catalog:
       '403':
         $ref: '../components/responses/common.yaml#/Forbidden'
 
-tenant-app-status:
+tenant-app-team-status:
   patch:
     tags: [Apps]
-    operationId: patchTenantAppStatus
-    summary: Activate or deactivate an app for the current tenant (admin)
+    operationId: patchTeamAppStatus
+    summary: Activate or deactivate an app for a team (admin)
     security: [{ sessionCookie: [] }]
     parameters:
       - name: appKey
@@ -54,12 +54,18 @@ tenant-app-status:
         required: true
         schema:
           $ref: '../components/schemas/apps.yaml#/AppKey'
+      - name: teamId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/apps.yaml#/PatchTenantAppStatusRequest'
+            $ref: '../components/schemas/apps.yaml#/PatchTeamAppStatusRequest'
     responses:
       '200':
         content:

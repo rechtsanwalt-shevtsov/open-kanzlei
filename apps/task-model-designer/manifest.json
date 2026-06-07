@@ -12,7 +12,7 @@
     { "path": "/apps/task-model-designer/new", "label": "Neues Task-Modell" },
     { "path": "/apps/task-model-designer/settings", "label": "Einstellungen" }
   ],
-  "required_roles": ["admin"],
+  "required_teams": [],
   "supported_locales": ["de", "en"],
   "event_subscriptions": [],
   "settings_schema": {

@@ -1,10 +1,12 @@
+import type { UserTeamDto } from '../teams/team-service.js';
+
 export interface SessionUser {
   id: string;
   tenantId: string;
   username: string;
   email: string | null;
   preferredLanguage: 'de' | 'en' | null;
-  roles: string[];
+  teams: UserTeamDto[];
   tenantDefaultLanguage: 'de' | 'en';
 }
 
@@ -27,7 +29,7 @@ export interface CurrentUserResponse {
   username: string;
   email: string | null;
   preferred_language: 'de' | 'en' | null;
-  roles: string[];
+  teams: UserTeamDto[];
 }
 
 export function toCurrentUserResponse(user: SessionUser): CurrentUserResponse {
@@ -37,6 +39,6 @@ export function toCurrentUserResponse(user: SessionUser): CurrentUserResponse {
     username: user.username,
     email: user.email,
     preferred_language: user.preferredLanguage,
-    roles: user.roles,
+    teams: user.teams,
   };
 }

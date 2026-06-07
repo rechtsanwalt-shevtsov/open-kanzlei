@@ -93,7 +93,7 @@ OpenAPI: `openapi/openapi.yaml` (Tag `LegalWork`)
 
 First-Party-Apps liegen unter `apps/<app-key>/` (Manifest + Frontend). Beispiel: **case-model-designer** — Case-Modelle und Attributdefinitionen.
 
-- UI: `/apps/case-model-designer` (Admin-Rolle, Tenant muss App aktiv haben)
+- UI: `/apps/case-model-designer` (Team „Administratoren“, Tenant muss App aktiv haben)
 - Admin-Katalog: `/admin/apps` — alle serverbekannten Apps, Aktivieren/Deaktivieren
 - APIs: Tag `Apps` (`GET /v1/apps`, `GET /v1/tenant/apps`, Settings, Manifest)
 - Registry: Server scannt `apps/` beim Start (`APPS_PATH`)
@@ -104,6 +104,21 @@ Build App-Chunks: `cd frontend/react-app && npm run build:apps`
 Task-/Instrument-Modelle: weiterhin unter `/admin/models`
 
 Nach `git pull`: `cd backend && npm run migrate`
+
+## Benutzer und Teams
+
+Rechte werden über **Teams** vergeben (kein separates Rollen-System). Standard-Teams pro Tenant:
+
+| Key | Standardname | Bedeutung |
+|-----|--------------|-----------|
+| `admin` | Administratoren | Vollzugriff auf Administration (nicht umbenennbar) |
+| `regular` | Benutzer | Basiszugriff ohne Admin-Rechte (umbenennbar) |
+
+- Jeder Benutzer gehört mindestens einem Team an
+- Nur der erste Administrator bei Tenant-Anlage wird zusätzlich dem Team `regular` zugewiesen
+- Verwaltung: `/admin/users` (Teams und Benutzer anlegen, bearbeiten, löschen — nur Administratoren)
+- Team „Administratoren“ kann nicht gelöscht werden; andere Teams nur ohne zugewiesene Benutzer
+- App-Zugriff: pro Team aktivierbar unter `/admin/apps` (nur Administratoren); Sidebar zeigt Apps, die für mindestens ein Team des Benutzers aktiv sind
 
 ## Frontend (Schritt 3)
 

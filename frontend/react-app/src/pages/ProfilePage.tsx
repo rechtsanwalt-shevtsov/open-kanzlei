@@ -127,8 +127,8 @@ export function ProfilePage() {
             <dd>{user.username}</dd>
             <dt>{msg('email')}</dt>
             <dd>{user.email ?? '—'}</dd>
-            <dt>{msg('roles')}</dt>
-            <dd>{user.roles.join(', ')}</dd>
+            <dt>{msg('teams')}</dt>
+            <dd>{user.teams.map((t) => t.name).join(', ')}</dd>
           </dl>
         </div>
       )}

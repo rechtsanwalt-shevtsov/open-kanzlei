@@ -21,6 +21,10 @@ import {
   resolveTaskReferenceIds,
 } from './task-instance-references.js';
 import { toIso } from './validation.js';
+import {
+  assertTaskNotReferencedByOthers,
+  deleteInstanceAttributeValues,
+} from './entity-guards.js';
 
 export type CreateTaskBody = {
   case_id: string;
@@ -355,11 +359,16 @@ export async function updateTask(
 
 export async function deleteTask(tenantId: string, id: string): Promise<void> {
   return withTenantTransaction(tenantId, async (client) => {
-    const result = await client.query(
-      `DELETE FROM legal.tasks WHERE id = $1 AND tenant_id = $2`,
+    const existing = await client.query(
+      `SELECT 1 FROM legal.tasks WHERE id = $1 AND tenant_id = $2`,
       [id, tenantId],
     );
-    if (!result.rowCount) throw notFound();
+    if (!existing.rowCount) throw notFound();
+
+    await assertTaskNotReferencedByOthers(client, tenantId, id);
+    await deleteInstanceAttributeValues(client, tenantId, 'task', id);
+
+    await client.query(`DELETE FROM legal.tasks WHERE id = $1 AND tenant_id = $2`, [id, tenantId]);
     await publish(client, tenantId, 'task.deleted', 'task', id, { task_id: id });
   });
 }

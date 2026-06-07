@@ -5,10 +5,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import { useInstalledApps } from '../../context/InstalledAppsContext.js';
 import { useI18n } from '../../i18n/I18nContext.js';
 import { AppNavIcon } from '../../lib/app-nav-icon.js';
-
-function isAdminUser(roles: string[]): boolean {
-  return roles.includes('admin');
-}
+import { userIsAdmin } from '../../lib/is-admin.js';
 
 function NavLink({
   to,
@@ -73,19 +70,15 @@ function NavGroup({
 export function AdminSidebar() {
   const { user } = useAuth();
   const { msg } = useI18n();
-  const { workApps, administrationApps } = useInstalledApps();
+  const { sidebarApps } = useInstalledApps();
   const location = useLocation();
 
-  const isAdmin = user ? isAdminUser(user.roles) : false;
+  const isAdmin = user ? userIsAdmin(user.teams) : false;
 
-  const adminSectionActive = useMemo(() => {
-    if (location.pathname.startsWith('/admin')) return true;
-    return administrationApps.some(
-      (app) =>
-        location.pathname === app.nav_path ||
-        location.pathname.startsWith(`${app.nav_path}/`),
-    );
-  }, [location.pathname, administrationApps]);
+  const adminSectionActive = useMemo(
+    () => location.pathname.startsWith('/admin'),
+    [location.pathname],
+  );
 
   const [adminOpen, setAdminOpen] = useState(isAdmin && adminSectionActive);
 
@@ -98,7 +91,7 @@ export function AdminSidebar() {
   return (
     <aside className="app-sidebar" aria-label={msg('sidebarNav')}>
       <nav className="sidebar-nav">
-        {workApps.map((app) => (
+        {sidebarApps.map((app) => (
           <NavLink
             key={app.app_key}
             to={app.nav_path}
@@ -131,15 +124,6 @@ export function AdminSidebar() {
               icon={<LuPuzzle size={16} aria-hidden />}
               indent={1}
             />
-            {administrationApps.map((app) => (
-              <NavLink
-                key={app.app_key}
-                to={app.nav_path}
-                label={app.name}
-                icon={<AppNavIcon name={app.nav_icon} />}
-                indent={1}
-              />
-            ))}
           </NavGroup>
         )}
       </nav>

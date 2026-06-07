@@ -289,6 +289,10 @@
   margin-bottom: 1rem;
 }
 
+.admin-page-header--actions-only {
+  justify-content: flex-end;
+}
+
 .admin-page-title {
   margin: 0;
   font-size: 1.125rem;
@@ -352,6 +356,16 @@
 .button-icon--danger:hover {
   border-color: var(--color-error);
   background: color-mix(in srgb, var(--color-error) 8%, var(--color-surface));
+}
+
+.button-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button-icon:disabled:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
 }
 
 .button-icon--danger:disabled {
@@ -655,9 +669,45 @@
 
 .admin-dialog-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 0.75rem;
   margin-top: 0.5rem;
+}
+
+.admin-dialog-actions-main {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.button-danger {
+  border: 1px solid var(--color-danger, #b42318);
+  background: transparent;
+  color: var(--color-danger, #b42318);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.875rem;
+  cursor: pointer;
+}
+
+.button-danger:hover:not(:disabled) {
+  background: rgba(180, 35, 24, 0.08);
+}
+
+.button-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-page-section + .admin-page-section {
+  margin-top: 2rem;
+}
+
+.admin-section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .admin-dialog-readonly {
@@ -672,7 +722,14 @@
 }
 
 .admin-table--with-actions .admin-table-actions-col {
-  width: 3rem;
+  width: 5.5rem;
+}
+
+.admin-table-icon-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
 }
 
 .admin-table-actions-cell {

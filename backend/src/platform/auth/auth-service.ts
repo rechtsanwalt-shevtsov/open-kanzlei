@@ -7,8 +7,13 @@ import {
   withTransaction,
 } from '../../foundation/database/tenant-context.js';
 import { getPool } from '../../foundation/database/pool.js';
-import { ensureTenantRole } from '../roles/tenant-roles.js';
 import { allocateUniqueTenantSlug } from '../tenants/slug.js';
+import {
+  ensureDefaultTeams,
+  getTeamIdByKey,
+  loadUserTeams,
+} from '../teams/team-service.js';
+import { TEAM_ADMIN, TEAM_REGULAR } from '../teams/team-keys.js';
 import type {
   LoginInput,
   RegisterTenantInput,
@@ -17,7 +22,7 @@ import type {
 import { createSession, hashSessionToken } from './session.js';
 import { installDefaultAppsForNewTenant } from '../apps/app-service.js';
 
-async function loadUserWithRoles(
+async function loadUserWithTeams(
   client: pg.PoolClient,
   userId: string,
 ): Promise<SessionUser | null> {
@@ -40,13 +45,7 @@ async function loadUserWithRoles(
   const row = userResult.rows[0];
   if (!row) return null;
 
-  const rolesResult = await client.query<{ key: string }>(
-    `SELECT r.key
-     FROM platform.user_roles ur
-     JOIN platform.roles r ON r.id = ur.role_id
-     WHERE ur.user_id = $1`,
-    [userId],
-  );
+  const teams = await loadUserTeams(client, userId);
 
   return {
     id: row.id,
@@ -54,7 +53,7 @@ async function loadUserWithRoles(
     username: row.username,
     email: row.email,
     preferredLanguage: row.preferred_language,
-    roles: rolesResult.rows.map((r) => r.key),
+    teams,
     tenantDefaultLanguage: row.default_language,
   };
 }
@@ -99,6 +98,10 @@ export async function registerTenant(
       [tenantId, input.firmName.trim(), JSON.stringify({ color_theme: 'classic' })],
     );
 
+    await ensureDefaultTeams(client, tenantId);
+    const adminTeamId = await getTeamIdByKey(client, tenantId, TEAM_ADMIN);
+    const regularTeamId = await getTeamIdByKey(client, tenantId, TEAM_REGULAR);
+
     const userResult = await client.query<{ id: string }>(
       `INSERT INTO platform.users
          (tenant_id, username, email, password_hash)
@@ -108,13 +111,12 @@ export async function registerTenant(
     );
     const userId = userResult.rows[0]!.id;
 
-    const roleId = await ensureTenantRole(client, tenantId, 'admin');
-    await ensureTenantRole(client, tenantId, 'regular');
-
-    await client.query(
-      `INSERT INTO platform.user_roles (user_id, role_id) VALUES ($1, $2)`,
-      [userId, roleId],
-    );
+    for (const teamId of [adminTeamId, regularTeamId]) {
+      await client.query(
+        `INSERT INTO platform.user_teams (user_id, team_id) VALUES ($1, $2)`,
+        [userId, teamId],
+      );
+    }
 
     await installDefaultAppsForNewTenant(client, tenantId);
 
@@ -128,7 +130,7 @@ export async function registerTenant(
     });
 
     const sessionToken = await createSession(client, userId, tenantId);
-    const user = await loadUserWithRoles(client, userId);
+    const user = await loadUserWithTeams(client, userId);
     if (!user) {
       throw badRequest('error.internal');
     }
@@ -176,7 +178,7 @@ export async function login(
   return withTransaction(async (client) => {
     await setTenantContext(client, userRow.tenant_id);
     const sessionToken = await createSession(client, userRow.id, userRow.tenant_id);
-    const user = await loadUserWithRoles(client, userRow.id);
+    const user = await loadUserWithTeams(client, userRow.id);
     if (!user) {
       throw unauthorized('error.invalid_credentials');
     }
@@ -200,7 +202,7 @@ export async function resolveSessionUser(token: string): Promise<SessionUser | n
   try {
     await client.query('BEGIN');
     await setTenantContext(client, session.tenant_id);
-    const user = await loadUserWithRoles(client, session.user_id);
+    const user = await loadUserWithTeams(client, session.user_id);
     await client.query('COMMIT');
     return user;
   } catch (err) {

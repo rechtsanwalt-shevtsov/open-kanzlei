@@ -14,6 +14,9 @@ export type MessageKey =
   | 'error.not_found'
   | 'error.key_conflict'
   | 'error.model_in_use'
+  | 'error.case_in_use'
+  | 'error.task_in_use'
+  | 'error.attribute_in_use'
   | 'error.attribute_not_defined'
   | 'error.attribute_definition_reserved'
   | 'error.invalid_attribute_value'
@@ -22,6 +25,9 @@ export type MessageKey =
   | 'error.username_taken'
   | 'error.last_admin'
   | 'error.cannot_demote_self'
+  | 'error.team_protected'
+  | 'error.team_has_members'
+  | 'error.cannot_delete_self'
   | 'error.task_model_not_allowed_on_case_model';
 
 const messages: Record<MessageKey, Record<Locale, string>> = {
@@ -77,6 +83,18 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
     de: 'Modell wird noch verwendet und kann nicht gelöscht werden.',
     en: 'Model is in use and cannot be deleted.',
   },
+  'error.case_in_use': {
+    de: 'Die Akte enthält noch Tasks und kann nicht gelöscht werden.',
+    en: 'The case still has tasks and cannot be deleted.',
+  },
+  'error.task_in_use': {
+    de: 'Der Task wird noch von anderen Tasks referenziert und kann nicht gelöscht werden.',
+    en: 'The task is still referenced by other tasks and cannot be deleted.',
+  },
+  'error.attribute_in_use': {
+    de: 'Das Attribut enthält noch Werte in Instanzen und kann nicht gelöscht werden.',
+    en: 'The attribute still has values on instances and cannot be deleted.',
+  },
   'error.attribute_not_defined': {
     de: 'Attribut ist am Modell nicht definiert.',
     en: 'Attribute is not defined on the model.',
@@ -106,8 +124,20 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
     en: 'At least one active administrator must remain.',
   },
   'error.cannot_demote_self': {
-    de: 'Sie können Ihre eigene Administrator-Rolle nicht entziehen.',
-    en: 'You cannot remove your own administrator role.',
+    de: 'Sie können sich nicht aus dem Team Administratoren entfernen.',
+    en: 'You cannot remove yourself from the Administrators team.',
+  },
+  'error.team_protected': {
+    de: 'Dieses Team kann nicht geändert oder gelöscht werden.',
+    en: 'This team cannot be modified or deleted.',
+  },
+  'error.team_has_members': {
+    de: 'Das Team kann nicht gelöscht werden, solange ihm noch Benutzer zugewiesen sind.',
+    en: 'This team cannot be deleted while users are still assigned to it.',
+  },
+  'error.cannot_delete_self': {
+    de: 'Sie können Ihr eigenes Benutzerkonto nicht löschen.',
+    en: 'You cannot delete your own user account.',
   },
   'error.task_model_not_allowed_on_case_model': {
     de: 'Dieses Task-Modell ist für das Case-Modell nicht erlaubt.',

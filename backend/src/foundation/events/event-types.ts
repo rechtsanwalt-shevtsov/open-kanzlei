@@ -10,6 +10,7 @@ export const PUBLIC_EVENT_TYPES = [
   'tenant_profile.updated',
   'user.created',
   'user.updated',
+  'user.deleted',
   // Apps
   'app.installed',
   'app.activated',

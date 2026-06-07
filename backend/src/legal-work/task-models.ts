@@ -18,6 +18,7 @@ import {
 import { assertCaseModelStatus, assertModelKey, toIso } from './validation.js';
 import { allocateUniqueTaskModelKey, slugifyModelKey } from './model-key.js';
 import { seedTaskModelStandardInstanceAttributes } from './task-model-defaults.js';
+import { deleteAttributeDefinitionsForModel } from './entity-guards.js';
 
 export type { CreateAttributeDefinitionInput, UpdateAttributeDefinitionInput };
 
@@ -336,6 +337,8 @@ export async function deleteTaskModel(
       [id, tenantId],
     );
     if (inUse.rowCount) throw conflict('error.model_in_use');
+
+    await deleteAttributeDefinitionsForModel(client, tenantId, 'task_model', id);
 
     const result = await client.query(
       `DELETE FROM legal.task_models WHERE id = $1 AND tenant_id = $2`,

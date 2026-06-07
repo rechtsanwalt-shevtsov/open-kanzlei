@@ -7,20 +7,25 @@ AppInstallationStatus:
   type: string
   enum: [active, inactive]
 
+TeamAppActivation:
+  type: object
+  required: [team_id, status]
+  properties:
+    team_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/AppInstallationStatus'
+
 TenantAppCatalogEntry:
   type: object
   required:
     - app_key
     - name
     - version
-    - description
     - has_react_ui
-    - menu_category
-    - nav_path
-    - nav_icon
-    - installed
-    - status
-    - installed_at
+    - settings_path
+    - team_activations
   properties:
     app_key:
       $ref: '#/AppKey'
@@ -28,32 +33,18 @@ TenantAppCatalogEntry:
       type: string
     version:
       type: string
-    description:
-      type: string
     has_react_ui:
       type: boolean
-    menu_category:
-      $ref: '#/AppMenuCategory'
-    nav_path:
+    settings_path:
       type: string
       nullable: true
-    nav_icon:
-      type: string
-      nullable: true
-    installed:
-      type: boolean
-      description: Whether the app has an installation row for this tenant
-    status:
-      allOf:
-        - $ref: '#/AppInstallationStatus'
-      nullable: true
-      description: null when never installed for this tenant
-    installed_at:
-      type: string
-      format: date-time
-      nullable: true
+      description: Route to app settings page (e.g. /apps/cases/settings)
+    team_activations:
+      type: array
+      items:
+        $ref: '#/TeamAppActivation'
 
-PatchTenantAppStatusRequest:
+PatchTeamAppStatusRequest:
   type: object
   required: [status]
   properties:
@@ -113,7 +104,7 @@ AppManifest:
     - nav_path
     - nav_icon
     - routes
-    - required_roles
+    - required_teams
     - settings_schema
     - supported_locales
   properties:
@@ -145,10 +136,11 @@ AppManifest:
             type: string
           label:
             type: string
-    required_roles:
+    required_teams:
       type: array
       items:
         type: string
+      description: Deprecated; app access is controlled via team activation
     settings_schema:
       type: object
       additionalProperties:

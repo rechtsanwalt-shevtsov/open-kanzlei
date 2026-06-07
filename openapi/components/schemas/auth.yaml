@@ -46,7 +46,7 @@ AuthSessionResponse:
 
 CurrentUserResponse:
   type: object
-  required: [id, tenant_id, username, roles]
+  required: [id, tenant_id, username, teams]
   properties:
     id:
       type: string
@@ -64,7 +64,7 @@ CurrentUserResponse:
       type: string
       enum: [de, en]
       nullable: true
-    roles:
+    teams:
       type: array
       items:
-        type: string
+        $ref: '../schemas/platform.yaml#/UserTeam'

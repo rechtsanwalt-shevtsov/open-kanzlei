@@ -15,8 +15,8 @@ TenantProfile:
 UpdateTenantProfileRequest:
   $ref: './tenant.yaml#/UpdateTenantProfileRequest'
 
-TenantRoleKey:
-  $ref: './platform.yaml#/TenantRoleKey'
+UserTeam:
+  $ref: './platform.yaml#/UserTeam'
 Team:
   $ref: './platform.yaml#/Team'
 CreateTeamRequest:

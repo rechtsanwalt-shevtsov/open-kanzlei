@@ -182,3 +182,20 @@ users-item:
         $ref: '../components/responses/common.yaml#/NotFound'
       '409':
         $ref: '../components/responses/common.yaml#/Conflict'
+  delete:
+    tags: [Platform]
+    operationId: deleteTenantUser
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'

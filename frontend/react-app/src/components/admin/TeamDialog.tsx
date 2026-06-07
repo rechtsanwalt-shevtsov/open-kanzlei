@@ -1,14 +1,17 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api, apiHeaders } from '../../api/client.js';
 import { useI18n } from '../../i18n/I18nContext.js';
+import type { Team } from '../../hooks/useTeams.js';
 
-interface CreateTeamDialogProps {
+interface TeamDialogProps {
   open: boolean;
+  mode: 'create' | 'edit';
+  team?: Team;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
 }
 
-export function CreateTeamDialog({ open, onClose, onCreated }: CreateTeamDialogProps) {
+export function TeamDialog({ open, mode, team, onClose, onSaved }: TeamDialogProps) {
   const { locale, msg } = useI18n();
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -16,9 +19,9 @@ export function CreateTeamDialog({ open, onClose, onCreated }: CreateTeamDialogP
 
   useEffect(() => {
     if (!open) return;
-    setName('');
+    setName(mode === 'edit' && team ? team.name : '');
     setError(null);
-  }, [open]);
+  }, [open, mode, team]);
 
   if (!open) return null;
 
@@ -31,21 +34,37 @@ export function CreateTeamDialog({ open, onClose, onCreated }: CreateTeamDialogP
     }
 
     setSubmitting(true);
-    const res = await api.POST('/v1/teams', {
-      headers: apiHeaders(locale),
-      body: { name: name.trim() },
-    });
-    setSubmitting(false);
 
-    if (res.error) {
-      const err = res.error as { message?: string };
-      setError(err?.message ?? msg('errorGeneric'));
-      return;
+    if (mode === 'create') {
+      const res = await api.POST('/v1/teams', {
+        headers: apiHeaders(locale),
+        body: { name: name.trim() },
+      });
+      setSubmitting(false);
+      if (res.error) {
+        const err = res.error as { message?: string };
+        setError(err?.message ?? msg('errorGeneric'));
+        return;
+      }
+    } else if (team) {
+      const res = await api.PATCH('/v1/teams/{id}', {
+        headers: apiHeaders(locale),
+        params: { path: { id: team.id } },
+        body: { name: name.trim() },
+      });
+      setSubmitting(false);
+      if (res.error) {
+        const err = res.error as { message?: string };
+        setError(err?.message ?? msg('errorGeneric'));
+        return;
+      }
     }
 
-    onCreated();
+    onSaved();
     onClose();
   }
+
+  const title = mode === 'create' ? msg('teamsCreateTitle') : msg('teamsEditTitle');
 
   return (
     <div className="admin-dialog-backdrop" role="presentation" onClick={onClose}>
@@ -53,10 +72,10 @@ export function CreateTeamDialog({ open, onClose, onCreated }: CreateTeamDialogP
         className="admin-dialog"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="create-team-title"
+        aria-labelledby="team-dialog-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="create-team-title">{msg('teamsCreateTitle')}</h2>
+        <h2 id="team-dialog-title">{title}</h2>
         <form onSubmit={handleSubmit} className="form">
           <label>
             {msg('teamsColName')}
@@ -74,7 +93,7 @@ export function CreateTeamDialog({ open, onClose, onCreated }: CreateTeamDialogP
               {msg('cancel')}
             </button>
             <button type="submit" className="button-primary" disabled={submitting}>
-              {submitting ? msg('loading') : msg('teamsCreate')}
+              {submitting ? msg('loading') : mode === 'create' ? msg('teamsCreate') : msg('submitSave')}
             </button>
           </div>
         </form>

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { env } from '../../config/env.js';
 import { forbidden, unauthorized } from '../errors.js';
 import { resolveSessionUser } from '../../platform/auth/auth-service.js';
+import { userIsAdmin } from '../../platform/teams/team-service.js';
 import { SESSION_COOKIE } from '../../platform/auth/session.js';
 
 export async function registerAuthMiddleware(app: FastifyInstance): Promise<void> {
@@ -52,7 +53,7 @@ export async function requireAdmin(
   reply: FastifyReply,
 ): Promise<void> {
   await requireAuth(request, reply);
-  if (!request.user!.roles.includes('admin')) {
+  if (!userIsAdmin(request.user!.teams)) {
     throw forbidden();
   }
 }

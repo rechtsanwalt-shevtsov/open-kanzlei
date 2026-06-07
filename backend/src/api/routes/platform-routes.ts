@@ -3,7 +3,6 @@ import { notFound } from '../errors.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 import * as teamService from '../../platform/teams/team-service.js';
 import * as userService from '../../platform/users/user-service.js';
-import type { TenantRoleKey } from '../../platform/roles/role-keys.js';
 
 const admin = { preHandler: requireAdmin };
 const auth = { preHandler: requireAuth };
@@ -49,8 +48,7 @@ export async function platformRoutes(app: FastifyInstance): Promise<void> {
       username: string;
       email?: string | null;
       password: string;
-      role: TenantRoleKey;
-      team_id?: string | null;
+      team_ids: string[];
       preferred_language?: 'de' | 'en' | null;
     };
     const { tenantId, userId } = ctx(req);
@@ -58,8 +56,7 @@ export async function platformRoutes(app: FastifyInstance): Promise<void> {
       username: body.username,
       email: body.email,
       password: body.password,
-      role: body.role,
-      teamId: body.team_id,
+      teamIds: body.team_ids ?? [],
       preferredLanguage: body.preferred_language,
     });
     return reply.status(201).send(item);
@@ -75,8 +72,7 @@ export async function platformRoutes(app: FastifyInstance): Promise<void> {
     const body = req.body as {
       email?: string | null;
       password?: string;
-      role?: TenantRoleKey;
-      team_id?: string | null;
+      team_ids?: string[];
       is_active?: boolean;
       preferred_language?: 'de' | 'en' | null;
     };
@@ -84,10 +80,15 @@ export async function platformRoutes(app: FastifyInstance): Promise<void> {
     return userService.updateTenantUser(tenantId, idParam(req), userId, {
       email: body.email,
       password: body.password,
-      role: body.role,
-      teamId: body.team_id,
+      teamIds: body.team_ids,
       isActive: body.is_active,
       preferredLanguage: body.preferred_language,
     });
+  });
+
+  app.delete('/v1/users/:id', admin, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
+    await userService.deleteTenantUser(tenantId, idParam(req), userId);
+    return reply.status(204).send();
   });
 }

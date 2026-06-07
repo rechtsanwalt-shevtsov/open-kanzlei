@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { useI18n } from '../i18n/I18nContext.js';
+import { userIsAdmin } from '../lib/is-admin.js';
 
 export function AdminRoute() {
   const { user, loading } = useAuth();
@@ -14,7 +15,7 @@ export function AdminRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  if (!user.roles.includes('admin')) {
+  if (!userIsAdmin(user.teams)) {
     return <Navigate to="/" replace />;
   }
 

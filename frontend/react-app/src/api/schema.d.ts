@@ -159,7 +159,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/tenant/apps/{appKey}": {
+    "/v1/tenant/apps/{appKey}/teams/{teamId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -172,8 +172,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Activate or deactivate an app for the current tenant (admin) */
-        patch: operations["patchTenantAppStatus"];
+        /** Activate or deactivate an app for a team (admin) */
+        patch: operations["patchTeamAppStatus"];
         trace?: never;
     };
     "/v1/apps/{appKey}/manifest": {
@@ -304,7 +304,7 @@ export interface paths {
         get: operations["getTenantUser"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deleteTenantUser"];
         options?: never;
         head?: never;
         patch: operations["updateTenantUser"];
@@ -537,6 +537,13 @@ export interface components {
             /** @enum {string} */
             default_language: "de" | "en";
         };
+        UserTeam: {
+            /** Format: uuid */
+            id: string;
+            /** @description Stable identifier for system teams (admin, regular) */
+            key?: string | null;
+            name: string;
+        };
         CurrentUserResponse: {
             /** Format: uuid */
             id: string;
@@ -547,7 +554,7 @@ export interface components {
             email?: string | null;
             /** @enum {string|null} */
             preferred_language?: "de" | "en" | null;
-            roles: string[];
+            teams: components["schemas"]["UserTeam"][];
         };
         AuthSessionResponse: {
             user: components["schemas"]["CurrentUserResponse"];
@@ -619,23 +626,21 @@ export interface components {
             /** @description Lucide icon name for sidebar navigation (e.g. LuBriefcaseBusiness) */
             nav_icon: string | null;
         };
+        TeamAppActivation: {
+            /** Format: uuid */
+            team_id: string;
+            status: components["schemas"]["AppInstallationStatus"];
+        };
         TenantAppCatalogEntry: {
             app_key: components["schemas"]["AppKey"];
             name: string;
             version: string;
-            description: string;
             has_react_ui: boolean;
-            menu_category: components["schemas"]["AppMenuCategory"];
-            nav_path: string | null;
-            nav_icon: string | null;
-            /** @description Whether the app has an installation row for this tenant */
-            installed: boolean;
-            /** @description null when never installed for this tenant */
-            status: components["schemas"]["AppInstallationStatus"] | null;
-            /** Format: date-time */
-            installed_at: string | null;
+            /** @description Route to app settings page (e.g. /apps/cases/settings) */
+            settings_path: string | null;
+            team_activations: components["schemas"]["TeamAppActivation"][];
         };
-        PatchTenantAppStatusRequest: {
+        PatchTeamAppStatusRequest: {
             status: components["schemas"]["AppInstallationStatus"];
         };
         AppSettingFieldSchema: {
@@ -661,7 +666,8 @@ export interface components {
                 path: string;
                 label: string;
             }[];
-            required_roles: string[];
+            /** @description Deprecated; app access is controlled via team activation */
+            required_teams: string[];
             settings_schema: {
                 [key: string]: components["schemas"]["AppSettingFieldSchema"];
             };
@@ -682,6 +688,8 @@ export interface components {
         Team: {
             /** Format: uuid */
             id: string;
+            /** @description Stable identifier for system teams (admin, regular) */
+            key?: string | null;
             name: string;
             /** Format: date-time */
             created_at: string;
@@ -694,21 +702,13 @@ export interface components {
         UpdateTeamRequest: {
             name: string;
         };
-        /**
-         * @description Administrator or regular user
-         * @enum {string}
-         */
-        TenantRoleKey: "admin" | "regular";
         TenantUser: {
             /** Format: uuid */
             id: string;
             username: string;
             /** Format: email */
             email?: string | null;
-            role: components["schemas"]["TenantRoleKey"];
-            /** Format: uuid */
-            team_id?: string | null;
-            team_name?: string | null;
+            teams: components["schemas"]["UserTeam"][];
             is_active: boolean;
             /** @enum {string|null} */
             preferred_language?: "de" | "en" | null;
@@ -723,9 +723,7 @@ export interface components {
             email?: string | null;
             /** Format: password */
             password: string;
-            role: components["schemas"]["TenantRoleKey"];
-            /** Format: uuid */
-            team_id?: string | null;
+            team_ids: string[];
             /** @enum {string} */
             preferred_language?: "de" | "en";
         };
@@ -734,9 +732,7 @@ export interface components {
             email?: string | null;
             /** Format: password */
             password?: string;
-            role?: components["schemas"]["TenantRoleKey"];
-            /** Format: uuid */
-            team_id?: string | null;
+            team_ids?: string[];
             is_active?: boolean;
             /** @enum {string} */
             preferred_language?: "de" | "en";
@@ -1320,18 +1316,19 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
-    patchTenantAppStatus: {
+    patchTeamAppStatus: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 appKey: components["schemas"]["AppKey"];
+                teamId: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PatchTenantAppStatusRequest"];
+                "application/json": components["schemas"]["PatchTeamAppStatusRequest"];
             };
         };
         responses: {
@@ -1674,6 +1671,30 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTenantUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     updateTenantUser: {

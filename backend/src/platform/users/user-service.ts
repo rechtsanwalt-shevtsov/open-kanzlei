@@ -4,20 +4,20 @@ import { badRequest, conflict, notFound } from '../../api/errors.js';
 import { getEventService } from '../../foundation/events/event-service.js';
 import { withTenantTransaction } from '../../foundation/database/tenant-context.js';
 import {
-  isTenantRoleKey,
-  ROLE_ADMIN,
-  type TenantRoleKey,
-} from '../roles/role-keys.js';
-import { assertTeamInTenant } from '../teams/team-service.js';
+  assertTeamsInTenant,
+  ensureDefaultTeams,
+  loadUserTeams,
+  userIsAdmin,
+  type UserTeamDto,
+} from '../teams/team-service.js';
+import { TEAM_ADMIN } from '../teams/team-keys.js';
 import { assertPassword, assertUsername } from './validation.js';
 
 export interface TenantUserDto {
   id: string;
   username: string;
   email: string | null;
-  role: TenantRoleKey;
-  team_id: string | null;
-  team_name: string | null;
+  teams: UserTeamDto[];
   is_active: boolean;
   preferred_language: 'de' | 'en' | null;
   created_at: string;
@@ -28,15 +28,13 @@ export interface CreateTenantUserInput {
   username: string;
   email?: string | null;
   password: string;
-  role: TenantRoleKey;
-  teamId?: string | null;
+  teamIds: string[];
   preferredLanguage?: 'de' | 'en' | null;
 }
 
 export interface UpdateTenantUserInput {
   email?: string | null;
-  role?: TenantRoleKey;
-  teamId?: string | null;
+  teamIds?: string[];
   isActive?: boolean;
   preferredLanguage?: 'de' | 'en' | null;
   password?: string;
@@ -46,24 +44,18 @@ type UserRow = {
   id: string;
   username: string;
   email: string | null;
-  team_id: string | null;
-  team_name: string | null;
   is_active: boolean;
   preferred_language: 'de' | 'en' | null;
   created_at: Date;
   updated_at: Date;
-  role: string;
 };
 
-function mapUser(row: UserRow): TenantUserDto {
-  const role = isTenantRoleKey(row.role) ? row.role : ROLE_ADMIN;
+function mapUser(row: UserRow, teams: UserTeamDto[]): TenantUserDto {
   return {
     id: row.id,
     username: row.username,
     email: row.email,
-    role,
-    team_id: row.team_id,
-    team_name: row.team_name,
+    teams,
     is_active: row.is_active,
     preferred_language: row.preferred_language,
     created_at: row.created_at.toISOString(),
@@ -72,37 +64,27 @@ function mapUser(row: UserRow): TenantUserDto {
 }
 
 const USER_SELECT = `
-  SELECT u.id, u.username, u.email, u.team_id, tm.name AS team_name,
-         u.is_active, u.preferred_language, u.created_at, u.updated_at,
-         COALESCE(
-           (SELECT r.key FROM platform.user_roles ur
-            JOIN platform.roles r ON r.id = ur.role_id
-            WHERE ur.user_id = u.id
-            ORDER BY r.key
-            LIMIT 1),
-           'regular'
-         ) AS role
+  SELECT u.id, u.username, u.email, u.is_active, u.preferred_language,
+         u.created_at, u.updated_at
   FROM platform.users u
-  LEFT JOIN platform.teams tm ON tm.id = u.team_id AND tm.tenant_id = u.tenant_id
   WHERE u.tenant_id = $1
 `;
 
-import { ensureTenantRole, getRoleIdByKey } from '../roles/tenant-roles.js';
-
-async function setUserRole(
+async function setUserTeams(
   client: pg.PoolClient,
   tenantId: string,
   userId: string,
-  roleKey: TenantRoleKey,
+  teamIds: string[],
 ): Promise<void> {
-  await ensureTenantRole(client, tenantId, 'admin');
-  await ensureTenantRole(client, tenantId, 'regular');
-  const roleId = await getRoleIdByKey(client, tenantId, roleKey);
-  await client.query(`DELETE FROM platform.user_roles WHERE user_id = $1`, [userId]);
-  await client.query(
-    `INSERT INTO platform.user_roles (user_id, role_id) VALUES ($1, $2)`,
-    [userId, roleId],
-  );
+  const uniqueTeamIds = [...new Set(teamIds)];
+  await assertTeamsInTenant(client, tenantId, uniqueTeamIds);
+  await client.query(`DELETE FROM platform.user_teams WHERE user_id = $1`, [userId]);
+  for (const teamId of uniqueTeamIds) {
+    await client.query(
+      `INSERT INTO platform.user_teams (user_id, team_id) VALUES ($1, $2)`,
+      [userId, teamId],
+    );
+  }
 }
 
 async function countActiveAdmins(
@@ -113,11 +95,11 @@ async function countActiveAdmins(
   const result = await client.query<{ count: string }>(
     `SELECT COUNT(DISTINCT u.id)::text AS count
      FROM platform.users u
-     JOIN platform.user_roles ur ON ur.user_id = u.id
-     JOIN platform.roles r ON r.id = ur.role_id
-     WHERE u.tenant_id = $1 AND u.is_active = true AND r.key = 'admin'
+     JOIN platform.user_teams ut ON ut.user_id = u.id
+     JOIN platform.teams t ON t.id = ut.team_id
+     WHERE u.tenant_id = $1 AND u.is_active = true AND t.key = $3
        AND ($2::uuid IS NULL OR u.id <> $2)`,
-    [tenantId, excludeUserId ?? null],
+    [tenantId, excludeUserId ?? null, TEAM_ADMIN],
   );
   return Number(result.rows[0]?.count ?? 0);
 }
@@ -131,7 +113,10 @@ async function loadUser(
     `${USER_SELECT} AND u.id = $2`,
     [tenantId, userId],
   );
-  return result.rows[0] ? mapUser(result.rows[0]) : null;
+  const row = result.rows[0];
+  if (!row) return null;
+  const teams = await loadUserTeams(client, userId);
+  return mapUser(row, teams);
 }
 
 export async function listTenantUsers(tenantId: string): Promise<TenantUserDto[]> {
@@ -140,7 +125,12 @@ export async function listTenantUsers(tenantId: string): Promise<TenantUserDto[]
       `${USER_SELECT} ORDER BY u.username`,
       [tenantId],
     );
-    return result.rows.map(mapUser);
+    const users: TenantUserDto[] = [];
+    for (const row of result.rows) {
+      const teams = await loadUserTeams(client, row.id);
+      users.push(mapUser(row, teams));
+    }
+    return users;
   });
 }
 
@@ -156,7 +146,7 @@ export async function createTenantUser(
   actorUserId: string,
   input: CreateTenantUserInput,
 ): Promise<TenantUserDto> {
-  if (!isTenantRoleKey(input.role)) {
+  if (!input.teamIds?.length) {
     throw badRequest('error.validation_failed');
   }
 
@@ -165,9 +155,7 @@ export async function createTenantUser(
   const email = input.email?.trim() || null;
 
   return withTenantTransaction(tenantId, async (client) => {
-    await assertTeamInTenant(client, tenantId, input.teamId);
-    await ensureTenantRole(client, tenantId, 'admin');
-    await ensureTenantRole(client, tenantId, 'regular');
+    await ensureDefaultTeams(client, tenantId);
 
     const passwordHash = await argon2.hash(input.password);
 
@@ -175,15 +163,14 @@ export async function createTenantUser(
     try {
       const userResult = await client.query<{ id: string }>(
         `INSERT INTO platform.users
-           (tenant_id, username, email, password_hash, team_id, preferred_language)
-         VALUES ($1, $2, $3, $4, $5, $6)
+           (tenant_id, username, email, password_hash, preferred_language)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING id`,
         [
           tenantId,
           username,
           email,
           passwordHash,
-          input.teamId ?? null,
           input.preferredLanguage ?? null,
         ],
       );
@@ -195,7 +182,9 @@ export async function createTenantUser(
       throw err;
     }
 
-    await setUserRole(client, tenantId, userId, input.role);
+    const teamIds = [...new Set(input.teamIds)];
+
+    await setUserTeams(client, tenantId, userId, teamIds);
 
     await getEventService().publish(client, {
       tenantId,
@@ -218,7 +207,7 @@ export async function updateTenantUser(
   actorUserId: string,
   input: UpdateTenantUserInput,
 ): Promise<TenantUserDto> {
-  if (input.role !== undefined && !isTenantRoleKey(input.role)) {
+  if (input.teamIds !== undefined && input.teamIds.length === 0) {
     throw badRequest('error.validation_failed');
   }
 
@@ -226,23 +215,37 @@ export async function updateTenantUser(
     const existing = await loadUser(client, tenantId, userId);
     if (!existing) throw notFound();
 
-    if (input.teamId !== undefined) {
-      await assertTeamInTenant(client, tenantId, input.teamId);
-    }
-
-    const nextRole = input.role ?? existing.role;
     const nextActive = input.isActive ?? existing.is_active;
-    const demotingAdmin =
-      existing.role === ROLE_ADMIN &&
-      (nextRole !== ROLE_ADMIN || nextActive === false);
+    const wasAdmin = userIsAdmin(existing.teams);
     const isSelf = actorUserId === userId;
 
-    if (demotingAdmin) {
+    let nextTeamIds: string[] | undefined;
+    if (input.teamIds !== undefined) {
+      nextTeamIds = [...new Set(input.teamIds)];
+    }
+
+    const nextTeams =
+      nextTeamIds !== undefined
+        ? (
+            await client.query<UserTeamDto>(
+              `SELECT t.id, t.key, t.name
+               FROM platform.teams t
+               WHERE t.tenant_id = $1 AND t.id = ANY($2::uuid[])
+               ORDER BY t.key NULLS LAST, t.name`,
+              [tenantId, nextTeamIds],
+            )
+          ).rows
+        : existing.teams;
+
+    const willBeAdmin = userIsAdmin(nextTeams);
+    const removingAdmin = wasAdmin && (!willBeAdmin || nextActive === false);
+
+    if (removingAdmin) {
       const adminsLeft = await countActiveAdmins(client, tenantId, userId);
       if (adminsLeft === 0) {
         throw conflict('error.last_admin');
       }
-      if (isSelf && nextRole !== ROLE_ADMIN) {
+      if (isSelf && !willBeAdmin) {
         throw conflict('error.cannot_demote_self');
       }
     }
@@ -258,10 +261,6 @@ export async function updateTenantUser(
     if (input.email !== undefined) {
       sets.push(`email = $${idx++}`);
       values.push(input.email?.trim() || null);
-    }
-    if (input.teamId !== undefined) {
-      sets.push(`team_id = $${idx++}`);
-      values.push(input.teamId);
     }
     if (input.isActive !== undefined) {
       sets.push(`is_active = $${idx++}`);
@@ -282,11 +281,11 @@ export async function updateTenantUser(
       values,
     );
 
-    if (input.role !== undefined && input.role !== existing.role) {
-      if (isSelf && input.role !== ROLE_ADMIN) {
+    if (nextTeamIds !== undefined) {
+      if (isSelf && !willBeAdmin) {
         throw conflict('error.cannot_demote_self');
       }
-      await setUserRole(client, tenantId, userId, input.role);
+      await setUserTeams(client, tenantId, userId, nextTeamIds);
     }
 
     await getEventService().publish(client, {
@@ -301,5 +300,51 @@ export async function updateTenantUser(
     const user = await loadUser(client, tenantId, userId);
     if (!user) throw notFound();
     return user;
+  });
+}
+
+export async function deleteTenantUser(
+  tenantId: string,
+  userId: string,
+  actorUserId: string,
+): Promise<void> {
+  if (actorUserId === userId) {
+    throw conflict('error.cannot_delete_self');
+  }
+
+  return withTenantTransaction(tenantId, async (client) => {
+    const existing = await loadUser(client, tenantId, userId);
+    if (!existing) throw notFound();
+
+    if (userIsAdmin(existing.teams) && existing.is_active) {
+      const adminsLeft = await countActiveAdmins(client, tenantId, userId);
+      if (adminsLeft === 0) {
+        throw conflict('error.last_admin');
+      }
+    }
+
+    await client.query(
+      `UPDATE events.domain_events SET actor_user_id = NULL WHERE actor_user_id = $1`,
+      [userId],
+    );
+    await client.query(
+      `UPDATE meta.attribute_definitions SET created_by = NULL WHERE created_by = $1`,
+      [userId],
+    );
+
+    const result = await client.query(
+      `DELETE FROM platform.users WHERE id = $1 AND tenant_id = $2`,
+      [userId, tenantId],
+    );
+    if (!result.rowCount) throw notFound();
+
+    await getEventService().publish(client, {
+      tenantId,
+      type: 'user.deleted',
+      aggregateType: 'user',
+      aggregateId: userId,
+      actorUserId: actorUserId,
+      data: { user_id: userId },
+    });
   });
 }

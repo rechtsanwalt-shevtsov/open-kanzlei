@@ -1,27 +1,44 @@
 import { useState } from 'react';
+import { LuSettings } from 'react-icons/lu';
 import { Link } from 'react-router-dom';
 import { useInstalledApps } from '../../context/InstalledAppsContext.js';
+import { useTeams } from '../../hooks/useTeams.js';
 import { useTenantAppCatalog } from '../../hooks/useTenantAppCatalog.js';
 import { useI18n } from '../../i18n/I18nContext.js';
 
+function teamStatus(
+  app: { team_activations: { team_id: string; status: 'active' | 'inactive' }[] },
+  teamId: string,
+): 'active' | 'inactive' {
+  return app.team_activations.find((a) => a.team_id === teamId)?.status ?? 'inactive';
+}
+
 export function AdminAppsPage() {
   const { msg } = useI18n();
-  const { catalog, loading, setAppStatus } = useTenantAppCatalog();
+  const { catalog, loading, setTeamAppStatus } = useTenantAppCatalog();
+  const { items: teams, loading: teamsLoading } = useTeams();
   const { refreshInstalledApps } = useInstalledApps();
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function toggleStatus(appKey: string, activate: boolean) {
-    setBusyKey(appKey);
+  async function toggleTeamStatus(
+    appKey: string,
+    teamId: string,
+    activate: boolean,
+  ) {
+    const key = `${appKey}:${teamId}`;
+    setBusyKey(key);
     setError(null);
-    const err = await setAppStatus(appKey, activate ? 'active' : 'inactive');
+    const err = await setTeamAppStatus(appKey, teamId, activate ? 'active' : 'inactive');
     if (err) {
       setError(err);
     } else {
-      await refreshInstalledApps();
+      await refreshInstalledApps({ silent: true });
     }
     setBusyKey(null);
   }
+
+  const tableLoading = loading || teamsLoading;
 
   return (
     <div className="admin-page">
@@ -34,71 +51,76 @@ export function AdminAppsPage() {
       <h1 className="admin-page-title">{msg('navApps')}</h1>
 
       {error && <p className="form-error">{error}</p>}
-      {loading && <p>{msg('loading')}</p>}
+      {tableLoading && <p>{msg('loading')}</p>}
 
-      {!loading && (
+      {!tableLoading && (
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
                 <th>{msg('adminAppsColName')}</th>
                 <th>{msg('adminAppsColKey')}</th>
-                <th>{msg('adminAppsColCategory')}</th>
                 <th>{msg('adminAppsColUi')}</th>
-                <th>{msg('adminAppsColStatus')}</th>
-                <th>{msg('adminAppsColActions')}</th>
+                <th aria-label={msg('adminAppsColSettings')} />
+                {teams.map((team) => (
+                  <th key={team.id}>{team.name}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {catalog.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="admin-table-empty">
+                  <td colSpan={4 + teams.length} className="admin-table-empty">
                     {msg('adminAppsCatalogEmpty')}
                   </td>
                 </tr>
               ) : (
-                catalog.map((app) => {
-                  const isActive = app.status === 'active';
-                  const busy = busyKey === app.app_key;
-                  return (
-                    <tr key={app.app_key}>
-                      <td>
-                        {isActive && app.has_react_ui && app.nav_path ? (
-                          <Link to={app.nav_path} className="admin-table-link admin-table-link--anchor">
-                            {app.name}
-                          </Link>
-                        ) : (
-                          app.name
-                        )}
-                      </td>
-                      <td className="admin-table-muted">{app.app_key}</td>
-                      <td>{app.menu_category}</td>
-                      <td>{app.has_react_ui ? msg('usersActiveYes') : msg('usersActiveNo')}</td>
-                      <td>{isActive ? msg('adminAppsStatusActive') : msg('adminAppsStatusInactive')}</td>
-                      <td>
-                        {isActive ? (
+                catalog.map((app) => (
+                  <tr key={app.app_key}>
+                    <td>{app.name}</td>
+                    <td className="admin-table-muted">{app.app_key}</td>
+                    <td>{app.has_react_ui ? msg('usersActiveYes') : msg('usersActiveNo')}</td>
+                    <td>
+                      {app.settings_path ? (
+                        <Link
+                          to={app.settings_path}
+                          className="button-outline button-sm"
+                          aria-label={`${msg('adminAppsColSettings')}: ${app.name}`}
+                        >
+                          <LuSettings size={18} aria-hidden />
+                        </Link>
+                      ) : (
+                        <span className="admin-table-muted">—</span>
+                      )}
+                    </td>
+                    {teams.map((team) => {
+                      const status = teamStatus(app, team.id);
+                      const isActive = status === 'active';
+                      const busy = busyKey === `${app.app_key}:${team.id}`;
+                      return (
+                        <td key={team.id}>
                           <button
                             type="button"
-                            className="button-outline button-sm"
+                            className="button-link button-sm"
                             disabled={busy}
-                            onClick={() => void toggleStatus(app.app_key, false)}
+                            onClick={() =>
+                              void toggleTeamStatus(app.app_key, team.id, !isActive)
+                            }
+                            aria-label={`${app.name} / ${team.name}: ${
+                              isActive
+                                ? msg('adminAppsDeactivate')
+                                : msg('adminAppsActivate')
+                            }`}
                           >
-                            {msg('adminAppsDeactivate')}
+                            {isActive
+                              ? msg('adminAppsStatusActive')
+                              : msg('adminAppsStatusInactive')}
                           </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="button-outline button-sm"
-                            disabled={busy}
-                            onClick={() => void toggleStatus(app.app_key, true)}
-                          >
-                            {msg('adminAppsActivate')}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

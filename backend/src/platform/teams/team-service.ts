@@ -1,16 +1,30 @@
 import type pg from 'pg';
-import { conflict, notFound } from '../../api/errors.js';
+import { badRequest, conflict, notFound } from '../../api/errors.js';
 import { withTenantTransaction } from '../../foundation/database/tenant-context.js';
+import {
+  DEFAULT_TEAM_NAMES,
+  TEAM_ADMIN,
+  TEAM_REGULAR,
+  type SystemTeamKey,
+} from './team-keys.js';
 
 export interface TeamDto {
   id: string;
+  key: string | null;
   name: string;
   created_at: string;
   updated_at: string;
 }
 
+export interface UserTeamDto {
+  id: string;
+  key: string | null;
+  name: string;
+}
+
 type TeamRow = {
   id: string;
+  key: string | null;
   name: string;
   created_at: Date;
   updated_at: Date;
@@ -19,19 +33,52 @@ type TeamRow = {
 function mapTeam(row: TeamRow): TeamDto {
   return {
     id: row.id,
+    key: row.key,
     name: row.name,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
 }
 
+export async function ensureDefaultTeams(
+  client: pg.PoolClient,
+  tenantId: string,
+): Promise<void> {
+  for (const key of [TEAM_ADMIN, TEAM_REGULAR] as const) {
+    await client.query(
+      `INSERT INTO platform.teams (tenant_id, name, key)
+       SELECT $1, $2, $3
+       WHERE NOT EXISTS (
+         SELECT 1 FROM platform.teams WHERE tenant_id = $1 AND key = $3
+       )`,
+      [tenantId, DEFAULT_TEAM_NAMES[key], key],
+    );
+  }
+}
+
+export async function getTeamIdByKey(
+  client: pg.PoolClient,
+  tenantId: string,
+  teamKey: SystemTeamKey,
+): Promise<string> {
+  const result = await client.query<{ id: string }>(
+    `SELECT id FROM platform.teams WHERE tenant_id = $1 AND key = $2`,
+    [tenantId, teamKey],
+  );
+  const row = result.rows[0];
+  if (!row) {
+    throw badRequest('error.internal');
+  }
+  return row.id;
+}
+
 export async function listTeams(tenantId: string): Promise<TeamDto[]> {
   return withTenantTransaction(tenantId, async (client) => {
     const result = await client.query<TeamRow>(
-      `SELECT id, name, created_at, updated_at
+      `SELECT id, key, name, created_at, updated_at
        FROM platform.teams
        WHERE tenant_id = $1
-       ORDER BY name`,
+       ORDER BY key NULLS LAST, name`,
       [tenantId],
     );
     return result.rows.map(mapTeam);
@@ -41,7 +88,6 @@ export async function listTeams(tenantId: string): Promise<TeamDto[]> {
 export async function createTeam(tenantId: string, name: string): Promise<TeamDto> {
   const trimmed = name.trim();
   if (!trimmed) {
-    const { badRequest } = await import('../../api/errors.js');
     throw badRequest('error.validation_failed');
   }
 
@@ -50,10 +96,13 @@ export async function createTeam(tenantId: string, name: string): Promise<TeamDt
       const result = await client.query<TeamRow>(
         `INSERT INTO platform.teams (tenant_id, name)
          VALUES ($1, $2)
-         RETURNING id, name, created_at, updated_at`,
+         RETURNING id, key, name, created_at, updated_at`,
         [tenantId, trimmed],
       );
-      return mapTeam(result.rows[0]!);
+      const team = mapTeam(result.rows[0]!);
+      const { seedTeamActivationsForTeam } = await import('../apps/app-service.js');
+      await seedTeamActivationsForTeam(client, tenantId, team.id);
+      return team;
     } catch (err: unknown) {
       if ((err as { code?: string }).code === '23505') {
         throw conflict('error.key_conflict');
@@ -66,7 +115,7 @@ export async function createTeam(tenantId: string, name: string): Promise<TeamDt
 export async function getTeam(tenantId: string, teamId: string): Promise<TeamDto | null> {
   return withTenantTransaction(tenantId, async (client) => {
     const result = await client.query<TeamRow>(
-      `SELECT id, name, created_at, updated_at
+      `SELECT id, key, name, created_at, updated_at
        FROM platform.teams
        WHERE id = $1 AND tenant_id = $2`,
       [teamId, tenantId],
@@ -83,9 +132,12 @@ export async function updateTeam(
   const existing = await getTeam(tenantId, teamId);
   if (!existing) throw notFound();
 
+  if (existing.key === TEAM_ADMIN) {
+    throw conflict('error.team_protected');
+  }
+
   const trimmed = name.trim();
   if (!trimmed) {
-    const { badRequest } = await import('../../api/errors.js');
     throw badRequest('error.validation_failed');
   }
 
@@ -95,7 +147,7 @@ export async function updateTeam(
         `UPDATE platform.teams
          SET name = $3, updated_at = now()
          WHERE id = $1 AND tenant_id = $2
-         RETURNING id, name, created_at, updated_at`,
+         RETURNING id, key, name, created_at, updated_at`,
         [teamId, tenantId, trimmed],
       );
       return mapTeam(result.rows[0]!);
@@ -110,6 +162,28 @@ export async function updateTeam(
 
 export async function deleteTeam(tenantId: string, teamId: string): Promise<void> {
   return withTenantTransaction(tenantId, async (client) => {
+    const teamResult = await client.query<{ key: string | null }>(
+      `SELECT key FROM platform.teams WHERE id = $1 AND tenant_id = $2`,
+      [teamId, tenantId],
+    );
+    const team = teamResult.rows[0];
+    if (!team) throw notFound();
+
+    if (team.key === TEAM_ADMIN) {
+      throw conflict('error.team_protected');
+    }
+
+    const members = await client.query<{ count: string }>(
+      `SELECT COUNT(DISTINCT ut.user_id)::text AS count
+       FROM platform.user_teams ut
+       JOIN platform.users u ON u.id = ut.user_id
+       WHERE u.tenant_id = $1 AND ut.team_id = $2`,
+      [tenantId, teamId],
+    );
+    if (Number(members.rows[0]?.count ?? 0) > 0) {
+      throw conflict('error.team_has_members');
+    }
+
     const result = await client.query(
       `DELETE FROM platform.teams WHERE id = $1 AND tenant_id = $2`,
       [teamId, tenantId],
@@ -118,15 +192,43 @@ export async function deleteTeam(tenantId: string, teamId: string): Promise<void
   });
 }
 
-export async function assertTeamInTenant(
+export async function assertTeamsInTenant(
   client: pg.PoolClient,
   tenantId: string,
-  teamId: string | null | undefined,
+  teamIds: string[],
 ): Promise<void> {
-  if (!teamId) return;
-  const result = await client.query(
-    `SELECT 1 FROM platform.teams WHERE id = $1 AND tenant_id = $2`,
-    [teamId, tenantId],
+  if (teamIds.length === 0) {
+    throw badRequest('error.validation_failed');
+  }
+
+  const result = await client.query<{ id: string }>(
+    `SELECT id FROM platform.teams WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
+    [tenantId, teamIds],
   );
-  if (!result.rowCount) throw notFound();
+  if (result.rows.length !== teamIds.length) {
+    throw notFound();
+  }
+}
+
+export async function loadUserTeams(
+  client: pg.PoolClient,
+  userId: string,
+): Promise<UserTeamDto[]> {
+  const result = await client.query<UserTeamDto>(
+    `SELECT t.id, t.key, t.name
+     FROM platform.user_teams ut
+     JOIN platform.teams t ON t.id = ut.team_id
+     WHERE ut.user_id = $1
+     ORDER BY t.key NULLS LAST, t.name`,
+    [userId],
+  );
+  return result.rows;
+}
+
+export function userTeamKeys(teams: UserTeamDto[]): string[] {
+  return teams.flatMap((t) => (t.key ? [t.key] : []));
+}
+
+export function userIsAdmin(teams: UserTeamDto[]): boolean {
+  return teams.some((t) => t.key === TEAM_ADMIN);
 }

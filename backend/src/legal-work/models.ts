@@ -20,6 +20,7 @@ export type { CreateAttributeDefinitionInput, UpdateAttributeDefinitionInput };
 import { assertCaseModelStatus, assertModelKey, toIso } from './validation.js';
 import { allocateUniqueCaseModelKey, slugifyModelKey } from './model-key.js';
 import { seedCaseModelStandardInstanceAttributes } from './case-model-defaults.js';
+import { deleteAttributeDefinitionsForModel } from './entity-guards.js';
 
 export type CreateCaseModelInput = {
   key?: string;
@@ -341,6 +342,8 @@ export async function deleteCaseModel(
       [id, tenantId],
     );
     if (inUse.rowCount) throw conflict('error.model_in_use');
+
+    await deleteAttributeDefinitionsForModel(client, tenantId, 'case_model', id);
 
     const result = await client.query(
       `DELETE FROM legal.case_models WHERE id = $1 AND tenant_id = $2`,

@@ -1,11 +1,10 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { api, apiHeaders } from '../../api/client.js';
 import type { components } from '../../api/schema.js';
+import { useAuth } from '../../context/AuthContext.js';
 import { useI18n } from '../../i18n/I18nContext.js';
 import type { Team } from '../../hooks/useTeams.js';
 import type { TenantUser } from '../../hooks/useTenantUsers.js';
-
-type TenantRoleKey = components['schemas']['TenantRoleKey'];
 
 const USERNAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_.-]{0,62}$/;
 
@@ -16,6 +15,7 @@ interface UserDialogProps {
   teams: Team[];
   onClose: () => void;
   onSaved: () => void;
+  onDeleted?: () => void;
 }
 
 export function UserDialog({
@@ -25,16 +25,22 @@ export function UserDialog({
   teams,
   onClose,
   onSaved,
+  onDeleted,
 }: UserDialogProps) {
+  const { user: currentUser } = useAuth();
   const { locale, msg } = useI18n();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<TenantRoleKey>('regular');
-  const [teamId, setTeamId] = useState('');
+  const [teamIds, setTeamIds] = useState<string[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const regularTeamId = useMemo(
+    () => teams.find((t) => t.key === 'regular')?.id ?? null,
+    [teams],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -42,25 +48,38 @@ export function UserDialog({
       setUsername(user.username);
       setEmail(user.email ?? '');
       setPassword('');
-      setRole(user.role);
-      setTeamId(user.team_id ?? '');
+      setTeamIds(user.teams.map((t) => t.id));
       setIsActive(user.is_active);
     } else {
       setUsername('');
       setEmail('');
       setPassword('');
-      setRole('regular');
-      setTeamId('');
+      setTeamIds(regularTeamId ? [regularTeamId] : []);
       setIsActive(true);
     }
     setError(null);
-  }, [open, mode, user]);
+  }, [open, mode, user, regularTeamId]);
+
+  function toggleTeam(teamId: string) {
+    setTeamIds((prev) => {
+      if (prev.includes(teamId)) {
+        const next = prev.filter((id) => id !== teamId);
+        return next.length > 0 ? next : prev;
+      }
+      return [...prev, teamId];
+    });
+  }
 
   if (!open) return null;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (teamIds.length === 0) {
+      setError(msg('usersTeamsRequired'));
+      return;
+    }
 
     if (mode === 'create') {
       const trimmed = username.trim();
@@ -86,8 +105,7 @@ export function UserDialog({
           username: username.trim(),
           email: email.trim() || null,
           password,
-          role,
-          team_id: teamId || null,
+          team_ids: teamIds,
         },
       });
       setSubmitting(false);
@@ -99,8 +117,7 @@ export function UserDialog({
     } else if (user) {
       const body: components['schemas']['UpdateTenantUserRequest'] = {
         email: email.trim() || null,
-        role,
-        team_id: teamId || null,
+        team_ids: teamIds,
         is_active: isActive,
       };
       if (password) {
@@ -124,6 +141,32 @@ export function UserDialog({
   }
 
   const title = mode === 'create' ? msg('usersCreateTitle') : msg('usersEditTitle');
+  const canDelete =
+    mode === 'edit' && user && currentUser && user.id !== currentUser.id;
+
+  async function handleDelete() {
+    if (!user || !canDelete) return;
+    if (!window.confirm(msg('usersDeleteConfirm').replace('{username}', user.username))) {
+      return;
+    }
+
+    setError(null);
+    setSubmitting(true);
+    const res = await api.DELETE('/v1/users/{id}', {
+      headers: apiHeaders(locale),
+      params: { path: { id: user.id } },
+    });
+    setSubmitting(false);
+
+    if (res.error) {
+      const err = res.error as { message?: string };
+      setError(err?.message ?? msg('errorGeneric'));
+      return;
+    }
+
+    onDeleted?.();
+    onClose();
+  }
 
   return (
     <div className="admin-dialog-backdrop" role="presentation" onClick={onClose}>
@@ -175,25 +218,20 @@ export function UserDialog({
             />
           </label>
 
-          <label>
-            {msg('usersColRole')}
-            <select value={role} onChange={(e) => setRole(e.target.value as TenantRoleKey)}>
-              <option value="admin">{msg('roleAdmin')}</option>
-              <option value="regular">{msg('roleRegular')}</option>
-            </select>
-          </label>
-
-          <label>
-            {msg('usersColTeam')}
-            <select value={teamId} onChange={(e) => setTeamId(e.target.value)}>
-              <option value="">{msg('usersNoTeam')}</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <fieldset className="admin-fieldset">
+            <legend>{msg('usersColTeams')}</legend>
+            {teams.map((team) => (
+              <label key={team.id} className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={teamIds.includes(team.id)}
+                  onChange={() => toggleTeam(team.id)}
+                />
+                {team.name}
+              </label>
+            ))}
+            <span className="hint">{msg('usersTeamsHint')}</span>
+          </fieldset>
 
           {mode === 'edit' && (
             <label className="checkbox-label">
@@ -213,12 +251,24 @@ export function UserDialog({
           )}
 
           <div className="admin-dialog-actions">
-            <button type="button" className="button-secondary" onClick={onClose}>
-              {msg('cancel')}
-            </button>
-            <button type="submit" className="button-primary" disabled={submitting}>
-              {submitting ? msg('loading') : mode === 'create' ? msg('usersCreate') : msg('submitSave')}
-            </button>
+            {canDelete && (
+              <button
+                type="button"
+                className="button-danger admin-dialog-actions-delete"
+                disabled={submitting}
+                onClick={() => void handleDelete()}
+              >
+                {msg('usersDelete')}
+              </button>
+            )}
+            <div className="admin-dialog-actions-main">
+              <button type="button" className="button-secondary" onClick={onClose}>
+                {msg('cancel')}
+              </button>
+              <button type="submit" className="button-primary" disabled={submitting}>
+                {submitting ? msg('loading') : mode === 'create' ? msg('usersCreate') : msg('submitSave')}
+              </button>
+            </div>
           </div>
         </form>
       </div>

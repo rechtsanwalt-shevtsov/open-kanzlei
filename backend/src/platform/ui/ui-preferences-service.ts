@@ -1,4 +1,4 @@
-import { badRequest, forbidden } from '../../api/errors.js';
+import { badRequest } from '../../api/errors.js';
 import { getEventService } from '../../foundation/events/event-service.js';
 import { withTenantTransaction } from '../../foundation/database/tenant-context.js';
 import {
@@ -71,12 +71,8 @@ export async function patchUserColorTheme(
 export async function patchTenantColorTheme(
   tenantId: string,
   userId: string,
-  roles: string[],
   colorTheme: unknown,
 ): Promise<UiPreferencesDto> {
-  if (!roles.includes('admin')) {
-    throw forbidden();
-  }
   if (!isColorTheme(colorTheme)) {
     throw badRequest('error.validation_failed');
   }

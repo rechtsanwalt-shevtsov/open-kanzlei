@@ -524,7 +524,7 @@ export async function deleteAttributeDefinition(
     [id],
   );
   if (inUse.rowCount && inUse.rowCount > 0) {
-    throw conflict('error.model_in_use');
+    throw conflict('error.attribute_in_use');
   }
 
   const result = await client.query(

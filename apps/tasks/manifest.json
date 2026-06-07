@@ -11,7 +11,7 @@
     { "path": "/apps/tasks", "label": "Tasks" },
     { "path": "/apps/tasks/settings", "label": "Einstellungen" }
   ],
-  "required_roles": [],
+  "required_teams": [],
   "supported_locales": ["de", "en"],
   "event_subscriptions": [],
   "settings_schema": {

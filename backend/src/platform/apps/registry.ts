@@ -26,8 +26,3 @@ export function getAppManifest(appKey: string): AppManifestDto | null {
 export function listKnownAppKeys(): string[] {
   return Object.keys(registry);
 }
-
-export function userCanAccessApp(manifest: AppManifestDto, roles: string[]): boolean {
-  if (manifest.required_roles.length === 0) return true;
-  return manifest.required_roles.some((role) => roles.includes(role));
-}

@@ -14,7 +14,7 @@ export interface AppManifestDto {
   nav_path: string;
   nav_icon: string;
   routes: Array<{ path: string; label: string }>;
-  required_roles: string[];
+  required_teams: string[];
   settings_schema: AppSettingsSchema;
   supported_locales: readonly string[];
   event_subscriptions: string[];
@@ -30,6 +30,7 @@ interface RawManifest {
   nav_path?: string;
   nav_icon?: string;
   routes?: Array<{ path: string; label: string }>;
+  required_teams?: string[];
   required_roles?: string[];
   settings_schema?: AppSettingsSchema;
   supported_locales?: string[];
@@ -54,7 +55,7 @@ function normalizeManifest(raw: RawManifest, appDir: string): AppManifestDto {
     nav_path: raw.nav_path ?? `/apps/${raw.app_key}`,
     nav_icon: raw.nav_icon ?? 'LuPuzzle',
     routes: raw.routes ?? [],
-    required_roles: raw.required_roles ?? [],
+    required_teams: raw.required_teams ?? raw.required_roles ?? [],
     settings_schema: raw.settings_schema,
     supported_locales: raw.supported_locales ?? ['de', 'en'],
     event_subscriptions: raw.event_subscriptions ?? [],

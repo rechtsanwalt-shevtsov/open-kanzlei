@@ -1,7 +1,16 @@
-TenantRoleKey:
-  type: string
-  enum: [admin, regular]
-  description: Administrator or regular user
+UserTeam:
+  type: object
+  required: [id, name]
+  properties:
+    id:
+      type: string
+      format: uuid
+    key:
+      type: string
+      nullable: true
+      description: Stable identifier for system teams (admin, regular)
+    name:
+      type: string
 
 Team:
   type: object
@@ -10,6 +19,10 @@ Team:
     id:
       type: string
       format: uuid
+    key:
+      type: string
+      nullable: true
+      description: Stable identifier for system teams (admin, regular)
     name:
       type: string
       minLength: 1
@@ -44,7 +57,7 @@ TenantUser:
   required:
     - id
     - username
-    - role
+    - teams
     - is_active
     - created_at
     - updated_at
@@ -58,15 +71,10 @@ TenantUser:
       type: string
       format: email
       nullable: true
-    role:
-      $ref: '#/TenantRoleKey'
-    team_id:
-      type: string
-      format: uuid
-      nullable: true
-    team_name:
-      type: string
-      nullable: true
+    teams:
+      type: array
+      items:
+        $ref: '#/UserTeam'
     is_active:
       type: boolean
     preferred_language:
@@ -82,7 +90,7 @@ TenantUser:
 
 CreateTenantUserRequest:
   type: object
-  required: [username, password, role]
+  required: [username, password, team_ids]
   properties:
     username:
       type: string
@@ -96,12 +104,12 @@ CreateTenantUserRequest:
       type: string
       minLength: 8
       format: password
-    role:
-      $ref: '#/TenantRoleKey'
-    team_id:
-      type: string
-      format: uuid
-      nullable: true
+    team_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+      minItems: 1
     preferred_language:
       type: string
       enum: [de, en]
@@ -117,12 +125,12 @@ UpdateTenantUserRequest:
       type: string
       minLength: 8
       format: password
-    role:
-      $ref: '#/TenantRoleKey'
-    team_id:
-      type: string
-      format: uuid
-      nullable: true
+    team_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+      minItems: 1
     is_active:
       type: boolean
     preferred_language:

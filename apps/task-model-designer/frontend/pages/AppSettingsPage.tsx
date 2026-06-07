@@ -23,9 +23,7 @@ import {
   type AppSettingFieldSchema,
 } from '../settings-schema.js';
 
-function isAdmin(roles: string[]): boolean {
-  return roles.includes('admin');
-}
+import { userIsAdmin } from '@shell/lib/is-admin.js';
 
 function normalizeSettings(raw: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -60,7 +58,7 @@ function userValue(
 export function AppSettingsPage() {
   const { locale, msg } = useI18n();
   const { user } = useAuth();
-  const admin = user ? isAdmin(user.roles) : false;
+  const admin = user ? userIsAdmin(user.teams) : false;
 
   const [tenantDraft, setTenantDraft] = useState<Record<string, unknown>>({});
   const [userDraft, setUserDraft] = useState<Record<string, unknown>>({});
