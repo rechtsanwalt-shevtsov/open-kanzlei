@@ -169,7 +169,7 @@ async function publish(
   aggregateType: string,
   aggregateId: string,
   data: Record<string, unknown>,
-  actorUserId?: string,
+  actorId?: string,
 ): Promise<void> {
   await getEventService().publish(client, {
     tenantId,
@@ -177,7 +177,7 @@ async function publish(
     aggregateType,
     aggregateId,
     data,
-    actorUserId,
+    actorId,
   });
 }
 
@@ -198,10 +198,10 @@ export async function listCaseModels(tenantId: string): Promise<CaseModelDto[]> 
 export async function createCaseModel(
   tenantId: string,
   input: CreateCaseModelInput,
-  options?: { defaultLocale?: Locale; actorUserId?: string },
+  options?: { defaultLocale?: Locale; actorId?: string },
 ): Promise<CaseModelDto> {
   const defaultLocale = options?.defaultLocale ?? 'de';
-  const actorUserId = options?.actorUserId;
+  const actorId = options?.actorId;
   const resolved = resolveCreateCaseModelFields(input, defaultLocale);
 
   return withTenantTransaction(tenantId, async (client) => {
@@ -234,14 +234,14 @@ export async function createCaseModel(
         client,
         tenantId,
         model.id,
-        actorUserId ?? null,
+        actorId ?? null,
       );
       await provisionAppAttributesOnModel(
         client,
         tenantId,
         'case_model',
         model.id,
-        actorUserId ?? null,
+        actorId ?? null,
       );
       await publish(
         client,
@@ -250,7 +250,7 @@ export async function createCaseModel(
         'case_model',
         model.id,
         { case_model_id: model.id },
-        actorUserId,
+        actorId,
       );
       return model;
     } catch (err: unknown) {
@@ -279,7 +279,7 @@ export async function updateCaseModel(
   tenantId: string,
   id: string,
   input: UpdateCaseModelInput,
-  options?: { defaultLocale?: Locale; actorUserId?: string },
+  options?: { defaultLocale?: Locale; actorId?: string },
 ): Promise<CaseModelDto> {
   const existing = await getCaseModel(tenantId, id);
   if (!existing) throw notFound();
@@ -290,7 +290,7 @@ export async function updateCaseModel(
     input,
     options?.defaultLocale ?? 'de',
   );
-  const actorUserId = options?.actorUserId;
+  const actorId = options?.actorId;
   const archiving = input.status === 'archived' && existing.status !== 'archived';
 
   const description = resolveDescriptionFromInput(input);
@@ -322,7 +322,7 @@ export async function updateCaseModel(
         'case_model',
         model.id,
         { case_model_id: model.id },
-        actorUserId,
+        actorId,
       );
     } else {
       await publish(
@@ -332,7 +332,7 @@ export async function updateCaseModel(
         'case_model',
         model.id,
         { case_model_id: model.id },
-        actorUserId,
+        actorId,
       );
     }
     return model;
@@ -342,7 +342,7 @@ export async function updateCaseModel(
 export async function deleteCaseModel(
   tenantId: string,
   id: string,
-  actorUserId?: string,
+  actorId?: string,
 ): Promise<void> {
   return withTenantTransaction(tenantId, async (client) => {
     const inUse = await client.query(
@@ -365,7 +365,7 @@ export async function deleteCaseModel(
       'case_model',
       id,
       { case_model_id: id },
-      actorUserId,
+      actorId,
     );
   });
 }

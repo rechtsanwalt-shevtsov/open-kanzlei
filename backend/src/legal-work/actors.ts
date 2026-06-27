@@ -49,7 +49,7 @@ async function publish(
   aggregateType: string,
   aggregateId: string,
   data: Record<string, unknown>,
-  actorUserId?: string,
+  actorId?: string,
 ): Promise<void> {
   await getEventService().publish(client, {
     tenantId,
@@ -57,7 +57,7 @@ async function publish(
     aggregateType,
     aggregateId,
     data,
-    actorUserId,
+    actorId,
   });
 }
 
@@ -116,7 +116,7 @@ export async function createActor(
     attributes?: Record<string, unknown>;
     is_tenant_root?: boolean;
   },
-  options?: { actorUserId?: string; skipTenantRootCheck?: boolean },
+  options?: { actorId?: string; skipTenantRootCheck?: boolean },
 ): Promise<ActorDto> {
   if (!(await getActorModel(tenantId, input.actor_model_id))) throw notFound();
   const isTenantRoot = input.is_tenant_root === true;
@@ -171,7 +171,7 @@ export async function createActor(
       'actor',
       row.id,
       { actor_id: row.id, actor_model_id: input.actor_model_id },
-      options?.actorUserId,
+      options?.actorId,
     );
 
     return {
@@ -229,7 +229,7 @@ export async function updateActor(
     status?: string;
     attributes?: Record<string, unknown>;
   },
-  actorUserId?: string,
+  actorId?: string,
 ): Promise<ActorDto> {
   const existing = await getActor(tenantId, id);
   if (!existing) throw notFound();
@@ -271,7 +271,7 @@ export async function updateActor(
       'actor',
       id,
       { actor_id: id },
-      actorUserId,
+      actorId,
     );
     return updated;
   });
@@ -280,7 +280,7 @@ export async function updateActor(
 export async function deleteActor(
   tenantId: string,
   id: string,
-  actorUserId?: string,
+  actorId?: string,
 ): Promise<void> {
   return withTenantTransaction(tenantId, async (client) => {
     const row = await client.query<{ is_tenant_root: boolean }>(
@@ -305,7 +305,7 @@ export async function deleteActor(
       'actor',
       id,
       { actor_id: id },
-      actorUserId,
+      actorId,
     );
   });
 }

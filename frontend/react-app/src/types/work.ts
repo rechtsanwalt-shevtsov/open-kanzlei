@@ -10,7 +10,7 @@ export type WorkFilterKind = 'all' | 'status' | 'assignee' | 'attribute';
 export interface WorkFilter {
   kind: WorkFilterKind;
   status?: string;
-  assigneeUserId?: string;
+  assigneeActorId?: string;
   attributeKey?: string;
   attributeValue?: string;
 }

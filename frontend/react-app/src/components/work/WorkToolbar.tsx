@@ -1,10 +1,8 @@
 import { useMemo } from 'react';
 import { useI18n } from '../../i18n/I18nContext.js';
 import { WORK_STATUSES, workStatusLabel } from '../../lib/work-status.js';
+import type { ActorOption } from '../../hooks/useActorsList.js';
 import type { WorkFilter, WorkFilterKind, WorkViewMode } from '../../types/work.js';
-import type { components } from '../../api/schema.js';
-
-type TenantUser = components['schemas']['TenantUser'];
 
 interface WorkToolbarProps {
   search: string;
@@ -13,7 +11,7 @@ interface WorkToolbarProps {
   onFilterChange: (filter: WorkFilter) => void;
   view: WorkViewMode;
   onViewChange: (view: WorkViewMode) => void;
-  users: TenantUser[];
+  actors: ActorOption[];
   attributeKeys: string[];
   totalCount: number;
   filteredCount: number;
@@ -26,7 +24,7 @@ export function WorkToolbar({
   onFilterChange,
   view,
   onViewChange,
-  users,
+  actors,
   attributeKeys,
   totalCount,
   filteredCount,
@@ -35,8 +33,8 @@ export function WorkToolbar({
 
   const filterSelectValue = useMemo(() => {
     if (filter.kind === 'status' && filter.status) return `status:${filter.status}`;
-    if (filter.kind === 'assignee' && filter.assigneeUserId) {
-      return `assignee:${filter.assigneeUserId}`;
+    if (filter.kind === 'assignee' && filter.assigneeActorId) {
+      return `assignee:${filter.assigneeActorId}`;
     }
     if (filter.kind === 'attribute') return 'attribute';
     return 'all';
@@ -60,7 +58,7 @@ export function WorkToolbar({
       return;
     }
     if (value.startsWith('assignee:')) {
-      onFilterChange({ kind: 'assignee', assigneeUserId: value.slice(9) });
+      onFilterChange({ kind: 'assignee', assigneeActorId: value.slice(9) });
     }
   }
 
@@ -81,11 +79,11 @@ export function WorkToolbar({
               </option>
             ))}
           </optgroup>
-          {users.length > 0 && (
+          {actors.length > 0 && (
             <optgroup label={msg('workFilterAssignee')}>
-              {users.map((u) => (
-                <option key={u.id} value={`assignee:${u.id}`}>
-                  {u.username}
+              {actors.map((a) => (
+                <option key={a.id} value={`assignee:${a.id}`}>
+                  {a.label}
                 </option>
               ))}
             </optgroup>

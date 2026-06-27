@@ -210,7 +210,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/tenant/users/{userId}/app-assignments": {
+    "/v1/tenant/actors/{actorId}/app-assignments": {
         parameters: {
             query?: never;
             header?: never;
@@ -218,11 +218,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Set per-user app group assignment override (admin) */
-        put: operations["setUserAppAssignments"];
+        /** Set per-actor app group assignment override (admin) */
+        put: operations["setActorAppAssignments"];
         post?: never;
-        /** Remove per-user app assignment override (admin) */
-        delete: operations["clearUserAppAssignments"];
+        /** Remove per-actor app assignment override (admin) */
+        delete: operations["clearActorAppAssignments"];
         options?: never;
         head?: never;
         patch?: never;
@@ -245,15 +245,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/users/{userId}/active-apps-by-group": {
+    "/v1/actors/{actorId}/active-apps-by-group": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Effective active apps per group for a user (self or admin) */
-        get: operations["getUserActiveAppsByGroup"];
+        /** Effective active apps per group for an actor (self or admin) */
+        get: operations["getActorActiveAppsByGroup"];
         put?: never;
         post?: never;
         delete?: never;
@@ -399,6 +399,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/teams/assignable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAssignableTeams"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/teams/{id}": {
         parameters: {
             query?: never;
@@ -415,36 +431,36 @@ export interface paths {
         patch: operations["updateTeam"];
         trace?: never;
     };
-    "/v1/users": {
+    "/v1/platform-users": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["listTenantUsers"];
+        get: operations["listPlatformUsers"];
         put?: never;
-        post: operations["createTenantUser"];
+        post: operations["createPlatformUser"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/users/{id}": {
+    "/v1/platform-users/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getTenantUser"];
+        get: operations["getPlatformUser"];
         put?: never;
         post?: never;
-        delete: operations["deleteTenantUser"];
+        delete: operations["revokePlatformUserLogin"];
         options?: never;
         head?: never;
-        patch: operations["updateTenantUser"];
+        patch: operations["updatePlatformUser"];
         trace?: never;
     };
     "/v1/case-models": {
@@ -886,16 +902,18 @@ export interface components {
             team_name: string;
             assignments: components["schemas"]["AppGroupAssignments"];
         };
-        UserAppAssignmentRow: {
+        ActorAppAssignmentRow: {
             /** Format: uuid */
-            user_id: string;
+            actor_id: string;
             username: string;
             assignments: components["schemas"]["AppGroupAssignments"];
         };
         TenantAppAssignments: {
             apps: components["schemas"]["AppCatalogItem"][];
             teams: components["schemas"]["TeamAppAssignmentRow"][];
-            user_overrides: components["schemas"]["UserAppAssignmentRow"][];
+            actor_overrides: components["schemas"]["ActorAppAssignmentRow"][];
+            /** @deprecated */
+            user_overrides?: components["schemas"]["ActorAppAssignmentRow"][];
         };
         ActiveAppsByGroup: components["schemas"]["AppGroupAssignments"] & {
             active_apps: components["schemas"]["AppKey"][];
@@ -1053,7 +1071,7 @@ export interface components {
         };
         KanbanBoard: {
             /** Format: uuid */
-            assignee_user_id: string;
+            assignee_actor_id: string;
             /** @enum {string} */
             wip_limit_mode: "soft" | "hard";
             /** @enum {string} */
@@ -1071,7 +1089,7 @@ export interface components {
         };
         KanbanMoveRequest: {
             /** Format: uuid */
-            assignee_user_id?: string;
+            assignee_actor_id?: string;
             /** Format: uuid */
             task_id: string;
             /** @enum {string} */
@@ -1079,13 +1097,13 @@ export interface components {
         };
         KanbanWipLimitPatch: {
             /** Format: uuid */
-            assignee_user_id: string;
+            assignee_actor_id: string;
             column_key: string;
             limit?: number | null;
         };
         KanbanWipLimitResponse: {
             /** Format: uuid */
-            assignee_user_id: string;
+            assignee_actor_id: string;
             limits: {
                 [key: string]: number;
             };
@@ -1107,14 +1125,19 @@ export interface components {
         UpdateTeamRequest: {
             name: string;
         };
-        TenantUser: {
-            /** Format: uuid */
+        PlatformUser: {
+            /**
+             * Format: uuid
+             * @description Actor id
+             */
             id: string;
             username: string;
             /** Format: email */
             email?: string | null;
+            /** Format: uuid */
+            actor_model_id: string;
             teams: components["schemas"]["UserTeam"][];
-            is_active: boolean;
+            has_login: boolean;
             /** @enum {string|null} */
             preferred_language?: "de" | "en" | null;
             /** Format: date-time */
@@ -1122,25 +1145,32 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
-        CreateTenantUserRequest: {
+        CreatePlatformUserRequest: {
             username: string;
-            /** Format: email */
-            email?: string | null;
             /** Format: password */
             password: string;
+            /** Format: email */
+            email?: string | null;
+            first_name?: string | null;
+            display_name?: string | null;
+            /** Format: uuid */
+            actor_model_id?: string;
             team_ids: string[];
             /** @enum {string} */
             preferred_language?: "de" | "en";
         };
-        UpdateTenantUserRequest: {
-            /** Format: email */
-            email?: string | null;
+        UpdatePlatformUserRequest: {
+            username?: string;
             /** Format: password */
             password?: string;
+            /** Format: email */
+            email?: string | null;
+            first_name?: string | null;
+            display_name?: string | null;
             team_ids?: string[];
-            is_active?: boolean;
             /** @enum {string} */
             preferred_language?: "de" | "en";
+            revoke_login?: boolean;
         };
         ModelKey: string;
         /** @enum {string} */
@@ -1318,8 +1348,8 @@ export interface components {
         StatusKey: string;
         Assignee: {
             /** Format: uuid */
-            user_id: string;
-            username: string;
+            actor_id: string;
+            label: string;
         };
         Case: {
             /** Format: uuid */
@@ -1346,14 +1376,14 @@ export interface components {
             attributes?: {
                 [key: string]: unknown;
             };
-            assignee_user_ids?: string[];
+            assignee_actor_ids?: string[];
         };
         UpdateCaseRequest: {
             status?: components["schemas"]["StatusKey"];
             attributes?: {
                 [key: string]: unknown;
             };
-            assignee_user_ids?: string[];
+            assignee_actor_ids?: string[];
         };
         Task: {
             /** Format: uuid */
@@ -1391,7 +1421,7 @@ export interface components {
             attributes?: {
                 [key: string]: unknown;
             };
-            assignee_user_ids?: string[];
+            assignee_actor_ids?: string[];
         };
         CreateTaskRequest: {
             /** Format: uuid */
@@ -1404,7 +1434,7 @@ export interface components {
             attributes?: {
                 [key: string]: unknown;
             };
-            assignee_user_ids?: string[];
+            assignee_actor_ids?: string[];
         };
         UpdateTaskRequest: {
             status?: components["schemas"]["StatusKey"];
@@ -1413,7 +1443,7 @@ export interface components {
             attributes?: {
                 [key: string]: unknown;
             };
-            assignee_user_ids?: string[];
+            assignee_actor_ids?: string[];
         };
         ActorModel: {
             /** Format: uuid */
@@ -1478,6 +1508,45 @@ export interface components {
             attributes?: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * @deprecated
+         * @description Use PlatformUser instead.
+         */
+        TenantUser: {
+            /** Format: uuid */
+            id: string;
+            username: string;
+            /** Format: email */
+            email?: string | null;
+            teams: components["schemas"]["UserTeam"][];
+            is_active: boolean;
+            /** @enum {string|null} */
+            preferred_language?: "de" | "en" | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CreateTenantUserRequest: {
+            username: string;
+            /** Format: email */
+            email?: string | null;
+            /** Format: password */
+            password: string;
+            team_ids: string[];
+            /** @enum {string} */
+            preferred_language?: "de" | "en";
+        };
+        UpdateTenantUserRequest: {
+            /** Format: email */
+            email?: string | null;
+            /** Format: password */
+            password?: string;
+            team_ids?: string[];
+            is_active?: boolean;
+            /** @enum {string} */
+            preferred_language?: "de" | "en";
         };
     };
     responses: {
@@ -1872,12 +1941,12 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    setUserAppAssignments: {
+    setActorAppAssignments: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                actorId: string;
             };
             cookie?: never;
         };
@@ -1892,7 +1961,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserAppAssignmentRow"];
+                    "application/json": components["schemas"]["ActorAppAssignmentRow"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -1901,12 +1970,12 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    clearUserAppAssignments: {
+    clearActorAppAssignments: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                actorId: string;
             };
             cookie?: never;
         };
@@ -1947,12 +2016,12 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
-    getUserActiveAppsByGroup: {
+    getActorActiveAppsByGroup: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                actorId: string;
             };
             cookie?: never;
         };
@@ -2124,7 +2193,7 @@ export interface operations {
     getTasksKanbanBoard: {
         parameters: {
             query?: {
-                assignee_user_id?: string;
+                assignee_actor_id?: string;
                 search?: string;
             };
             header?: never;
@@ -2247,6 +2316,29 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    listAssignableTeams: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Team"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     deleteTeam: {
         parameters: {
             query?: never;
@@ -2300,7 +2392,7 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
-    listTenantUsers: {
+    listPlatformUsers: {
         parameters: {
             query?: never;
             header?: never;
@@ -2315,7 +2407,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        items: components["schemas"]["TenantUser"][];
+                        items: components["schemas"]["PlatformUser"][];
                     };
                 };
             };
@@ -2323,7 +2415,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
-    createTenantUser: {
+    createPlatformUser: {
         parameters: {
             query?: never;
             header?: never;
@@ -2332,7 +2424,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateTenantUserRequest"];
+                "application/json": components["schemas"]["CreatePlatformUserRequest"];
             };
         };
         responses: {
@@ -2341,7 +2433,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TenantUser"];
+                    "application/json": components["schemas"]["PlatformUser"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -2350,7 +2442,7 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
-    getTenantUser: {
+    getPlatformUser: {
         parameters: {
             query?: never;
             header?: never;
@@ -2366,7 +2458,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TenantUser"];
+                    "application/json": components["schemas"]["PlatformUser"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2374,7 +2466,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    deleteTenantUser: {
+    revokePlatformUserLogin: {
         parameters: {
             query?: never;
             header?: never;
@@ -2385,7 +2477,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deleted */
+            /** @description Login revoked (actor remains) */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -2398,7 +2490,7 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
-    updateTenantUser: {
+    updatePlatformUser: {
         parameters: {
             query?: never;
             header?: never;
@@ -2409,7 +2501,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateTenantUserRequest"];
+                "application/json": components["schemas"]["UpdatePlatformUserRequest"];
             };
         };
         responses: {
@@ -2418,7 +2510,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TenantUser"];
+                    "application/json": components["schemas"]["PlatformUser"];
                 };
             };
             400: components["responses"]["BadRequest"];

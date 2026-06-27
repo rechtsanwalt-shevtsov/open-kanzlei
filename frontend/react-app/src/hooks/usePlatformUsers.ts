@@ -3,18 +3,18 @@ import { api, apiHeaders } from '../api/client.js';
 import type { components } from '../api/schema.js';
 import { useI18n } from '../i18n/I18nContext.js';
 
-export type TenantUser = components['schemas']['TenantUser'];
+export type PlatformUser = components['schemas']['PlatformUser'];
 
-export function useTenantUsers() {
+export function usePlatformUsers() {
   const { locale, msg } = useI18n();
-  const [items, setItems] = useState<TenantUser[]>([]);
+  const [items, setItems] = useState<PlatformUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const res = await api.GET('/v1/users', { headers: apiHeaders(locale) });
+    const res = await api.GET('/v1/platform-users', { headers: apiHeaders(locale) });
     setLoading(false);
     if (res.error) {
       const err = res.error as { message?: string };

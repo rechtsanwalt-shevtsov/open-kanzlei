@@ -1,14 +1,17 @@
-import type { UserTeamDto } from '../teams/team-service.js';
+import type { ActorTeamDto } from '../teams/team-service.js';
 
-export interface SessionUser {
+export interface SessionActor {
   id: string;
   tenantId: string;
   username: string;
   email: string | null;
   preferredLanguage: 'de' | 'en' | null;
-  teams: UserTeamDto[];
+  teams: ActorTeamDto[];
   tenantDefaultLanguage: 'de' | 'en';
 }
+
+/** @deprecated Use SessionActor */
+export type SessionUser = SessionActor;
 
 export interface RegisterTenantInput {
   firmName: string;
@@ -29,16 +32,16 @@ export interface CurrentUserResponse {
   username: string;
   email: string | null;
   preferred_language: 'de' | 'en' | null;
-  teams: UserTeamDto[];
+  teams: ActorTeamDto[];
 }
 
-export function toCurrentUserResponse(user: SessionUser): CurrentUserResponse {
+export function toCurrentUserResponse(actor: SessionActor): CurrentUserResponse {
   return {
-    id: user.id,
-    tenant_id: user.tenantId,
-    username: user.username,
-    email: user.email,
-    preferred_language: user.preferredLanguage,
-    teams: user.teams,
+    id: actor.id,
+    tenant_id: actor.tenantId,
+    username: actor.username,
+    email: actor.email,
+    preferred_language: actor.preferredLanguage,
+    teams: actor.teams,
   };
 }

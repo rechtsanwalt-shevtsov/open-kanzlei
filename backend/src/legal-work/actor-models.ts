@@ -173,7 +173,7 @@ async function publish(
   aggregateType: string,
   aggregateId: string,
   data: Record<string, unknown>,
-  actorUserId?: string,
+  actorId?: string,
 ): Promise<void> {
   await getEventService().publish(client, {
     tenantId,
@@ -181,7 +181,7 @@ async function publish(
     aggregateType,
     aggregateId,
     data,
-    actorUserId,
+    actorId,
   });
 }
 
@@ -200,10 +200,10 @@ export async function listActorModels(tenantId: string): Promise<ActorModelDto[]
 export async function createActorModel(
   tenantId: string,
   input: CreateActorModelInput,
-  options?: { defaultLocale?: Locale; actorUserId?: string },
+  options?: { defaultLocale?: Locale; actorId?: string },
 ): Promise<ActorModelDto> {
   const defaultLocale = options?.defaultLocale ?? 'de';
-  const actorUserId = options?.actorUserId;
+  const actorId = options?.actorId;
   const resolved = resolveCreateActorModelFields(input, defaultLocale);
 
   return withTenantTransaction(tenantId, async (client) => {
@@ -236,20 +236,20 @@ export async function createActorModel(
         client,
         tenantId,
         model.id,
-        actorUserId ?? null,
+        actorId ?? null,
       );
       await seedActorModelDefaultInstanceAttributes(
         client,
         tenantId,
         model.id,
-        actorUserId ?? null,
+        actorId ?? null,
       );
       await provisionAppAttributesOnModel(
         client,
         tenantId,
         'actor_model',
         model.id,
-        actorUserId ?? null,
+        actorId ?? null,
       );
       await publish(
         client,
@@ -258,7 +258,7 @@ export async function createActorModel(
         'actor_model',
         model.id,
         { actor_model_id: model.id },
-        actorUserId,
+        actorId,
       );
       return model;
     } catch (err: unknown) {
@@ -287,7 +287,7 @@ export async function updateActorModel(
   tenantId: string,
   id: string,
   input: UpdateActorModelInput,
-  options?: { defaultLocale?: Locale; actorUserId?: string },
+  options?: { defaultLocale?: Locale; actorId?: string },
 ): Promise<ActorModelDto> {
   const existing = await getActorModel(tenantId, id);
   if (!existing) throw notFound();
@@ -298,7 +298,7 @@ export async function updateActorModel(
     input,
     options?.defaultLocale ?? 'de',
   );
-  const actorUserId = options?.actorUserId;
+  const actorId = options?.actorId;
   const archiving = input.status === 'archived' && existing.status !== 'archived';
   const description = resolveDescriptionFromInput(input);
 
@@ -329,7 +329,7 @@ export async function updateActorModel(
         'actor_model',
         model.id,
         { actor_model_id: model.id },
-        actorUserId,
+        actorId,
       );
     } else {
       await publish(
@@ -339,7 +339,7 @@ export async function updateActorModel(
         'actor_model',
         model.id,
         { actor_model_id: model.id },
-        actorUserId,
+        actorId,
       );
     }
     return model;
@@ -349,7 +349,7 @@ export async function updateActorModel(
 export async function deleteActorModel(
   tenantId: string,
   id: string,
-  actorUserId?: string,
+  actorId?: string,
 ): Promise<void> {
   return withTenantTransaction(tenantId, async (client) => {
     const model = await client.query<{ is_system: boolean }>(
@@ -379,7 +379,7 @@ export async function deleteActorModel(
       'actor_model',
       id,
       { actor_model_id: id },
-      actorUserId,
+      actorId,
     );
   });
 }

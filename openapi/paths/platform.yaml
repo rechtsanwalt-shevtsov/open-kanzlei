@@ -44,6 +44,28 @@ teams-list:
       '409':
         $ref: '../components/responses/common.yaml#/Conflict'
 
+teams-assignable-list:
+  get:
+    tags: [Platform]
+    operationId: listAssignableTeams
+    security: [{ sessionCookie: [] }]
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/platform.yaml#/Team'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+
 teams-item:
   patch:
     tags: [Platform]
@@ -92,7 +114,7 @@ teams-item:
 users-list:
   get:
     tags: [Platform]
-    operationId: listTenantUsers
+    operationId: listPlatformUsers
     security: [{ sessionCookie: [] }]
     responses:
       '200':
@@ -105,27 +127,27 @@ users-list:
                 items:
                   type: array
                   items:
-                    $ref: '../components/schemas/platform.yaml#/TenantUser'
+                    $ref: '../components/schemas/platform.yaml#/PlatformUser'
       '401':
         $ref: '../components/responses/common.yaml#/Unauthorized'
       '403':
         $ref: '../components/responses/common.yaml#/Forbidden'
   post:
     tags: [Platform]
-    operationId: createTenantUser
+    operationId: createPlatformUser
     security: [{ sessionCookie: [] }]
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/platform.yaml#/CreateTenantUserRequest'
+            $ref: '../components/schemas/platform.yaml#/CreatePlatformUserRequest'
     responses:
       '201':
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/platform.yaml#/TenantUser'
+              $ref: '../components/schemas/platform.yaml#/PlatformUser'
       '400':
         $ref: '../components/responses/common.yaml#/BadRequest'
       '401':
@@ -138,7 +160,7 @@ users-list:
 users-item:
   get:
     tags: [Platform]
-    operationId: getTenantUser
+    operationId: getPlatformUser
     security: [{ sessionCookie: [] }]
     parameters:
       - $ref: '../components/parameters/legal.yaml#/IdPath'
@@ -147,7 +169,7 @@ users-item:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/platform.yaml#/TenantUser'
+              $ref: '../components/schemas/platform.yaml#/PlatformUser'
       '401':
         $ref: '../components/responses/common.yaml#/Unauthorized'
       '403':
@@ -156,7 +178,7 @@ users-item:
         $ref: '../components/responses/common.yaml#/NotFound'
   patch:
     tags: [Platform]
-    operationId: updateTenantUser
+    operationId: updatePlatformUser
     security: [{ sessionCookie: [] }]
     parameters:
       - $ref: '../components/parameters/legal.yaml#/IdPath'
@@ -165,13 +187,13 @@ users-item:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/platform.yaml#/UpdateTenantUserRequest'
+            $ref: '../components/schemas/platform.yaml#/UpdatePlatformUserRequest'
     responses:
       '200':
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/platform.yaml#/TenantUser'
+              $ref: '../components/schemas/platform.yaml#/PlatformUser'
       '400':
         $ref: '../components/responses/common.yaml#/BadRequest'
       '401':
@@ -184,13 +206,13 @@ users-item:
         $ref: '../components/responses/common.yaml#/Conflict'
   delete:
     tags: [Platform]
-    operationId: deleteTenantUser
+    operationId: revokePlatformUserLogin
     security: [{ sessionCookie: [] }]
     parameters:
       - $ref: '../components/parameters/legal.yaml#/IdPath'
     responses:
       '204':
-        description: Deleted
+        description: Login revoked (actor remains)
       '401':
         $ref: '../components/responses/common.yaml#/Unauthorized'
       '403':

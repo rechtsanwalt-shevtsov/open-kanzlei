@@ -132,14 +132,14 @@ tenant-team-app-assignments:
       '404':
         $ref: '../components/responses/common.yaml#/NotFound'
 
-tenant-user-app-assignments:
+tenant-actor-app-assignments:
   put:
     tags: [Apps]
-    operationId: setUserAppAssignments
-    summary: Set per-user app group assignment override (admin)
+    operationId: setActorAppAssignments
+    summary: Set per-actor app group assignment override (admin)
     security: [{ sessionCookie: [] }]
     parameters:
-      - name: userId
+      - name: actorId
         in: path
         required: true
         schema:
@@ -156,7 +156,7 @@ tenant-user-app-assignments:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/apps.yaml#/UserAppAssignmentRow'
+              $ref: '../components/schemas/apps.yaml#/ActorAppAssignmentRow'
       '400':
         $ref: '../components/responses/common.yaml#/BadRequest'
       '401':
@@ -167,11 +167,11 @@ tenant-user-app-assignments:
         $ref: '../components/responses/common.yaml#/NotFound'
   delete:
     tags: [Apps]
-    operationId: clearUserAppAssignments
-    summary: Remove per-user app assignment override (admin)
+    operationId: clearActorAppAssignments
+    summary: Remove per-actor app assignment override (admin)
     security: [{ sessionCookie: [] }]
     parameters:
-      - name: userId
+      - name: actorId
         in: path
         required: true
         schema:
@@ -209,14 +209,14 @@ me-active-apps-by-group:
       '401':
         $ref: '../components/responses/common.yaml#/Unauthorized'
 
-user-active-apps-by-group:
+actor-active-apps-by-group:
   get:
     tags: [Apps]
-    operationId: getUserActiveAppsByGroup
-    summary: Effective active apps per group for a user (self or admin)
+    operationId: getActorActiveAppsByGroup
+    summary: Effective active apps per group for an actor (self or admin)
     security: [{ sessionCookie: [] }]
     parameters:
-      - name: userId
+      - name: actorId
         in: path
         required: true
         schema:

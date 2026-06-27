@@ -55,14 +55,14 @@ KanbanWipCell:
 KanbanBoard:
   type: object
   required:
-    - assignee_user_id
+    - assignee_actor_id
     - wip_limit_mode
     - layout
     - wip
     - not_started
     - completed
   properties:
-    assignee_user_id:
+    assignee_actor_id:
       type: string
       format: uuid
     wip_limit_mode:
@@ -150,7 +150,7 @@ KanbanMoveRequest:
   type: object
   required: [task_id, direction]
   properties:
-    assignee_user_id:
+    assignee_actor_id:
       type: string
       format: uuid
     task_id:
@@ -162,9 +162,9 @@ KanbanMoveRequest:
 
 KanbanWipLimitPatch:
   type: object
-  required: [assignee_user_id, column_key]
+  required: [assignee_actor_id, column_key]
   properties:
-    assignee_user_id:
+    assignee_actor_id:
       type: string
       format: uuid
     column_key:
@@ -176,9 +176,9 @@ KanbanWipLimitPatch:
 
 KanbanWipLimitResponse:
   type: object
-  required: [assignee_user_id, limits]
+  required: [assignee_actor_id, limits]
   properties:
-    assignee_user_id:
+    assignee_actor_id:
       type: string
       format: uuid
     limits:

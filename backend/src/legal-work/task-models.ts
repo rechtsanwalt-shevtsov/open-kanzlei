@@ -167,7 +167,7 @@ async function publish(
   aggregateType: string,
   aggregateId: string,
   data: Record<string, unknown>,
-  actorUserId?: string,
+  actorId?: string,
 ): Promise<void> {
   await getEventService().publish(client, {
     tenantId,
@@ -175,7 +175,7 @@ async function publish(
     aggregateType,
     aggregateId,
     data,
-    actorUserId,
+    actorId,
   });
 }
 
@@ -194,10 +194,10 @@ export async function listTaskModels(tenantId: string): Promise<TaskModelDto[]> 
 export async function createTaskModel(
   tenantId: string,
   input: CreateTaskModelInput,
-  options?: { defaultLocale?: Locale; actorUserId?: string },
+  options?: { defaultLocale?: Locale; actorId?: string },
 ): Promise<TaskModelDto> {
   const defaultLocale = options?.defaultLocale ?? 'de';
-  const actorUserId = options?.actorUserId;
+  const actorId = options?.actorId;
   const resolved = resolveCreateTaskModelFields(input, defaultLocale);
 
   return withTenantTransaction(tenantId, async (client) => {
@@ -230,14 +230,14 @@ export async function createTaskModel(
         client,
         tenantId,
         model.id,
-        actorUserId ?? null,
+        actorId ?? null,
       );
       await provisionAppAttributesOnModel(
         client,
         tenantId,
         'task_model',
         model.id,
-        actorUserId ?? null,
+        actorId ?? null,
       );
       await publish(
         client,
@@ -246,7 +246,7 @@ export async function createTaskModel(
         'task_model',
         model.id,
         { task_model_id: model.id },
-        actorUserId,
+        actorId,
       );
       return model;
     } catch (err: unknown) {
@@ -275,7 +275,7 @@ export async function updateTaskModel(
   tenantId: string,
   id: string,
   input: UpdateTaskModelInput,
-  options?: { defaultLocale?: Locale; actorUserId?: string },
+  options?: { defaultLocale?: Locale; actorId?: string },
 ): Promise<TaskModelDto> {
   const existing = await getTaskModel(tenantId, id);
   if (!existing) throw notFound();
@@ -286,7 +286,7 @@ export async function updateTaskModel(
     input,
     options?.defaultLocale ?? 'de',
   );
-  const actorUserId = options?.actorUserId;
+  const actorId = options?.actorId;
   const archiving = input.status === 'archived' && existing.status !== 'archived';
   const description = resolveDescriptionFromInput(input);
 
@@ -317,7 +317,7 @@ export async function updateTaskModel(
         'task_model',
         model.id,
         { task_model_id: model.id },
-        actorUserId,
+        actorId,
       );
     } else {
       await publish(
@@ -327,7 +327,7 @@ export async function updateTaskModel(
         'task_model',
         model.id,
         { task_model_id: model.id },
-        actorUserId,
+        actorId,
       );
     }
     return model;
@@ -337,7 +337,7 @@ export async function updateTaskModel(
 export async function deleteTaskModel(
   tenantId: string,
   id: string,
-  actorUserId?: string,
+  actorId?: string,
 ): Promise<void> {
   return withTenantTransaction(tenantId, async (client) => {
     const inUse = await client.query(
@@ -360,7 +360,7 @@ export async function deleteTaskModel(
       'task_model',
       id,
       { task_model_id: id },
-      actorUserId,
+      actorId,
     );
   });
 }

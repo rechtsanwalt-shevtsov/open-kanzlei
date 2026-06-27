@@ -33,7 +33,7 @@ export type CreateTaskBody = {
   predecessor_task_ids?: string[];
   dependent_task_ids?: string[];
   attributes?: Record<string, unknown>;
-  assignee_user_ids?: string[];
+  assignee_actor_ids?: string[];
 };
 
 export type UpdateTaskBody = {
@@ -41,7 +41,7 @@ export type UpdateTaskBody = {
   predecessor_task_ids?: string[];
   dependent_task_ids?: string[];
   attributes?: Record<string, unknown>;
-  assignee_user_ids?: string[];
+  assignee_actor_ids?: string[];
 };
 
 export interface TaskDto {
@@ -96,7 +96,7 @@ async function publish(
   aggregateType: string,
   aggregateId: string,
   data: Record<string, unknown>,
-  actorUserId?: string,
+  actorId?: string,
 ): Promise<void> {
   await getEventService().publish(client, {
     tenantId,
@@ -104,7 +104,7 @@ async function publish(
     aggregateType,
     aggregateId,
     data,
-    actorUserId,
+    actorId,
   });
 }
 
@@ -211,7 +211,7 @@ export async function createTask(
     predecessor_task_ids?: string[];
     dependent_task_ids?: string[];
     attributes?: Record<string, unknown>;
-    assignee_user_ids?: string[];
+    assignee_actor_ids?: string[];
   },
 ): Promise<TaskDto> {
   const caseItem = await getCase(tenantId, input.case_id);
@@ -252,8 +252,8 @@ export async function createTask(
       ],
     );
     const row = result.rows[0]!;
-    if (input.assignee_user_ids?.length) {
-      await setTaskAssignees(client, tenantId, row.id, input.assignee_user_ids);
+    if (input.assignee_actor_ids?.length) {
+      await setTaskAssignees(client, tenantId, row.id, input.assignee_actor_ids);
     }
     const changedKeys = await upsertInstanceAttributes(
       client,
@@ -294,7 +294,7 @@ export async function updateTask(
     predecessor_task_ids?: string[];
     dependent_task_ids?: string[];
     attributes?: Record<string, unknown>;
-    assignee_user_ids?: string[];
+    assignee_actor_ids?: string[];
   },
 ): Promise<TaskDto> {
   const existing = await getTask(tenantId, id);
@@ -352,8 +352,8 @@ export async function updateTask(
       ],
     );
     const row = result.rows[0]!;
-    if (input.assignee_user_ids !== undefined) {
-      await setTaskAssignees(client, tenantId, row.id, input.assignee_user_ids);
+    if (input.assignee_actor_ids !== undefined) {
+      await setTaskAssignees(client, tenantId, row.id, input.assignee_actor_ids);
     }
     const changedKeys = await upsertInstanceAttributes(
       client,

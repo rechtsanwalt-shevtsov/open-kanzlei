@@ -29,7 +29,16 @@ import {
 type TaskModel = components['schemas']['TaskModel'];
 type CaseItem = components['schemas']['Case'];
 type CaseModel = components['schemas']['CaseModel'];
-type TenantUser = components['schemas']['TenantUser'];
+type ActorOption = { id: string; label: string };
+
+function actorLabel(actor: components['schemas']['Actor']): string {
+  const attrs = actor.attributes ?? {};
+  const name = typeof attrs.name === 'string' ? attrs.name.trim() : '';
+  if (name) return name;
+  const first = typeof attrs.first_name === 'string' ? attrs.first_name.trim() : '';
+  if (first) return first;
+  return actor.id.slice(0, 8);
+}
 type SortColumn = 'title' | 'case' | 'model' | 'status' | 'created';
 type SortDirection = 'asc' | 'desc';
 
@@ -41,7 +50,7 @@ export function TasksListPage() {
   const [taskModels, setTaskModels] = useState<TaskModel[]>([]);
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [caseModels, setCaseModels] = useState<CaseModel[]>([]);
-  const [users, setUsers] = useState<TenantUser[]>([]);
+  const [actors, setActors] = useState<ActorOption[]>([]);
   const [statusDefsByModel, setStatusDefsByModel] = useState<Map<string, AttributeDefinition>>(
     () => new Map(),
   );
@@ -102,12 +111,12 @@ export function TasksListPage() {
     setLoading(true);
     setError(null);
     const headers = apiHeaders(locale);
-    const [tasksRes, modelsRes, casesRes, caseModelsRes, usersRes] = await Promise.all([
+    const [tasksRes, modelsRes, casesRes, caseModelsRes, actorsRes] = await Promise.all([
       api.GET('/v1/tasks', { headers }),
       api.GET('/v1/task-models', { headers }),
       api.GET('/v1/cases', { headers }),
       api.GET('/v1/case-models', { headers }),
-      api.GET('/v1/users', { headers }),
+      api.GET('/v1/actors', { headers }),
     ]);
     if (tasksRes.error || modelsRes.error || casesRes.error || caseModelsRes.error) {
       setError(msg('errorGeneric'));
@@ -119,8 +128,12 @@ export function TasksListPage() {
     setTaskModels(loadedModels);
     setCases(casesRes.data?.items ?? []);
     setCaseModels(caseModelsRes.data?.items ?? []);
-    if (!usersRes.error && usersRes.data) {
-      setUsers(usersRes.data.items ?? []);
+    if (!actorsRes.error && actorsRes.data) {
+      setActors(
+        (actorsRes.data.items ?? [])
+          .map((actor) => ({ id: actor.id, label: actorLabel(actor) }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+      );
     }
 
     const statusEntries = await Promise.all(
@@ -514,7 +527,7 @@ export function TasksListPage() {
                           <TaskAssigneeSelect
                             taskId={t.id}
                             assignees={t.assignees}
-                            users={users}
+                            actors={actors}
                             locale={locale}
                             saving={assigneeSaving}
                             onSavingChange={setAssigneeSaving}

@@ -16,11 +16,11 @@ export function AssigneeAvatars({ assignees }: { assignees: Assignee[] }) {
   return (
     <div className="work-assignees">
       {assignees.map((a) => (
-        <span key={a.user_id} className="work-assignee" title={a.username}>
+        <span key={a.actor_id} className="work-assignee" title={a.label}>
           <span className="work-assignee-avatar" aria-hidden>
-            {initials(a.username)}
+            {initials(a.label)}
           </span>
-          <span className="work-assignee-name">{a.username}</span>
+          <span className="work-assignee-name">{a.label}</span>
         </span>
       ))}
     </div>

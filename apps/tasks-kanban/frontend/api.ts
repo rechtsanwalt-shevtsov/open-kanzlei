@@ -15,7 +15,7 @@ export async function fetchKanbanBoard(
     headers: apiHeaders(locale),
     params: {
       query: {
-        assignee_user_id: assigneeUserId,
+        assignee_actor_id: assigneeUserId,
         ...(search?.trim() ? { search: search.trim() } : {}),
       },
     },
@@ -25,7 +25,7 @@ export async function fetchKanbanBoard(
 export async function postKanbanMove(
   locale: Locale,
   body: {
-    assignee_user_id: string;
+    assignee_actor_id: string;
     task_id: string;
     direction: KanbanMoveDirection;
   },
@@ -39,7 +39,7 @@ export async function postKanbanMove(
 export async function patchKanbanWipLimit(
   locale: Locale,
   body: {
-    assignee_user_id: string;
+    assignee_actor_id: string;
     column_key: string;
     limit: number | null;
   },

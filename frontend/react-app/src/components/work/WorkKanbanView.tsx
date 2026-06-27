@@ -48,7 +48,7 @@ export function WorkKanbanView({ cards, emptyMessage }: WorkKanbanViewProps) {
                   {card.subtitle && <p className="work-kanban-card-sub">{card.subtitle}</p>}
                   {card.assignees.length > 0 && (
                     <p className="work-kanban-card-meta">
-                      {card.assignees.map((a) => a.username).join(', ')}
+                      {card.assignees.map((a) => a.label).join(', ')}
                     </p>
                   )}
                 </li>

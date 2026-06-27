@@ -6,7 +6,7 @@ import { WorkToolbar } from '../components/work/WorkToolbar.js';
 import { useCases } from '../hooks/useCases.js';
 import { useModelOptions } from '../hooks/useModelOptions.js';
 import { defaultTitle, useWorkFilters } from '../hooks/useWorkFilters.js';
-import { useTenantUsers } from '../hooks/useTenantUsers.js';
+import { useActorsList } from '../hooks/useActorsList.js';
 import { useI18n } from '../i18n/I18nContext.js';
 import type { WorkFilter, WorkViewMode } from '../types/work.js';
 
@@ -14,7 +14,7 @@ export function CasesPage() {
   const { msg } = useI18n();
   const { items, loading, error, refresh } = useCases();
   const { options: models } = useModelOptions();
-  const { items: users } = useTenantUsers();
+  const { items: actors } = useActorsList();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<WorkFilter>({ kind: 'all' });
   const [view, setView] = useState<WorkViewMode>('list');
@@ -67,7 +67,7 @@ export function CasesPage() {
         onFilterChange={setFilter}
         view={view}
         onViewChange={setView}
-        users={users}
+        actors={actors}
         attributeKeys={attributeKeys}
         totalCount={items.length}
         filteredCount={filtered.length}
@@ -85,7 +85,7 @@ export function CasesPage() {
       <CreateCaseDialog
         open={createOpen}
         models={models}
-        users={users}
+        actors={actors}
         onClose={() => setCreateOpen(false)}
         onCreated={() => void refresh()}
       />

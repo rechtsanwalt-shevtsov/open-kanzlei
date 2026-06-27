@@ -109,12 +109,12 @@ UpdateCaseModelRequest:
 
 Assignee:
   type: object
-  required: [user_id, username]
+  required: [actor_id, label]
   properties:
-    user_id:
+    actor_id:
       type: string
       format: uuid
-    username:
+    label:
       type: string
 
 Case:
@@ -161,7 +161,7 @@ CreateCaseRequest:
     attributes:
       type: object
       additionalProperties: true
-    assignee_user_ids:
+    assignee_actor_ids:
       type: array
       items:
         type: string
@@ -175,7 +175,7 @@ UpdateCaseRequest:
     attributes:
       type: object
       additionalProperties: true
-    assignee_user_ids:
+    assignee_actor_ids:
       type: array
       items:
         type: string
@@ -473,7 +473,7 @@ CreateTaskRequest:
     attributes:
       type: object
       additionalProperties: true
-    assignee_user_ids:
+    assignee_actor_ids:
       type: array
       items:
         type: string
@@ -501,7 +501,7 @@ CreateCaseTaskRequest:
     attributes:
       type: object
       additionalProperties: true
-    assignee_user_ids:
+    assignee_actor_ids:
       type: array
       items:
         type: string
@@ -525,7 +525,7 @@ UpdateTaskRequest:
     attributes:
       type: object
       additionalProperties: true
-    assignee_user_ids:
+    assignee_actor_ids:
       type: array
       items:
         type: string

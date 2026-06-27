@@ -89,15 +89,15 @@ export async function ensureWipLimitsForAllUsers(
   tenantId: string,
 ): Promise<WipLimitsSettings> {
   let wipLimits = await loadTenantWipLimits(client, tenantId);
-  const users = await client.query<{ id: string }>(
-    `SELECT id FROM platform.users WHERE tenant_id = $1`,
+  const users = await client.query<{ actor_id: string }>(
+    `SELECT actor_id FROM platform.actor_credentials WHERE tenant_id = $1`,
     [tenantId],
   );
   const before = JSON.stringify(wipLimits);
   let changed = false;
   for (const row of users.rows) {
-    if (!wipLimits.users[row.id]) {
-      wipLimits.users[row.id] = { ...wipLimits.default };
+    if (!wipLimits.users[row.actor_id]) {
+      wipLimits.users[row.actor_id] = { ...wipLimits.default };
       changed = true;
     }
   }

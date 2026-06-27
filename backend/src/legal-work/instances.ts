@@ -56,7 +56,7 @@ async function publish(
   aggregateType: string,
   aggregateId: string,
   data: Record<string, unknown>,
-  actorUserId?: string,
+  actorId?: string,
 ): Promise<void> {
   await getEventService().publish(client, {
     tenantId,
@@ -64,7 +64,7 @@ async function publish(
     aggregateType,
     aggregateId,
     data,
-    actorUserId,
+    actorId,
   });
 }
 
@@ -128,7 +128,7 @@ export async function createCase(
     case_model_id: string;
     status?: string;
     attributes?: Record<string, unknown>;
-    assignee_user_ids?: string[];
+    assignee_actor_ids?: string[];
   },
 ): Promise<CaseDto> {
   if (!(await getCaseModel(tenantId, input.case_model_id))) throw notFound();
@@ -149,8 +149,8 @@ export async function createCase(
       [tenantId, input.case_model_id, status],
     );
     const row = result.rows[0]!;
-    if (input.assignee_user_ids?.length) {
-      await setCaseAssignees(client, tenantId, row.id, input.assignee_user_ids);
+    if (input.assignee_actor_ids?.length) {
+      await setCaseAssignees(client, tenantId, row.id, input.assignee_actor_ids);
     }
     const changedKeys = await upsertInstanceAttributes(
       client,
@@ -227,7 +227,7 @@ export async function updateCase(
   input: {
     status?: string;
     attributes?: Record<string, unknown>;
-    assignee_user_ids?: string[];
+    assignee_actor_ids?: string[];
   },
 ): Promise<CaseDto> {
   const existing = await getCase(tenantId, id);
@@ -254,8 +254,8 @@ export async function updateCase(
       [id, tenantId, nextStatus],
     );
     const row = result.rows[0]!;
-    if (input.assignee_user_ids !== undefined) {
-      await setCaseAssignees(client, tenantId, row.id, input.assignee_user_ids);
+    if (input.assignee_actor_ids !== undefined) {
+      await setCaseAssignees(client, tenantId, row.id, input.assignee_actor_ids);
     }
     const changedKeys = await upsertInstanceAttributes(
       client,

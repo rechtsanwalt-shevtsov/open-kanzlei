@@ -13,7 +13,7 @@ import { AdminRoute } from './components/AdminRoute.js';
 import { AdminAppsPage } from './pages/admin/AdminAppsPage.js';
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage.js';
 import { ModelsPage } from './pages/admin/ModelsPage.js';
-import { UsersPage } from './pages/admin/UsersPage.js';
+import { PlatformUsersPage } from './pages/admin/PlatformUsersPage.js';
 import { CasesPage } from './pages/CasesPage.js';
 import { bundledAppRoutes } from './app-routes/bundled-app-routes.js';
 
@@ -37,7 +37,8 @@ export function App() {
                 <Route element={<AdminRoute />}>
                   <Route path="admin/settings" element={<AdminSettingsPage />} />
                   <Route path="admin/apps" element={<AdminAppsPage />} />
-                  <Route path="admin/users" element={<UsersPage />} />
+                  <Route path="admin/platform-users" element={<PlatformUsersPage />} />
+                  <Route path="admin/users" element={<Navigate to="/admin/platform-users" replace />} />
                   <Route path="admin/models" element={<ModelsPage />} />
                 </Route>
               </Route>

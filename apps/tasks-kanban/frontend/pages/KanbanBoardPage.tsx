@@ -17,7 +17,7 @@ import {
 import { KanbanBoardView } from '../components/KanbanBoard.js';
 import { WipEditDialog } from '../components/WipEditDialog.js';
 
-type TenantUser = components['schemas']['TenantUser'];
+type PlatformUser = components['schemas']['PlatformUser'];
 type TaskModel = components['schemas']['TaskModel'];
 type CaseItem = components['schemas']['Case'];
 type CaseModel = components['schemas']['CaseModel'];
@@ -27,7 +27,7 @@ export function KanbanBoardPage() {
   const { locale, msg } = useI18n();
   const admin = userIsAdmin(user?.teams ?? []);
 
-  const [users, setUsers] = useState<TenantUser[]>([]);
+  const [users, setUsers] = useState<PlatformUser[]>([]);
   const [assigneeUserId, setAssigneeUserId] = useState(user?.id ?? '');
   const [search, setSearch] = useState('');
   const [searchDraft, setSearchDraft] = useState('');
@@ -50,7 +50,7 @@ export function KanbanBoardPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error: apiError } = await api.GET('/v1/users', {
+      const { data, error: apiError } = await api.GET('/v1/platform-users', {
         headers: apiHeaders(locale),
       });
       if (cancelled) return;
@@ -84,7 +84,7 @@ export function KanbanBoardPage() {
     setMoveError(null);
     setMovingTaskId(taskId);
     const { data, error: apiError, response } = await postKanbanMove(locale, {
-      assignee_user_id: assigneeUserId,
+      assignee_actor_id: assigneeUserId,
       task_id: taskId,
       direction,
     });
@@ -117,7 +117,7 @@ export function KanbanBoardPage() {
   async function handleWipSave(limit: number | null) {
     if (!wipEdit) return;
     const { error: apiError, response } = await patchKanbanWipLimit(locale, {
-      assignee_user_id: assigneeUserId,
+      assignee_actor_id: assigneeUserId,
       column_key: wipEdit.columnKey,
       limit,
     });

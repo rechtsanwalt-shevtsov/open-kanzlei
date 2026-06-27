@@ -113,8 +113,8 @@ export function AdminSidebar() {
               indent={1}
             />
             <NavLink
-              to="/admin/users"
-              label={msg('navUsers')}
+              to="/admin/platform-users"
+              label={msg('navPlatformUsers')}
               icon={<LuUsers size={16} aria-hidden />}
               indent={1}
             />

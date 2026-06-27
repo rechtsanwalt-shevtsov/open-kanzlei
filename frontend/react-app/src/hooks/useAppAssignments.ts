@@ -10,7 +10,9 @@ export type TenantAppAssignments = components['schemas']['TenantAppAssignments']
 export type AppGroupAssignments = components['schemas']['AppGroupAssignments'];
 export type AppCatalogItem = components['schemas']['AppCatalogItem'];
 export type TeamAppAssignmentRow = components['schemas']['TeamAppAssignmentRow'];
-export type UserAppAssignmentRow = components['schemas']['UserAppAssignmentRow'];
+export type ActorAppAssignmentRow = components['schemas']['ActorAppAssignmentRow'];
+/** @deprecated Use ActorAppAssignmentRow */
+export type UserAppAssignmentRow = ActorAppAssignmentRow;
 
 const EMPTY_ASSIGNMENTS: AppGroupAssignments = {
   flight_level_0: null,
@@ -95,9 +97,9 @@ export function useAppAssignments(): AppAssignmentsContextValue {
 
   const saveUserAssignments = useCallback(
     async (userId: string, assignments: AppGroupAssignments): Promise<SaveAssignmentsResult> => {
-      const res = await api.PUT('/v1/tenant/users/{userId}/app-assignments', {
+      const res = await api.PUT('/v1/tenant/actors/{actorId}/app-assignments', {
         headers: apiHeaders(locale),
-        params: { path: { userId } },
+        params: { path: { actorId: userId } },
         body: assignments,
       });
       if (res.error || !res.response.ok) {
@@ -107,12 +109,16 @@ export function useAppAssignments(): AppAssignmentsContextValue {
       if (saved) {
         setData((prev) => {
           if (!prev) return prev;
-          const existing = prev.user_overrides.some((row) => row.user_id === userId);
+          const overrides = prev.actor_overrides ?? prev.user_overrides ?? [];
+          const existing = overrides.some((row) => row.actor_id === userId);
           return {
             ...prev,
+            actor_overrides: existing
+              ? overrides.map((row) => (row.actor_id === userId ? saved : row))
+              : [...overrides, saved],
             user_overrides: existing
-              ? prev.user_overrides.map((row) => (row.user_id === userId ? saved : row))
-              : [...prev.user_overrides, saved],
+              ? overrides.map((row) => (row.actor_id === userId ? saved : row))
+              : [...overrides, saved],
           };
         });
         return { ok: true, assignments: saved.assignments };
@@ -125,9 +131,9 @@ export function useAppAssignments(): AppAssignmentsContextValue {
 
   const clearUserAssignments = useCallback(
     async (userId: string): Promise<string | null> => {
-      const res = await api.DELETE('/v1/tenant/users/{userId}/app-assignments', {
+      const res = await api.DELETE('/v1/tenant/actors/{actorId}/app-assignments', {
         headers: apiHeaders(locale),
-        params: { path: { userId } },
+        params: { path: { actorId: userId } },
       });
       if (res.error || !res.response.ok) {
         return readApiError(res.error, msg('errorGeneric'));

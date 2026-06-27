@@ -3,14 +3,15 @@ import { useI18n } from '@shell/i18n/I18nContext.js';
 import type { Locale } from '@shell/i18n/locale.js';
 import type { components } from '@shell/api/schema.js';
 
-type TenantUser = components['schemas']['TenantUser'];
 type Assignee = components['schemas']['Assignee'];
 type TaskItem = components['schemas']['Task'];
+
+type ActorOption = { id: string; label: string };
 
 interface TaskAssigneeSelectProps {
   taskId: string;
   assignees: Assignee[];
-  users: TenantUser[];
+  actors: ActorOption[];
   locale: Locale;
   disabled?: boolean;
   saving?: boolean;
@@ -22,7 +23,7 @@ interface TaskAssigneeSelectProps {
 export function TaskAssigneeSelect({
   taskId,
   assignees,
-  users,
+  actors,
   locale,
   disabled,
   saving,
@@ -31,7 +32,7 @@ export function TaskAssigneeSelect({
   className = 'admin-table-inline-input',
 }: TaskAssigneeSelectProps) {
   const { msg } = useI18n();
-  const currentUserId = assignees[0]?.user_id ?? '';
+  const currentUserId = assignees[0]?.actor_id ?? '';
 
   async function handleChange(nextUserId: string) {
     onSavingChange?.(true);
@@ -39,7 +40,7 @@ export function TaskAssigneeSelect({
       headers: apiJsonHeaders(locale),
       params: { path: { id: taskId } },
       body: {
-        assignee_user_ids: nextUserId ? [nextUserId] : [],
+        assignee_actor_ids: nextUserId ? [nextUserId] : [],
       },
     });
     onSavingChange?.(false);
@@ -57,9 +58,9 @@ export function TaskAssigneeSelect({
       aria-label={msg('tasColAssignee')}
     >
       <option value="">{msg('tasAssigneeNone')}</option>
-      {users.map((user) => (
-        <option key={user.id} value={user.id}>
-          {user.username}
+      {actors.map((actor) => (
+        <option key={actor.id} value={actor.id}>
+          {actor.label}
         </option>
       ))}
     </select>

@@ -30,7 +30,7 @@ export async function getUiPreferences(
       [tenantId],
     );
     const userRow = await client.query<{ preferred_color_theme: ColorTheme | null }>(
-      `SELECT preferred_color_theme FROM platform.users WHERE id = $1`,
+      `SELECT preferred_color_theme FROM platform.actor_credentials WHERE actor_id = $1`,
       [userId],
     );
 
@@ -58,9 +58,9 @@ export async function patchUserColorTheme(
 
   await withTenantTransaction(tenantId, async (client) => {
     await client.query(
-      `UPDATE platform.users
+      `UPDATE platform.actor_credentials
        SET preferred_color_theme = $2, updated_at = now()
-       WHERE id = $1 AND tenant_id = $3`,
+       WHERE actor_id = $1 AND tenant_id = $3`,
       [userId, colorTheme, tenantId],
     );
   });
@@ -91,7 +91,7 @@ export async function patchTenantColorTheme(
       type: 'tenant_profile.updated',
       aggregateType: 'tenant_profile',
       aggregateId: tenantId,
-      actorUserId: userId,
+      actorId: userId,
       data: {},
     });
   });

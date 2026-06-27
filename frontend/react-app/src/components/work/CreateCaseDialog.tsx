@@ -4,15 +4,13 @@ import { useI18n } from '../../i18n/I18nContext.js';
 import { WORK_STATUSES, workStatusLabel } from '../../lib/work-status.js';
 import { listModelAttributes, type AttributeDefinition } from '../../lib/attribute-api.js';
 import { labelFromTranslations } from '../../lib/model-label.js';
+import type { ActorOption } from '../../hooks/useActorsList.js';
 import type { ModelOption } from '../../hooks/useModelOptions.js';
-import type { components } from '../../api/schema.js';
-
-type TenantUser = components['schemas']['TenantUser'];
 
 interface CreateCaseDialogProps {
   open: boolean;
   models: ModelOption[];
-  users: TenantUser[];
+  actors: ActorOption[];
   onClose: () => void;
   onCreated: () => void;
 }
@@ -52,7 +50,7 @@ function defaultFieldValue(def: AttributeDefinition): string {
 export function CreateCaseDialog({
   open,
   models,
-  users,
+  actors,
   onClose,
   onCreated,
 }: CreateCaseDialogProps) {
@@ -221,7 +219,7 @@ export function CreateCaseDialog({
         case_model_id: caseModelId,
         status,
         attributes: Object.keys(attributes).length ? attributes : undefined,
-        assignee_user_ids: assigneeIds.length ? assigneeIds : undefined,
+        assignee_actor_ids: assigneeIds.length ? assigneeIds : undefined,
       },
     });
     setSubmitting(false);
@@ -278,19 +276,19 @@ export function CreateCaseDialog({
             </select>
           </label>
 
-          {users.length > 0 && (
+          {actors.length > 0 && (
             <fieldset className="work-assignee-picker">
               <legend>{msg('workColAssignees')}</legend>
               <ul>
-                {users.map((u) => (
-                  <li key={u.id}>
+                {actors.map((a) => (
+                  <li key={a.id}>
                     <label>
                       <input
                         type="checkbox"
-                        checked={assigneeIds.includes(u.id)}
-                        onChange={() => toggleAssignee(u.id)}
+                        checked={assigneeIds.includes(a.id)}
+                        onChange={() => toggleAssignee(a.id)}
                       />
-                      {u.username}
+                      {a.label}
                     </label>
                   </li>
                 ))}

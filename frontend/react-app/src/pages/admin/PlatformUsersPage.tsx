@@ -1,37 +1,37 @@
 import { useMemo, useState } from 'react';
 import { LuPencil, LuTrash2 } from 'react-icons/lu';
 import { Link } from 'react-router-dom';
+import { PlatformUserDialog } from '../../components/admin/PlatformUserDialog.js';
 import { TeamDialog } from '../../components/admin/TeamDialog.js';
-import { UserDialog } from '../../components/admin/UserDialog.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useTeams, type Team } from '../../hooks/useTeams.js';
-import { useTenantUsers, type TenantUser } from '../../hooks/useTenantUsers.js';
+import { usePlatformUsers, type PlatformUser } from '../../hooks/usePlatformUsers.js';
 import { useI18n } from '../../i18n/I18nContext.js';
 import { formatTeamNames } from '../../lib/is-admin.js';
 import { api, apiHeaders } from '../../api/client.js';
 
 function isTeamRenamable(team: Team): boolean {
-  return team.key !== 'admin';
+  return team.key !== 'admin' && team.key !== 'plattformuser';
 }
 
 function isTeamDeletable(team: Team): boolean {
-  return team.key !== 'admin';
+  return team.key !== 'admin' && team.key !== 'plattformuser';
 }
 
-function teamHasMembers(teamId: string, users: TenantUser[]): boolean {
+function teamHasMembers(teamId: string, users: PlatformUser[]): boolean {
   return users.some((user) => user.teams.some((t) => t.id === teamId));
 }
 
-export function UsersPage() {
+export function PlatformUsersPage() {
   const { user: currentUser } = useAuth();
   const { locale, msg } = useI18n();
-  const { items: users, loading, error, refresh: refreshUsers } = useTenantUsers();
+  const { items: users, loading, error, refresh: refreshUsers } = usePlatformUsers();
   const { items: teams, loading: teamsLoading, error: teamsError, refresh: refreshTeams } = useTeams();
 
   const [search, setSearch] = useState('');
   const [createUserOpen, setCreateUserOpen] = useState(false);
   const [createTeamOpen, setCreateTeamOpen] = useState(false);
-  const [editUser, setEditUser] = useState<TenantUser | null>(null);
+  const [editUser, setEditUser] = useState<PlatformUser | null>(null);
   const [editTeam, setEditTeam] = useState<Team | null>(null);
 
   const filtered = useMemo(() => {
@@ -63,12 +63,12 @@ export function UsersPage() {
     void refreshUsers();
   }
 
-  async function handleDeleteUser(user: TenantUser) {
-    if (!window.confirm(msg('usersDeleteConfirm').replace('{username}', user.username))) {
+  async function handleRevokeUser(user: PlatformUser) {
+    if (!window.confirm(msg('pusrRevokeConfirm').replace('{username}', user.username))) {
       return;
     }
 
-    const res = await api.DELETE('/v1/users/{id}', {
+    const res = await api.DELETE('/v1/platform-users/{id}', {
       headers: apiHeaders(locale),
       params: { path: { id: user.id } },
     });
@@ -85,7 +85,7 @@ export function UsersPage() {
       <nav className="admin-breadcrumb" aria-label="Breadcrumb">
         <Link to="/">{msg('administration')}</Link>
         <span className="admin-breadcrumb-sep">›</span>
-        <span aria-current="page">{msg('navUsers')}</span>
+        <span aria-current="page">{msg('navPlatformUsers')}</span>
       </nav>
 
       <header className="admin-page-header admin-page-header--actions-only">
@@ -108,7 +108,7 @@ export function UsersPage() {
             <span className="admin-btn-icon" aria-hidden>
               +
             </span>
-            {msg('usersCreate')}
+            {msg('pusrCreate')}
           </button>
         </div>
       </header>
@@ -131,56 +131,58 @@ export function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {teams.length === 0 ? (
+                {teams.filter((t) => t.key !== 'plattformuser').length === 0 ? (
                   <tr>
                     <td colSpan={2} className="admin-table-empty">
                       {msg('teamsEmpty')}
                     </td>
                   </tr>
                 ) : (
-                  teams.map((team) => (
-                    <tr key={team.id}>
-                      <td>
-                        {isTeamRenamable(team) ? (
-                          <button
-                            type="button"
-                            className="admin-table-link admin-table-link--button"
-                            onClick={() => setEditTeam(team)}
-                          >
-                            {team.name}
-                          </button>
-                        ) : (
-                          <span>{team.name}</span>
-                        )}
-                      </td>
-                      <td className="admin-table-actions-cell">
-                        <div className="admin-table-icon-actions">
-                          <button
-                            type="button"
-                            className="button-icon"
-                            title={msg('teamsEdit')}
-                            aria-label={msg('teamsEdit')}
-                            disabled={!isTeamRenamable(team)}
-                            onClick={() => setEditTeam(team)}
-                          >
-                            <LuPencil size={18} aria-hidden />
-                          </button>
-                          <button
-                            type="button"
-                            className="button-icon button-icon--danger"
-                            title={msg('teamsDelete')}
-                            aria-label={msg('teamsDelete')}
-                            disabled={
-                              !isTeamDeletable(team) || teamHasMembers(team.id, users)
-                            }
-                            onClick={() => void handleDeleteTeam(team)}
-                          >
-                            <LuTrash2 size={18} aria-hidden />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  teams
+                    .filter((t) => t.key !== 'plattformuser')
+                    .map((team) => (
+                      <tr key={team.id}>
+                        <td>
+                          {isTeamRenamable(team) ? (
+                            <button
+                              type="button"
+                              className="admin-table-link admin-table-link--button"
+                              onClick={() => setEditTeam(team)}
+                            >
+                              {team.name}
+                            </button>
+                          ) : (
+                            <span>{team.name}</span>
+                          )}
+                        </td>
+                        <td className="admin-table-actions-cell">
+                          <div className="admin-table-icon-actions">
+                            <button
+                              type="button"
+                              className="button-icon"
+                              title={msg('teamsEdit')}
+                              aria-label={msg('teamsEdit')}
+                              disabled={!isTeamRenamable(team)}
+                              onClick={() => setEditTeam(team)}
+                            >
+                              <LuPencil size={18} aria-hidden />
+                            </button>
+                            <button
+                              type="button"
+                              className="button-icon button-icon--danger"
+                              title={msg('teamsDelete')}
+                              aria-label={msg('teamsDelete')}
+                              disabled={
+                                !isTeamDeletable(team) || teamHasMembers(team.id, users)
+                              }
+                              onClick={() => void handleDeleteTeam(team)}
+                            >
+                              <LuTrash2 size={18} aria-hidden />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                 )}
               </tbody>
             </table>
@@ -189,7 +191,7 @@ export function UsersPage() {
       </section>
 
       <section className="admin-page-section">
-        <h2 className="admin-section-title">{msg('usersSectionTitle')}</h2>
+        <h2 className="admin-section-title">{msg('pusrSectionTitle')}</h2>
 
         <div className="admin-search-wrap">
           <input
@@ -217,20 +219,19 @@ export function UsersPage() {
                   <th>{msg('username')}</th>
                   <th>{msg('email')}</th>
                   <th>{msg('usersColTeams')}</th>
-                  <th>{msg('usersColActive')}</th>
                   <th className="admin-table-actions-col" aria-label={msg('usersRowActions')} />
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="admin-table-empty">
-                      {search ? msg('modelsNoResults') : msg('usersEmpty')}
+                    <td colSpan={4} className="admin-table-empty">
+                      {search ? msg('modelsNoResults') : msg('pusrEmpty')}
                     </td>
                   </tr>
                 ) : (
                   filtered.map((row) => {
-                    const canDeleteUser = currentUser?.id !== row.id;
+                    const canRevoke = currentUser?.id !== row.id;
                     return (
                       <tr key={row.id}>
                         <td>
@@ -244,7 +245,6 @@ export function UsersPage() {
                         </td>
                         <td className="admin-table-muted">{row.email ?? '—'}</td>
                         <td className="admin-table-muted">{formatTeamNames(row.teams) || '—'}</td>
-                        <td>{row.is_active ? msg('usersActiveYes') : msg('usersActiveNo')}</td>
                         <td className="admin-table-actions-cell">
                           <div className="admin-table-icon-actions">
                             <button
@@ -259,10 +259,10 @@ export function UsersPage() {
                             <button
                               type="button"
                               className="button-icon button-icon--danger"
-                              title={msg('usersDelete')}
-                              aria-label={msg('usersDelete')}
-                              disabled={!canDeleteUser}
-                              onClick={() => void handleDeleteUser(row)}
+                              title={msg('pusrRevokeLogin')}
+                              aria-label={msg('pusrRevokeLogin')}
+                              disabled={!canRevoke}
+                              onClick={() => void handleRevokeUser(row)}
                             >
                               <LuTrash2 size={18} aria-hidden />
                             </button>
@@ -278,7 +278,7 @@ export function UsersPage() {
         )}
       </section>
 
-      <UserDialog
+      <PlatformUserDialog
         open={createUserOpen}
         mode="create"
         teams={teams}
@@ -286,7 +286,7 @@ export function UsersPage() {
         onSaved={() => void refreshUsers()}
       />
 
-      <UserDialog
+      <PlatformUserDialog
         open={editUser !== null}
         mode="edit"
         user={editUser ?? undefined}

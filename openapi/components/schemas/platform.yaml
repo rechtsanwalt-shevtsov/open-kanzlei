@@ -54,6 +54,8 @@ UpdateTeamRequest:
 
 TenantUser:
   type: object
+  deprecated: true
+  description: Use PlatformUser instead.
   required:
     - id
     - username
@@ -87,6 +89,115 @@ TenantUser:
     updated_at:
       type: string
       format: date-time
+
+PlatformUser:
+  type: object
+  required:
+    - id
+    - username
+    - actor_model_id
+    - teams
+    - has_login
+    - created_at
+    - updated_at
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Actor id
+    username:
+      type: string
+    email:
+      type: string
+      format: email
+      nullable: true
+    actor_model_id:
+      type: string
+      format: uuid
+    teams:
+      type: array
+      items:
+        $ref: '#/UserTeam'
+    has_login:
+      type: boolean
+    preferred_language:
+      type: string
+      enum: [de, en]
+      nullable: true
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreatePlatformUserRequest:
+  type: object
+  required: [username, password, team_ids]
+  properties:
+    username:
+      type: string
+      minLength: 1
+      maxLength: 64
+    password:
+      type: string
+      minLength: 8
+      format: password
+    email:
+      type: string
+      format: email
+      nullable: true
+    first_name:
+      type: string
+      nullable: true
+    display_name:
+      type: string
+      nullable: true
+    actor_model_id:
+      type: string
+      format: uuid
+    team_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+      minItems: 1
+    preferred_language:
+      type: string
+      enum: [de, en]
+
+UpdatePlatformUserRequest:
+  type: object
+  properties:
+    username:
+      type: string
+      minLength: 1
+      maxLength: 64
+    password:
+      type: string
+      minLength: 8
+      format: password
+    email:
+      type: string
+      format: email
+      nullable: true
+    first_name:
+      type: string
+      nullable: true
+    display_name:
+      type: string
+      nullable: true
+    team_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+      minItems: 1
+    preferred_language:
+      type: string
+      enum: [de, en]
+    revoke_login:
+      type: boolean
 
 CreateTenantUserRequest:
   type: object

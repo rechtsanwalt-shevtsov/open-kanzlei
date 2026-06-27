@@ -84,11 +84,11 @@ TeamAppAssignmentRow:
     assignments:
       $ref: '#/AppGroupAssignments'
 
-UserAppAssignmentRow:
+ActorAppAssignmentRow:
   type: object
-  required: [user_id, username, assignments]
+  required: [actor_id, username, assignments]
   properties:
-    user_id:
+    actor_id:
       type: string
       format: uuid
     username:
@@ -96,9 +96,12 @@ UserAppAssignmentRow:
     assignments:
       $ref: '#/AppGroupAssignments'
 
+UserAppAssignmentRow:
+  $ref: '#/ActorAppAssignmentRow'
+
 TenantAppAssignments:
   type: object
-  required: [apps, teams, user_overrides]
+  required: [apps, teams, actor_overrides]
   properties:
     apps:
       type: array
@@ -108,10 +111,15 @@ TenantAppAssignments:
       type: array
       items:
         $ref: '#/TeamAppAssignmentRow'
-    user_overrides:
+    actor_overrides:
       type: array
       items:
-        $ref: '#/UserAppAssignmentRow'
+        $ref: '#/ActorAppAssignmentRow'
+    user_overrides:
+      type: array
+      deprecated: true
+      items:
+        $ref: '#/ActorAppAssignmentRow'
 
 AppInstallationStatus:
   type: string

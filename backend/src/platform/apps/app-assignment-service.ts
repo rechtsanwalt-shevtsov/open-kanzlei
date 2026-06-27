@@ -28,16 +28,21 @@ export interface TeamAppAssignmentRowDto {
   assignments: AppGroupAssignments;
 }
 
-export interface UserAppAssignmentRowDto {
-  user_id: string;
+export interface ActorAppAssignmentRowDto {
+  actor_id: string;
   username: string;
   assignments: AppGroupAssignments;
 }
 
+/** @deprecated Use ActorAppAssignmentRowDto */
+export type UserAppAssignmentRowDto = ActorAppAssignmentRowDto;
+
 export interface TenantAppAssignmentsDto {
   apps: AppCatalogItemDto[];
   teams: TeamAppAssignmentRowDto[];
-  user_overrides: UserAppAssignmentRowDto[];
+  actor_overrides: ActorAppAssignmentRowDto[];
+  /** @deprecated Use actor_overrides */
+  user_overrides: ActorAppAssignmentRowDto[];
 }
 
 export interface ActiveAppsByGroupDto extends AppGroupAssignments {
@@ -112,13 +117,13 @@ async function provisionActivatedApps(
   tenantId: string,
   previousKeys: Set<string>,
   nextKeys: Set<string>,
-  actorUserId: string,
+  actorId: string,
 ): Promise<void> {
   const { provisionAppAttributesForTenant } = await import('./app-attribute-provisioning.js');
 
   for (const appKey of nextKeys) {
     if (previousKeys.has(appKey)) continue;
-    await provisionAppAttributesForTenant(client, tenantId, appKey, actorUserId);
+    await provisionAppAttributesForTenant(client, tenantId, appKey, actorId);
     if (appKey === 'tasks-kanban') {
       const { seedWipLimitsOnAppActivation } = await import(
         '../../apps/tasks-kanban/board-service.js'
@@ -137,7 +142,7 @@ async function provisionActivatedApps(
         type: 'app.activated',
         aggregateType: 'app_installation',
         aggregateId: installationId,
-        actorUserId,
+        actorId,
         data: { app_key: appKey },
       });
     }
@@ -156,7 +161,7 @@ async function provisionActivatedApps(
         type: 'app.deactivated',
         aggregateType: 'app_installation',
         aggregateId: installationId,
-        actorUserId,
+        actorId,
         data: { app_key: appKey },
       });
     }
@@ -198,8 +203,8 @@ export async function getUserOverrideAssignments(
   userId: string,
 ): Promise<AppGroupAssignments | null> {
   const result = await client.query<{ assignments: unknown }>(
-    `SELECT assignments FROM platform.user_app_assignments
-     WHERE tenant_id = $1 AND user_id = $2`,
+    `SELECT assignments FROM platform.actor_app_assignments
+     WHERE tenant_id = $1 AND actor_id = $2`,
     [tenantId, userId],
   );
   if (!result.rowCount) return null;
@@ -216,9 +221,9 @@ export async function resolveEffectiveAssignmentsForUser(
 
   const teams = await client.query<{ team_id: string; team_name: string }>(
     `SELECT t.id AS team_id, t.name AS team_name
-     FROM platform.user_teams ut
+     FROM platform.actor_teams ut
      JOIN platform.teams t ON t.id = ut.team_id
-     WHERE ut.user_id = $1 AND t.tenant_id = $2
+     WHERE ut.actor_id = $1 AND t.tenant_id = $2
      ORDER BY t.name`,
     [userId, tenantId],
   );
@@ -295,12 +300,16 @@ export async function listTenantAppAssignments(tenantId: string): Promise<Tenant
       });
     }
 
-    const userOverrides = await client.query<{ id: string; username: string; assignments: unknown }>(
-      `SELECT u.id, u.username, ua.assignments
-       FROM platform.user_app_assignments ua
-       JOIN platform.users u ON u.id = ua.user_id
+    const actorOverrides = await client.query<{
+      actor_id: string;
+      username: string;
+      assignments: unknown;
+    }>(
+      `SELECT c.actor_id, c.username, ua.assignments
+       FROM platform.actor_app_assignments ua
+       JOIN platform.actor_credentials c ON c.actor_id = ua.actor_id
        WHERE ua.tenant_id = $1
-       ORDER BY u.username`,
+       ORDER BY c.username`,
       [tenantId],
     );
 
@@ -317,14 +326,17 @@ export async function listTenantAppAssignments(tenantId: string): Promise<Tenant
       });
     }
 
+    const mappedOverrides = actorOverrides.rows.map((row) => ({
+      actor_id: row.actor_id,
+      username: row.username,
+      assignments: normalizeAppGroupAssignments(row.assignments),
+    }));
+
     return {
       apps: apps.sort((a, b) => a.name.localeCompare(b.name)),
       teams: teamRows,
-      user_overrides: userOverrides.rows.map((row) => ({
-        user_id: row.id,
-        username: row.username,
-        assignments: normalizeAppGroupAssignments(row.assignments),
-      })),
+      actor_overrides: mappedOverrides,
+      user_overrides: mappedOverrides,
     };
   });
 }
@@ -333,12 +345,12 @@ export async function setTeamAppAssignments(
   tenantId: string,
   teamId: string,
   assignments: AppGroupAssignments,
-  actorUserId: string,
+  actorId: string,
 ): Promise<TeamAppAssignmentRowDto> {
   const repaired = bucketAssignmentsByManifest(assignments);
 
   return withTenantTransaction(tenantId, async (client) => {
-    return setTeamAppAssignmentsInTx(client, tenantId, teamId, repaired, actorUserId);
+    return setTeamAppAssignmentsInTx(client, tenantId, teamId, repaired, actorId);
   });
 }
 
@@ -347,7 +359,7 @@ export async function setTeamAppAssignmentsInTx(
   tenantId: string,
   teamId: string,
   assignments: AppGroupAssignments,
-  actorUserId: string,
+  actorId: string,
 ): Promise<TeamAppAssignmentRowDto> {
   const team = await client.query<{ name: string }>(
     `SELECT name FROM platform.teams WHERE id = $1 AND tenant_id = $2`,
@@ -368,7 +380,7 @@ export async function setTeamAppAssignmentsInTx(
   );
 
   await syncTeamActivations(client, tenantId, teamId, assignments);
-  await provisionActivatedApps(client, tenantId, previousKeys, nextKeys, actorUserId);
+  await provisionActivatedApps(client, tenantId, previousKeys, nextKeys, actorId);
 
   return {
     team_id: teamId,
@@ -377,54 +389,60 @@ export async function setTeamAppAssignmentsInTx(
   };
 }
 
-export async function setUserAppAssignments(
+export async function setActorAppAssignments(
   tenantId: string,
-  userId: string,
+  actorId: string,
   assignments: AppGroupAssignments,
-  _actorUserId: string,
-): Promise<UserAppAssignmentRowDto> {
+  _actingActorId: string,
+): Promise<ActorAppAssignmentRowDto> {
   const repaired = bucketAssignmentsByManifest(assignments);
 
   return withTenantTransaction(tenantId, async (client) => {
-    const user = await client.query<{ username: string }>(
-      `SELECT username FROM platform.users WHERE id = $1 AND tenant_id = $2`,
-      [userId, tenantId],
+    const cred = await client.query<{ username: string }>(
+      `SELECT username FROM platform.actor_credentials WHERE actor_id = $1 AND tenant_id = $2`,
+      [actorId, tenantId],
     );
-    if (!user.rowCount) throw notFound();
+    if (!cred.rowCount) throw notFound();
 
     await client.query(
-      `INSERT INTO platform.user_app_assignments (tenant_id, user_id, assignments)
+      `INSERT INTO platform.actor_app_assignments (tenant_id, actor_id, assignments)
        VALUES ($1, $2, $3)
-       ON CONFLICT (tenant_id, user_id) DO UPDATE
+       ON CONFLICT (tenant_id, actor_id) DO UPDATE
          SET assignments = EXCLUDED.assignments, updated_at = now()`,
-      [tenantId, userId, JSON.stringify(repaired)],
+      [tenantId, actorId, JSON.stringify(repaired)],
     );
 
     return {
-      user_id: userId,
-      username: user.rows[0].username,
+      actor_id: actorId,
+      username: cred.rows[0].username,
       assignments: repaired,
     };
   });
 }
 
-export async function clearUserAppAssignments(
+/** @deprecated Use setActorAppAssignments */
+export const setUserAppAssignments = setActorAppAssignments;
+
+export async function clearActorAppAssignments(
   tenantId: string,
-  userId: string,
+  actorId: string,
 ): Promise<void> {
   await withTenantTransaction(tenantId, async (client) => {
-    const user = await client.query(
-      `SELECT 1 FROM platform.users WHERE id = $1 AND tenant_id = $2`,
-      [userId, tenantId],
+    const cred = await client.query(
+      `SELECT 1 FROM platform.actor_credentials WHERE actor_id = $1 AND tenant_id = $2`,
+      [actorId, tenantId],
     );
-    if (!user.rowCount) throw notFound();
+    if (!cred.rowCount) throw notFound();
 
     await client.query(
-      `DELETE FROM platform.user_app_assignments WHERE tenant_id = $1 AND user_id = $2`,
-      [tenantId, userId],
+      `DELETE FROM platform.actor_app_assignments WHERE tenant_id = $1 AND actor_id = $2`,
+      [tenantId, actorId],
     );
   });
 }
+
+/** @deprecated Use clearActorAppAssignments */
+export const clearUserAppAssignments = clearActorAppAssignments;
 
 export function flightLevelGroupKey(group: FlightLevelGroup): keyof AppGroupAssignments {
   if (!isFlightLevelGroup(group)) throw badRequest('error.validation_failed');

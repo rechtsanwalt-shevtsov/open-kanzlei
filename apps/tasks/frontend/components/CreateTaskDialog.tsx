@@ -16,6 +16,16 @@ import {
   parseFieldValueFromState,
 } from '../lib/field-value.js';
 
+type ActorOption = { id: string; label: string };
+
+function actorLabel(actor: components['schemas']['Actor']): string {
+  const attrs = actor.attributes ?? {};
+  const name = typeof attrs.name === 'string' ? attrs.name.trim() : '';
+  if (name) return name;
+  const first = typeof attrs.first_name === 'string' ? attrs.first_name.trim() : '';
+  if (first) return first;
+  return actor.id.slice(0, 8);
+}
 type TaskModel = components['schemas']['TaskModel'];
 type CaseItem = components['schemas']['Case'];
 type CaseModel = components['schemas']['CaseModel'];
@@ -94,8 +104,8 @@ export function CreateTaskDialog({
   const [instanceFields, setInstanceFields] = useState<AttributeDefinition[]>([]);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [multiFieldValues, setMultiFieldValues] = useState<Record<string, string[]>>({});
-  const [assigneeUserId, setAssigneeUserId] = useState('');
-  const [users, setUsers] = useState<components['schemas']['TenantUser'][]>([]);
+  const [assigneeActorId, setAssigneeActorId] = useState('');
+  const [actors, setActors] = useState<ActorOption[]>([]);
   const [fieldsLoading, setFieldsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -108,16 +118,20 @@ export function CreateTaskDialog({
     setInstanceFields([]);
     setFieldValues({});
     setMultiFieldValues({});
-    setAssigneeUserId('');
+    setAssigneeActorId('');
     setError(null);
   }, [open, activeModels, caseOptions]);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    void api.GET('/v1/users', { headers: apiHeaders(locale) }).then((res) => {
+    void api.GET('/v1/actors', { headers: apiHeaders(locale) }).then((res) => {
       if (cancelled || res.error || !res.data) return;
-      setUsers(res.data.items ?? []);
+      setActors(
+        (res.data.items ?? [])
+          .map((actor) => ({ id: actor.id, label: actorLabel(actor) }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+      );
     });
     return () => {
       cancelled = true;
@@ -288,7 +302,7 @@ export function CreateTaskDialog({
         case_id: caseId,
         task_model_id: taskModelId,
         status: hideStatus ? forcedStatus : status,
-        assignee_user_ids: assigneeUserId ? [assigneeUserId] : undefined,
+        assignee_actor_ids: assigneeActorId ? [assigneeActorId] : undefined,
         attributes: Object.keys(attributes).length ? attributes : undefined,
       },
     });
@@ -363,13 +377,13 @@ export function CreateTaskDialog({
               <label>
                 {msg('tasColAssignee')}
                 <select
-                  value={assigneeUserId}
-                  onChange={(e) => setAssigneeUserId(e.target.value)}
+                  value={assigneeActorId}
+                  onChange={(e) => setAssigneeActorId(e.target.value)}
                 >
                   <option value="">{msg('tasAssigneeNone')}</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.username}
+                  {actors.map((actor) => (
+                    <option key={actor.id} value={actor.id}>
+                      {actor.label}
                     </option>
                   ))}
                 </select>

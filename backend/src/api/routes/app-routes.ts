@@ -125,17 +125,17 @@ export async function appRoutes(app: FastifyInstance): Promise<void> {
     return assignmentService.setTeamAppAssignments(tenantId, teamId, assignments, userId);
   });
 
-  app.put('/v1/tenant/users/:userId/app-assignments', admin, async (req) => {
-    const { tenantId, userId: actorUserId } = ctx(req);
-    const userId = userIdParam(req);
+  app.put('/v1/tenant/actors/:actorId/app-assignments', admin, async (req) => {
+    const { tenantId, userId: actingActorId } = ctx(req);
+    const actorId = (req.params as { actorId: string }).actorId;
     const assignments = normalizeAppGroupAssignments(req.body);
-    return assignmentService.setUserAppAssignments(tenantId, userId, assignments, actorUserId);
+    return assignmentService.setActorAppAssignments(tenantId, actorId, assignments, actingActorId);
   });
 
-  app.delete('/v1/tenant/users/:userId/app-assignments', admin, async (req) => {
+  app.delete('/v1/tenant/actors/:actorId/app-assignments', admin, async (req) => {
     const { tenantId } = ctx(req);
-    const userId = userIdParam(req);
-    await assignmentService.clearUserAppAssignments(tenantId, userId);
+    const actorId = (req.params as { actorId: string }).actorId;
+    await assignmentService.clearActorAppAssignments(tenantId, actorId);
     return { ok: true };
   });
 
@@ -144,15 +144,15 @@ export async function appRoutes(app: FastifyInstance): Promise<void> {
     return assignmentService.getActiveAppsByGroupForUser(tenantId, userId);
   });
 
-  app.get('/v1/users/:userId/active-apps-by-group', auth, async (req) => {
-    const { tenantId, userId: actorUserId, teams } = {
+  app.get('/v1/actors/:actorId/active-apps-by-group', auth, async (req) => {
+    const { tenantId, userId: actingActorId, teams } = {
       ...ctx(req),
       teams: req.user!.teams,
     };
-    const userId = userIdParam(req);
-    if (actorUserId !== userId && !userIsAdmin(teams)) {
+    const actorId = (req.params as { actorId: string }).actorId;
+    if (actingActorId !== actorId && !userIsAdmin(teams)) {
       throw forbidden();
     }
-    return assignmentService.getActiveAppsByGroupForUser(tenantId, userId);
+    return assignmentService.getActiveAppsByGroupForUser(tenantId, actorId);
   });
 }

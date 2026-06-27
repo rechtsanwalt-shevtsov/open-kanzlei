@@ -25,8 +25,8 @@ export async function tasksKanbanRoutes(app: FastifyInstance): Promise<void> {
   app.get('/v1/apps/tasks-kanban/board', auth, async (req) => {
     const { tenantId, userId } = ctx(req);
     await assertKanbanAccess(tenantId, userId);
-    const query = req.query as { assignee_user_id?: string; search?: string };
-    const assigneeUserId = query.assignee_user_id?.trim() || userId;
+    const query = req.query as { assignee_actor_id?: string; search?: string };
+    const assigneeUserId = query.assignee_actor_id?.trim() || userId;
     return getKanbanBoard(tenantId, userId, assigneeUserId, query.search, req.locale);
   });
 
@@ -34,7 +34,7 @@ export async function tasksKanbanRoutes(app: FastifyInstance): Promise<void> {
     const { tenantId, userId } = ctx(req);
     await assertKanbanAccess(tenantId, userId);
     const body = (req.body ?? {}) as {
-      assignee_user_id?: string;
+      assignee_actor_id?: string;
       task_id?: string;
       direction?: string;
     };
@@ -44,7 +44,7 @@ export async function tasksKanbanRoutes(app: FastifyInstance): Promise<void> {
     if (body.direction !== 'left' && body.direction !== 'right' && body.direction !== 'goal') {
       throw badRequest('error.validation_failed');
     }
-    const assigneeUserId = body.assignee_user_id?.trim() || userId;
+    const assigneeUserId = body.assignee_actor_id?.trim() || userId;
     return executeKanbanMove(
       tenantId,
       assigneeUserId,
@@ -57,11 +57,11 @@ export async function tasksKanbanRoutes(app: FastifyInstance): Promise<void> {
   app.patch('/v1/apps/tasks-kanban/wip-limits', admin, async (req) => {
     const { tenantId } = ctx(req);
     const body = (req.body ?? {}) as {
-      assignee_user_id?: string;
+      assignee_actor_id?: string;
       column_key?: string;
       limit?: number | null;
     };
-    if (!body.assignee_user_id || !body.column_key) {
+    if (!body.assignee_actor_id || !body.column_key) {
       throw badRequest('error.validation_failed');
     }
     const manifest = await import('../../platform/apps/registry.js').then((m) =>
@@ -79,10 +79,10 @@ export async function tasksKanbanRoutes(app: FastifyInstance): Promise<void> {
 
     const limits = await patchUserWipLimit(
       tenantId,
-      body.assignee_user_id,
+      body.assignee_actor_id,
       body.column_key,
       limit,
     );
-    return { assignee_user_id: body.assignee_user_id, limits };
+    return { assignee_actor_id: body.assignee_actor_id, limits };
   });
 }

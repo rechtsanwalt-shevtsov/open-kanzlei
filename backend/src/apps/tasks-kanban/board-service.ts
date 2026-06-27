@@ -54,7 +54,7 @@ export interface KanbanWipCellDto {
 }
 
 export interface KanbanBoardResponse {
-  assignee_user_id: string;
+  assignee_actor_id: string;
   wip_limit_mode: WipLimitMode;
   layout: 'empty' | 'full';
   wip: {
@@ -96,7 +96,7 @@ async function loadAssigneeTasks(
             t.dependent_task_ids, t.created_at, t.completed_at
      FROM legal.tasks t
      JOIN legal.task_assignees ta ON ta.task_id = t.id AND ta.tenant_id = t.tenant_id
-     WHERE t.tenant_id = $1 AND ta.user_id = $2`,
+     WHERE t.tenant_id = $1 AND ta.actor_id = $2`,
     [tenantId, assigneeUserId],
   );
   return result.rows;
@@ -110,11 +110,11 @@ async function loadAssigneeMap(
   const map = new Map<string, string[]>();
   if (taskIds.length === 0) return map;
   const result = await client.query<{ task_id: string; username: string }>(
-    `SELECT ta.task_id, u.username
+    `SELECT ta.task_id, c.username
      FROM legal.task_assignees ta
-     JOIN platform.users u ON u.id = ta.user_id
+     JOIN platform.actor_credentials c ON c.actor_id = ta.actor_id
      WHERE ta.tenant_id = $1 AND ta.task_id = ANY($2::uuid[])
-     ORDER BY u.username`,
+     ORDER BY c.username`,
     [tenantId, taskIds],
   );
   for (const row of result.rows) {
@@ -315,7 +315,7 @@ export async function getKanbanBoard(
 ): Promise<KanbanBoardResponse> {
   return withTenantTransaction(tenantId, async (client) => {
     const userCheck = await client.query(
-      `SELECT 1 FROM platform.users WHERE tenant_id = $1 AND id = $2`,
+      `SELECT 1 FROM legal.actors WHERE tenant_id = $1 AND id = $2`,
       [tenantId, assigneeUserId],
     );
     if (!userCheck.rowCount) throw notFound();
@@ -334,7 +334,7 @@ export async function getKanbanBoard(
     );
     const userRow = await client.query<{ settings: Record<string, unknown> }>(
       `SELECT settings FROM platform.app_user_settings
-       WHERE tenant_id = $1 AND user_id = $2 AND app_key = $3`,
+       WHERE tenant_id = $1 AND actor_id = $2 AND app_key = $3`,
       [tenantId, viewerUserId, TASKS_KANBAN_APP_KEY],
     );
     const effectiveSettings = mergeEffectiveSettings(
@@ -423,7 +423,7 @@ export async function getKanbanBoard(
 
     if (kanbanTasks.length === 0) {
       return {
-        assignee_user_id: assigneeUserId,
+        assignee_actor_id: assigneeUserId,
         wip_limit_mode: wipLimitMode,
         layout: 'empty',
         wip: { started: startedWip },
@@ -529,7 +529,7 @@ export async function getKanbanBoard(
     });
 
     return {
-      assignee_user_id: assigneeUserId,
+      assignee_actor_id: assigneeUserId,
       wip_limit_mode: wipLimitMode,
       layout: 'full',
       wip: { started: startedWip },
@@ -550,7 +550,7 @@ export async function executeKanbanMove(
   await withTenantTransaction(tenantId, async (client) => {
     const assigned = await client.query(
       `SELECT 1 FROM legal.task_assignees
-       WHERE tenant_id = $1 AND task_id = $2 AND user_id = $3`,
+       WHERE tenant_id = $1 AND task_id = $2 AND actor_id = $3`,
       [tenantId, taskId, assigneeUserId],
     );
     if (!assigned.rowCount) throw notFound();

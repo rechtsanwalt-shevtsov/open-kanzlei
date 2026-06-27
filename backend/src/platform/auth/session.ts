@@ -20,7 +20,7 @@ export function sessionExpiresAt(): Date {
 
 export async function createSession(
   client: pg.PoolClient,
-  userId: string,
+  actorId: string,
   tenantId: string,
 ): Promise<string> {
   const token = generateSessionToken();
@@ -28,9 +28,9 @@ export async function createSession(
   const expiresAt = sessionExpiresAt();
 
   await client.query(
-    `INSERT INTO platform.sessions (user_id, tenant_id, token_hash, expires_at)
+    `INSERT INTO platform.sessions (actor_id, tenant_id, token_hash, expires_at)
      VALUES ($1, $2, $3, $4)`,
-    [userId, tenantId, tokenHash, expiresAt],
+    [actorId, tenantId, tokenHash, expiresAt],
   );
 
   return token;

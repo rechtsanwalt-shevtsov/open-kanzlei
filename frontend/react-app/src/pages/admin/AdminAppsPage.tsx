@@ -12,7 +12,7 @@ import {
   type UserAppAssignmentRow,
 } from '../../hooks/useAppAssignments.js';
 import { useAutoSaveAssignmentRow, type SaveAssignmentsResult } from '../../hooks/useAutoSaveAssignmentRow.js';
-import { useTenantUsers, type TenantUser } from '../../hooks/useTenantUsers.js';
+import { usePlatformUsers, type PlatformUser } from '../../hooks/usePlatformUsers.js';
 import { useI18n } from '../../i18n/I18nContext.js';
 
 interface DraftUserOverride {
@@ -60,7 +60,7 @@ function SavedUserOverrideRow({
 }: {
   row: UserAppAssignmentRow;
   apps: AppCatalogItem[];
-  users: TenantUser[];
+  users: PlatformUser[];
   usedUserIds: Set<string>;
   onSave: (userId: string, assignments: AppGroupAssignments) => Promise<SaveAssignmentsResult>;
   onUserChange: (
@@ -73,22 +73,22 @@ function SavedUserOverrideRow({
   const { msg } = useI18n();
   const { assignments, saving, error, patchAssignments } = useAutoSaveAssignmentRow(
     row.assignments,
-    row.user_id,
-    (next) => onSave(row.user_id, next),
+    row.actor_id,
+    (next) => onSave(row.actor_id, next),
   );
   const [userChangeError, setUserChangeError] = useState<string | null>(null);
   const [userChanging, setUserChanging] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const selectableUsers = users.filter(
-    (user) => user.id === row.user_id || !usedUserIds.has(user.id),
+    (user) => user.id === row.actor_id || !usedUserIds.has(user.id),
   );
 
   async function handleUserSelect(nextUserId: string) {
-    if (!nextUserId || nextUserId === row.user_id) return;
+    if (!nextUserId || nextUserId === row.actor_id) return;
     setUserChangeError(null);
     setUserChanging(true);
-    const err = await onUserChange(row.user_id, nextUserId, assignments);
+    const err = await onUserChange(row.actor_id, nextUserId, assignments);
     setUserChanging(false);
     if (err) setUserChangeError(err);
   }
@@ -96,7 +96,7 @@ function SavedUserOverrideRow({
   async function handleDelete() {
     setUserChangeError(null);
     setDeleting(true);
-    const err = await onDelete(row.user_id);
+    const err = await onDelete(row.actor_id);
     setDeleting(false);
     if (err) setUserChangeError(err);
   }
@@ -119,7 +119,7 @@ function SavedUserOverrideRow({
           </button>
           <select
             className="admin-settings-select"
-            value={row.user_id}
+            value={row.actor_id}
             disabled={busy}
             onChange={(e) => void handleUserSelect(e.target.value)}
           >
@@ -151,7 +151,7 @@ function DraftUserOverrideRow({
 }: {
   draft: DraftUserOverride;
   apps: AppCatalogItem[];
-  users: TenantUser[];
+  users: PlatformUser[];
   usedUserIds: Set<string>;
   onUserSelect: (draftId: string, userId: string) => Promise<string | null>;
   onPatch: (draftId: string, patch: Partial<AppGroupAssignments>) => void;
@@ -223,19 +223,22 @@ export function AdminAppsPage() {
   const { msg } = useI18n();
   const { data, loading, saveTeamAssignments, saveUserAssignments, clearUserAssignments } =
     useAppAssignments();
-  const { items: users, loading: usersLoading } = useTenantUsers();
+  const { items: users, loading: usersLoading } = usePlatformUsers();
   const { refreshInstalledApps } = useInstalledApps();
   const [draftOverrides, setDraftOverrides] = useState<DraftUserOverride[]>([]);
 
   const usedUserIds = useMemo(() => {
-    const ids = new Set(data?.user_overrides.map((row) => row.user_id) ?? []);
+    const overrides = data?.actor_overrides ?? data?.user_overrides ?? [];
+    const ids = new Set(overrides.map((row) => row.actor_id));
     for (const draft of draftOverrides) {
       if (draft.userId) ids.add(draft.userId);
     }
     return ids;
-  }, [data?.user_overrides, draftOverrides]);
+  }, [data?.actor_overrides, data?.user_overrides, draftOverrides]);
 
-  const hasOverrideRows = (data?.user_overrides.length ?? 0) > 0 || draftOverrides.length > 0;
+  const hasOverrideRows =
+    (data?.actor_overrides?.length ?? data?.user_overrides?.length ?? 0) > 0 ||
+    draftOverrides.length > 0;
 
   async function handleTeamSave(
     teamId: string,
@@ -400,9 +403,9 @@ export function AdminAppsPage() {
                     </tr>
                   ) : (
                     <>
-                      {data.user_overrides.map((row) => (
+                      {(data.actor_overrides ?? data.user_overrides ?? []).map((row) => (
                         <SavedUserOverrideRow
-                          key={row.user_id}
+                          key={row.actor_id}
                           row={row}
                           apps={apps}
                           users={users}

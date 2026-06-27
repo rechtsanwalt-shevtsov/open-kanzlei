@@ -1,6 +1,6 @@
 import argon2 from 'argon2';
 import type pg from 'pg';
-import { conflict, badRequest, unauthorized } from '../../api/errors.js';
+import { badRequest, conflict, unauthorized } from '../../api/errors.js';
 import { getEventService } from '../../foundation/events/event-service.js';
 import {
   setTenantContext,
@@ -8,51 +8,72 @@ import {
 } from '../../foundation/database/tenant-context.js';
 import { getPool } from '../../foundation/database/pool.js';
 import { allocateUniqueTenantSlug } from '../tenants/slug.js';
-import {
-  ensureDefaultTeams,
-  getTeamIdByKey,
-  loadUserTeams,
-} from '../teams/team-service.js';
-import { TEAM_ADMIN, TEAM_REGULAR } from '../teams/team-keys.js';
+import { actorHasPlatformLogin, loadActorRightsTeams } from '../teams/team-service.js';
 import type {
   LoginInput,
   RegisterTenantInput,
-  SessionUser,
+  SessionActor,
 } from './types.js';
 import { createSession, hashSessionToken } from './session.js';
 import { installDefaultAppsForNewTenant } from '../apps/app-service.js';
 import { bootstrapActorTenantDataWithClient } from '../../legal-work/actor-tenant-seed.js';
+import { createInitialAdminPlatformUser } from '../users/platform-user-service.js';
+import { assertUsername } from '../users/validation.js';
 
-async function loadUserWithTeams(
+async function loadActorEmail(
   client: pg.PoolClient,
-  userId: string,
-): Promise<SessionUser | null> {
-  const userResult = await client.query<{
+  tenantId: string,
+  actorId: string,
+): Promise<string | null> {
+  const result = await client.query<{ plaintext_value: string | null }>(
+    `SELECT av.plaintext_value
+     FROM meta.attribute_values av
+     JOIN meta.attribute_definitions ad ON ad.id = av.attribute_definition_id
+     JOIN legal.actors a ON a.id = $2 AND a.actor_model_id = ad.owner_id
+     WHERE av.tenant_id = $1
+       AND av.owner_type = 'actor'
+       AND av.owner_id = $2
+       AND ad.owner_type = 'actor_model'
+       AND ad.key = 'email'
+     LIMIT 1`,
+    [tenantId, actorId],
+  );
+  return result.rows[0]?.plaintext_value ?? null;
+}
+
+async function loadSessionActor(
+  client: pg.PoolClient,
+  actorId: string,
+): Promise<SessionActor | null> {
+  const result = await client.query<{
     id: string;
     tenant_id: string;
     username: string;
-    email: string | null;
     preferred_language: 'de' | 'en' | null;
     default_language: 'de' | 'en';
   }>(
-    `SELECT u.id, u.tenant_id, u.username, u.email, u.preferred_language,
-            t.default_language
-     FROM platform.users u
-     JOIN platform.tenants t ON t.id = u.tenant_id
-     WHERE u.id = $1 AND u.is_active = true`,
-    [userId],
+    `SELECT a.id, a.tenant_id, c.username, c.preferred_language, t.default_language
+     FROM legal.actors a
+     JOIN platform.actor_credentials c ON c.actor_id = a.id
+     JOIN platform.tenants t ON t.id = a.tenant_id
+     WHERE a.id = $1`,
+    [actorId],
   );
 
-  const row = userResult.rows[0];
+  const row = result.rows[0];
   if (!row) return null;
 
-  const teams = await loadUserTeams(client, userId);
+  const canLogin = await actorHasPlatformLogin(client, actorId);
+  if (!canLogin) return null;
+
+  const teams = await loadActorRightsTeams(client, actorId);
+  const email = await loadActorEmail(client, row.tenant_id, actorId);
 
   return {
     id: row.id,
     tenantId: row.tenant_id,
     username: row.username,
-    email: row.email,
+    email,
     preferredLanguage: row.preferred_language,
     teams,
     tenantDefaultLanguage: row.default_language,
@@ -76,12 +97,13 @@ function assertRegisterInput(input: RegisterTenantInput): void {
 
 export async function registerTenant(
   input: RegisterTenantInput,
-): Promise<{ user: SessionUser; sessionToken: string }> {
+): Promise<{ user: SessionActor; sessionToken: string }> {
   assertRegisterInput(input);
 
   const pool = getPool();
   const tenantSlug = await allocateUniqueTenantSlug(pool, input.firmName.trim());
   const passwordHash = await argon2.hash(input.adminPassword);
+  const username = assertUsername(input.adminUsername);
 
   return withTransaction(async (client) => {
     const tenantResult = await client.query<{ id: string }>(
@@ -99,40 +121,29 @@ export async function registerTenant(
       [tenantId, input.firmName.trim(), JSON.stringify({ color_theme: 'classic' })],
     );
 
-    await ensureDefaultTeams(client, tenantId);
-    const adminTeamId = await getTeamIdByKey(client, tenantId, TEAM_ADMIN);
-    const regularTeamId = await getTeamIdByKey(client, tenantId, TEAM_REGULAR);
+    await bootstrapActorTenantDataWithClient(client, tenantId, input.firmName.trim(), null);
 
-    const userResult = await client.query<{ id: string }>(
-      `INSERT INTO platform.users
-         (tenant_id, username, email, password_hash)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id`,
-      [tenantId, input.adminUsername.trim(), input.adminEmail.trim(), passwordHash],
-    );
-    const userId = userResult.rows[0]!.id;
-
-    for (const teamId of [adminTeamId, regularTeamId]) {
-      await client.query(
-        `INSERT INTO platform.user_teams (user_id, team_id) VALUES ($1, $2)`,
-        [userId, teamId],
-      );
-    }
+    const actorId = await createInitialAdminPlatformUser(client, tenantId, {
+      username,
+      passwordHash,
+      email: input.adminEmail.trim(),
+      displayName: input.firmName.trim(),
+      preferredLanguage: input.defaultLanguage,
+    });
 
     await installDefaultAppsForNewTenant(client, tenantId);
-    await bootstrapActorTenantDataWithClient(client, tenantId, input.firmName.trim(), userId);
 
     await getEventService().publish(client, {
       tenantId,
       type: 'tenant.registered',
       aggregateType: 'tenant',
       aggregateId: tenantId,
-      actorUserId: userId,
+      actorId,
       data: {},
     });
 
-    const sessionToken = await createSession(client, userId, tenantId);
-    const user = await loadUserWithTeams(client, userId);
+    const sessionToken = await createSession(client, actorId, tenantId);
+    const user = await loadSessionActor(client, actorId);
     if (!user) {
       throw badRequest('error.internal');
     }
@@ -143,7 +154,7 @@ export async function registerTenant(
 
 export async function login(
   input: LoginInput,
-): Promise<{ user: SessionUser; sessionToken: string }> {
+): Promise<{ user: SessionActor; sessionToken: string }> {
   if (!input.username?.trim() || !input.password) {
     throw badRequest('error.validation_failed');
   }
@@ -152,13 +163,13 @@ export async function login(
   const username = input.username.trim();
 
   const matches = await pool.query<{
-    id: string;
+    actor_id: string;
     tenant_id: string;
     password_hash: string;
   }>(
-    `SELECT u.id, u.tenant_id, u.password_hash
-     FROM platform.users u
-     WHERE u.username = $1 AND u.is_active = true`,
+    `SELECT c.actor_id, c.tenant_id, c.password_hash
+     FROM platform.actor_credentials c
+     WHERE c.username = $1`,
     [username],
   );
 
@@ -170,17 +181,23 @@ export async function login(
     throw conflict('error.login_ambiguous');
   }
 
-  const userRow = matches.rows[0]!;
+  const credRow = matches.rows[0]!;
 
-  const valid = await argon2.verify(userRow.password_hash, input.password);
+  const valid = await argon2.verify(credRow.password_hash, input.password);
   if (!valid) {
     throw unauthorized('error.invalid_credentials');
   }
 
   return withTransaction(async (client) => {
-    await setTenantContext(client, userRow.tenant_id);
-    const sessionToken = await createSession(client, userRow.id, userRow.tenant_id);
-    const user = await loadUserWithTeams(client, userRow.id);
+    await setTenantContext(client, credRow.tenant_id);
+
+    const canLogin = await actorHasPlatformLogin(client, credRow.actor_id);
+    if (!canLogin) {
+      throw unauthorized('error.invalid_credentials');
+    }
+
+    const sessionToken = await createSession(client, credRow.actor_id, credRow.tenant_id);
+    const user = await loadSessionActor(client, credRow.actor_id);
     if (!user) {
       throw unauthorized('error.invalid_credentials');
     }
@@ -188,12 +205,12 @@ export async function login(
   });
 }
 
-export async function resolveSessionUser(token: string): Promise<SessionUser | null> {
+export async function resolveSessionUser(token: string): Promise<SessionActor | null> {
   const tokenHash = hashSessionToken(token);
   const pool = getPool();
 
-  const sessionResult = await pool.query<{ user_id: string; tenant_id: string }>(
-    `SELECT user_id, tenant_id FROM platform.sessions
+  const sessionResult = await pool.query<{ actor_id: string; tenant_id: string }>(
+    `SELECT actor_id, tenant_id FROM platform.sessions
      WHERE token_hash = $1 AND expires_at > now()`,
     [tokenHash],
   );
@@ -204,7 +221,7 @@ export async function resolveSessionUser(token: string): Promise<SessionUser | n
   try {
     await client.query('BEGIN');
     await setTenantContext(client, session.tenant_id);
-    const user = await loadUserWithTeams(client, session.user_id);
+    const user = await loadSessionActor(client, session.actor_id);
     await client.query('COMMIT');
     return user;
   } catch (err) {

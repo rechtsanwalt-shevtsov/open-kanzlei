@@ -8,9 +8,9 @@ export const PUBLIC_EVENT_TYPES = [
   // Platform — tenant & users
   'tenant.registered',
   'tenant_profile.updated',
-  'user.created',
-  'user.updated',
-  'user.deleted',
+  'platform_user.created',
+  'platform_user.updated',
+  'platform_user.login_revoked',
   // Apps
   'app.installed',
   'app.activated',

@@ -4,21 +4,21 @@ import type { components } from '../../api/schema.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useI18n } from '../../i18n/I18nContext.js';
 import type { Team } from '../../hooks/useTeams.js';
-import type { TenantUser } from '../../hooks/useTenantUsers.js';
+import type { PlatformUser } from '../../hooks/usePlatformUsers.js';
 
 const USERNAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_.-]{0,62}$/;
 
-interface UserDialogProps {
+interface PlatformUserDialogProps {
   open: boolean;
   mode: 'create' | 'edit';
-  user?: TenantUser;
+  user?: PlatformUser;
   teams: Team[];
   onClose: () => void;
   onSaved: () => void;
   onDeleted?: () => void;
 }
 
-export function UserDialog({
+export function PlatformUserDialog({
   open,
   mode,
   user,
@@ -26,20 +26,24 @@ export function UserDialog({
   onClose,
   onSaved,
   onDeleted,
-}: UserDialogProps) {
+}: PlatformUserDialogProps) {
   const { user: currentUser } = useAuth();
   const { locale, msg } = useI18n();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [teamIds, setTeamIds] = useState<string[]>([]);
-  const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const regularTeamId = useMemo(
-    () => teams.find((t) => t.key === 'regular')?.id ?? null,
+  const assignableTeams = useMemo(
+    () => teams.filter((t) => t.key !== 'plattformuser'),
     [teams],
+  );
+
+  const regularTeamId = useMemo(
+    () => assignableTeams.find((t) => t.key === 'regular')?.id ?? null,
+    [assignableTeams],
   );
 
   useEffect(() => {
@@ -49,13 +53,11 @@ export function UserDialog({
       setEmail(user.email ?? '');
       setPassword('');
       setTeamIds(user.teams.map((t) => t.id));
-      setIsActive(user.is_active);
     } else {
       setUsername('');
       setEmail('');
       setPassword('');
       setTeamIds(regularTeamId ? [regularTeamId] : []);
-      setIsActive(true);
     }
     setError(null);
   }, [open, mode, user, regularTeamId]);
@@ -99,7 +101,7 @@ export function UserDialog({
     setSubmitting(true);
 
     if (mode === 'create') {
-      const res = await api.POST('/v1/users', {
+      const res = await api.POST('/v1/platform-users', {
         headers: apiHeaders(locale),
         body: {
           username: username.trim(),
@@ -115,15 +117,14 @@ export function UserDialog({
         return;
       }
     } else if (user) {
-      const body: components['schemas']['UpdateTenantUserRequest'] = {
+      const body: components['schemas']['UpdatePlatformUserRequest'] = {
         email: email.trim() || null,
         team_ids: teamIds,
-        is_active: isActive,
       };
       if (password) {
         body.password = password;
       }
-      const res = await api.PATCH('/v1/users/{id}', {
+      const res = await api.PATCH('/v1/platform-users/{id}', {
         headers: apiHeaders(locale),
         params: { path: { id: user.id } },
         body,
@@ -140,19 +141,19 @@ export function UserDialog({
     onClose();
   }
 
-  const title = mode === 'create' ? msg('usersCreateTitle') : msg('usersEditTitle');
-  const canDelete =
+  const title = mode === 'create' ? msg('pusrCreateTitle') : msg('pusrEditTitle');
+  const canRevoke =
     mode === 'edit' && user && currentUser && user.id !== currentUser.id;
 
-  async function handleDelete() {
-    if (!user || !canDelete) return;
-    if (!window.confirm(msg('usersDeleteConfirm').replace('{username}', user.username))) {
+  async function handleRevokeLogin() {
+    if (!user || !canRevoke) return;
+    if (!window.confirm(msg('pusrRevokeConfirm').replace('{username}', user.username))) {
       return;
     }
 
     setError(null);
     setSubmitting(true);
-    const res = await api.DELETE('/v1/users/{id}', {
+    const res = await api.DELETE('/v1/platform-users/{id}', {
       headers: apiHeaders(locale),
       params: { path: { id: user.id } },
     });
@@ -174,10 +175,10 @@ export function UserDialog({
         className="admin-dialog"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="user-dialog-title"
+        aria-labelledby="platform-user-dialog-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="user-dialog-title">{title}</h2>
+        <h2 id="platform-user-dialog-title">{title}</h2>
         <form onSubmit={handleSubmit} className="form">
           {mode === 'create' ? (
             <label>
@@ -220,7 +221,7 @@ export function UserDialog({
 
           <fieldset className="admin-fieldset">
             <legend>{msg('usersColTeams')}</legend>
-            {teams.map((team) => (
+            {assignableTeams.map((team) => (
               <label key={team.id} className="checkbox-label">
                 <input
                   type="checkbox"
@@ -230,19 +231,8 @@ export function UserDialog({
                 {team.name}
               </label>
             ))}
-            <span className="hint">{msg('usersTeamsHint')}</span>
+            <span className="hint">{msg('pusrTeamsHint')}</span>
           </fieldset>
-
-          {mode === 'edit' && (
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-              />
-              {msg('usersActive')}
-            </label>
-          )}
 
           {error && (
             <p className="form-error" role="alert">
@@ -251,14 +241,14 @@ export function UserDialog({
           )}
 
           <div className="admin-dialog-actions">
-            {canDelete && (
+            {canRevoke && (
               <button
                 type="button"
                 className="button-danger admin-dialog-actions-delete"
                 disabled={submitting}
-                onClick={() => void handleDelete()}
+                onClick={() => void handleRevokeLogin()}
               >
-                {msg('usersDelete')}
+                {msg('pusrRevokeLogin')}
               </button>
             )}
             <div className="admin-dialog-actions-main">
@@ -266,7 +256,7 @@ export function UserDialog({
                 {msg('cancel')}
               </button>
               <button type="submit" className="button-primary" disabled={submitting}>
-                {submitting ? msg('loading') : mode === 'create' ? msg('usersCreate') : msg('submitSave')}
+                {submitting ? msg('loading') : mode === 'create' ? msg('pusrCreate') : msg('submitSave')}
               </button>
             </div>
           </div>

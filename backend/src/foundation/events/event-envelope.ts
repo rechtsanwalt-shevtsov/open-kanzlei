@@ -3,7 +3,7 @@ import type { EventType } from './event-types.js';
 /** Payload stored in events.domain_events.payload (JSONB). */
 export interface StoredEventPayload {
   schema_version: number;
-  actor_user_id: string | null;
+  actor_id: string | null;
   data: Record<string, unknown>;
 }
 
@@ -17,20 +17,20 @@ export interface WebhookEventEnvelope {
   schema_version: number;
   tenant_id: string;
   occurred_at: string;
-  actor_user_id: string | null;
+  actor_id: string | null;
   data: Record<string, unknown>;
 }
 
 export interface BuildStoredPayloadInput {
   schemaVersion?: number;
-  actorUserId?: string | null;
+  actorId?: string | null;
   data?: Record<string, unknown>;
 }
 
 export function buildStoredPayload(input: BuildStoredPayloadInput): StoredEventPayload {
   return {
     schema_version: input.schemaVersion ?? 1,
-    actor_user_id: input.actorUserId ?? null,
+    actor_id: input.actorId ?? null,
     data: input.data ?? {},
   };
 }
@@ -40,7 +40,7 @@ export interface DomainEventRow {
   tenant_id: string;
   event_type: EventType;
   schema_version: number;
-  actor_user_id: string | null;
+  actor_id: string | null;
   payload: StoredEventPayload;
   occurred_at: Date;
 }
@@ -49,23 +49,28 @@ export function parseStoredPayload(raw: unknown): StoredEventPayload {
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
     const obj = raw as Record<string, unknown>;
     if ('schema_version' in obj && 'data' in obj) {
+      const legacyActorId =
+        typeof obj.actor_id === 'string'
+          ? obj.actor_id
+          : typeof (obj as { actor_user_id?: string }).actor_user_id === 'string'
+            ? (obj as { actor_user_id: string }).actor_user_id
+            : null;
       return {
         schema_version: typeof obj.schema_version === 'number' ? obj.schema_version : 1,
-        actor_user_id: typeof obj.actor_user_id === 'string' ? obj.actor_user_id : null,
+        actor_id: legacyActorId,
         data:
           obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)
             ? (obj.data as Record<string, unknown>)
             : {},
       };
     }
-    // Legacy rows: entire payload treated as data
     return {
       schema_version: 1,
-      actor_user_id: null,
+      actor_id: null,
       data: obj,
     };
   }
-  return { schema_version: 1, actor_user_id: null, data: {} };
+  return { schema_version: 1, actor_id: null, data: {} };
 }
 
 export function buildWebhookEnvelope(row: DomainEventRow): WebhookEventEnvelope {
@@ -76,7 +81,7 @@ export function buildWebhookEnvelope(row: DomainEventRow): WebhookEventEnvelope 
     schema_version: row.schema_version,
     tenant_id: row.tenant_id,
     occurred_at: row.occurred_at.toISOString(),
-    actor_user_id: row.actor_user_id ?? payload.actor_user_id,
+    actor_id: row.actor_id ?? payload.actor_id,
     data: payload.data,
   };
 }

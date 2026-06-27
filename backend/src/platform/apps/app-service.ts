@@ -95,7 +95,7 @@ async function publishSettingsUpdated(
   tenantId: string,
   appKey: string,
   scope: 'tenant' | 'user',
-  actorUserId: string,
+  actorId: string,
   userId?: string,
 ): Promise<void> {
   const installation = await client.query<{ id: string }>(
@@ -111,7 +111,7 @@ async function publishSettingsUpdated(
     type: 'app_settings.updated',
     aggregateType: 'app_installation',
     aggregateId: installationId,
-    actorUserId,
+    actorId,
     data: {
       app_key: appKey,
       scope,
@@ -339,7 +339,7 @@ export async function setTeamAppStatus(
   appKey: string,
   teamId: string,
   status: 'active' | 'inactive',
-  actorUserId: string,
+  actorId: string,
 ): Promise<TenantAppCatalogEntryDto> {
   const manifest = getAppManifest(appKey);
   if (!manifest) throw notFound();
@@ -360,7 +360,7 @@ export async function setTeamAppStatus(
     const assignments = await getTeamAssignments(client, tenantId, teamId);
     const next = applyTeamAppToggle(assignments, appKey, manifest.app_group, status);
 
-    await setTeamAppAssignmentsInTx(client, tenantId, teamId, next, actorUserId);
+    await setTeamAppAssignmentsInTx(client, tenantId, teamId, next, actorId);
   });
 
   const catalog = await listTenantAppCatalog(tenantId);
@@ -391,7 +391,7 @@ export async function getEffectiveAppSettings(
     );
     const userRow = await client.query<{ settings: Record<string, unknown> }>(
       `SELECT settings FROM platform.app_user_settings
-       WHERE tenant_id = $1 AND user_id = $2 AND app_key = $3`,
+       WHERE tenant_id = $1 AND actor_id = $2 AND app_key = $3`,
       [tenantId, userId, appKey],
     );
 
@@ -422,7 +422,7 @@ export async function patchTenantAppSettings(
   tenantId: string,
   appKey: string,
   patch: Record<string, unknown>,
-  actorUserId: string,
+  actorId: string,
 ): Promise<Record<string, unknown>> {
   const manifest = getManifestForApp(appKey);
   let validated: Record<string, unknown>;
@@ -461,7 +461,7 @@ export async function patchTenantAppSettings(
       [tenantId, appKey, JSON.stringify(merged)],
     );
 
-    await publishSettingsUpdated(client, tenantId, appKey, 'tenant', actorUserId);
+    await publishSettingsUpdated(client, tenantId, appKey, 'tenant', actorId);
     return merged;
   });
 }
@@ -476,7 +476,7 @@ export async function getUserAppSettings(
     await requireAppAccess(client, tenantId, userId, appKey);
     const result = await client.query<{ settings: Record<string, unknown> }>(
       `SELECT settings FROM platform.app_user_settings
-       WHERE tenant_id = $1 AND user_id = $2 AND app_key = $3`,
+       WHERE tenant_id = $1 AND actor_id = $2 AND app_key = $3`,
       [tenantId, userId, appKey],
     );
     return result.rows[0]?.settings ?? {};
@@ -507,7 +507,7 @@ export async function patchUserAppSettings(
 
     const existing = await client.query<{ settings: Record<string, unknown> }>(
       `SELECT settings FROM platform.app_user_settings
-       WHERE tenant_id = $1 AND user_id = $2 AND app_key = $3`,
+       WHERE tenant_id = $1 AND actor_id = $2 AND app_key = $3`,
       [tenantId, userId, appKey],
     );
     const merged = {
@@ -516,9 +516,9 @@ export async function patchUserAppSettings(
     };
 
     await client.query(
-      `INSERT INTO platform.app_user_settings (tenant_id, user_id, app_key, settings)
+      `INSERT INTO platform.app_user_settings (tenant_id, actor_id, app_key, settings)
        VALUES ($1, $2, $3, $4)
-       ON CONFLICT (tenant_id, user_id, app_key) DO UPDATE
+       ON CONFLICT (tenant_id, actor_id, app_key) DO UPDATE
          SET settings = EXCLUDED.settings, updated_at = now()`,
       [tenantId, userId, appKey, JSON.stringify(merged)],
     );

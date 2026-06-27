@@ -8,7 +8,7 @@ export interface DomainEventInput {
   type: EventType;
   aggregateType: string;
   aggregateId: string;
-  actorUserId?: string | null;
+  actorId?: string | null;
   schemaVersion?: number;
   data?: Record<string, unknown>;
 }
@@ -24,14 +24,14 @@ export class EventService {
     const visibility = eventVisibility(event.type);
     const payload = buildStoredPayload({
       schemaVersion,
-      actorUserId: event.actorUserId,
+      actorId: event.actorId,
       data: event.data,
     });
 
     await client.query(
       `INSERT INTO events.domain_events
          (id, tenant_id, event_type, aggregate_type, aggregate_id,
-          schema_version, visibility, actor_user_id, payload)
+          schema_version, visibility, actor_id, payload)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         domainEventId,
@@ -41,7 +41,7 @@ export class EventService {
         event.aggregateId,
         schemaVersion,
         visibility,
-        event.actorUserId ?? null,
+        event.actorId ?? null,
         JSON.stringify(payload),
       ],
     );

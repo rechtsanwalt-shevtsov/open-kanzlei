@@ -9,10 +9,16 @@ import {
 import { upsertInstanceAttributes } from './attributes.js';
 
 export const OWN_FIRM_ACTOR_MODEL_KEY = 'own_firm';
+export const COLLABORATOR_ACTOR_MODEL_KEY = 'collaborator';
 
 const OWN_FIRM_TRANSLATIONS = {
   de: 'Eigene Kanzlei',
   en: 'Own firm',
+} as const;
+
+const COLLABORATOR_TRANSLATIONS = {
+  de: 'Mitarbeiter',
+  en: 'Collaborator',
 } as const;
 
 export async function ensureOwnFirmActorModel(
@@ -35,6 +41,33 @@ export async function ensureOwnFirmActorModel(
      VALUES ($1, $2, 'active', true, $3, '', '{}')
      RETURNING id`,
     [tenantId, OWN_FIRM_ACTOR_MODEL_KEY, JSON.stringify(OWN_FIRM_TRANSLATIONS)],
+  );
+  const actorModelId = result.rows[0]!.id;
+  await seedActorModelPlatformInstanceAttributes(client, tenantId, actorModelId, createdBy);
+  await seedActorModelDefaultInstanceAttributes(client, tenantId, actorModelId, createdBy);
+  return actorModelId;
+}
+
+export async function ensureCollaboratorActorModel(
+  client: pg.PoolClient,
+  tenantId: string,
+  createdBy: string | null = null,
+): Promise<string> {
+  const existing = await client.query<{ id: string }>(
+    `SELECT id FROM legal.actor_models
+     WHERE tenant_id = $1 AND key = $2`,
+    [tenantId, COLLABORATOR_ACTOR_MODEL_KEY],
+  );
+  if (existing.rows[0]) {
+    return existing.rows[0].id;
+  }
+
+  const result = await client.query<{ id: string }>(
+    `INSERT INTO legal.actor_models
+       (tenant_id, key, status, is_system, translations, description, description_translations)
+     VALUES ($1, $2, 'active', false, $3, '', '{}')
+     RETURNING id`,
+    [tenantId, COLLABORATOR_ACTOR_MODEL_KEY, JSON.stringify(COLLABORATOR_TRANSLATIONS)],
   );
   const actorModelId = result.rows[0]!.id;
   await seedActorModelPlatformInstanceAttributes(client, tenantId, actorModelId, createdBy);
@@ -104,6 +137,7 @@ async function runActorTenantBootstrap(
     name = profile.rows[0]?.firm_name ?? 'Kanzlei';
   }
   await ensureTenantRootActor(client, tenantId, name, createdBy);
+  await ensureCollaboratorActorModel(client, tenantId, createdBy);
 }
 
 /**

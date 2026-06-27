@@ -5,7 +5,7 @@ tasks-kanban-board:
     summary: Kanban board for an assignee user
     security: [{ sessionCookie: [] }]
     parameters:
-      - name: assignee_user_id
+      - name: assignee_actor_id
         in: query
         schema:
           type: string

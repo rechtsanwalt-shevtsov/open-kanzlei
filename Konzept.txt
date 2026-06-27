@@ -430,10 +430,11 @@ Teams und Rechteverwaltung:
   - Tabellen: platform.teams (key, name), platform.user_teams
 
 Login:
-  - tenant_slug + username + password (NICHT E-Mail als globale ID)
+  - username + password (NICHT E-Mail als globale ID)
   - E-Mail-Adressen NICHT global eindeutig
-  - Mehrere Benutzer mit gleicher E-Mail erlaubt
-  - Unique: (tenant_id, username)
+  - Mehrere Beteiligte mit gleicher E-Mail erlaubt
+  - Username global eindeutig
+  - Loginfähigkeit nur über Team „Plattformuser“ (zusätzlich zu Rechte-Teams admin/regular)
 
 ================================================================================
 11. INTERNATIONALISIERUNG (i18n)

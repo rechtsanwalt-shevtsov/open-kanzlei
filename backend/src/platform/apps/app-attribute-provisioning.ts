@@ -37,7 +37,7 @@ async function ensureRequiredAttribute(
   ownerType: ModelOwnerType,
   ownerId: string,
   ref: ManifestRequiresAttribute,
-  actorUserId: string | null,
+  actorId: string | null,
 ): Promise<string> {
   const definitionScope = ref.definition_scope ?? 'instance';
   const seed = resolveRequiredAttributeSeed(ref.key, ref.target, definitionScope);
@@ -68,7 +68,7 @@ async function ensureRequiredAttribute(
         select_option_translations: seed.select_option_translations,
         default_value: seed.default_value,
       },
-      actorUserId,
+      actorId,
       { allowPlatformKeys: true, allowSharedRegistryKeys: true, allowAppKeys: true },
     );
   }
@@ -83,7 +83,7 @@ async function ensureProvidedAttribute(
   ownerId: string,
   appKey: string,
   provided: ManifestProvidesAttribute,
-  actorUserId: string | null,
+  actorId: string | null,
 ): Promise<string> {
   const definitionScope = provided.definition_scope ?? 'instance';
   const fullKey = buildAppProvidedAttributeKey(appKey, provided.key);
@@ -113,7 +113,7 @@ async function ensureProvidedAttribute(
         select_option_translations: provided.select_option_translations,
         default_value: provided.default_value,
       },
-      actorUserId,
+      actorId,
       { allowPlatformKeys: true, allowSharedRegistryKeys: true, allowAppKeys: true },
     );
   }
@@ -127,7 +127,7 @@ async function provisionManifestOnModel(
   ownerType: ModelOwnerType,
   ownerId: string,
   manifest: AppManifestDto,
-  actorUserId: string | null,
+  actorId: string | null,
 ): Promise<void> {
   for (const ref of manifest.requires_attributes) {
     if (ref.target !== ownerType) continue;
@@ -138,7 +138,7 @@ async function provisionManifestOnModel(
       ownerType,
       ownerId,
       ref,
-      actorUserId,
+      actorId,
     );
     await recordAppAttributeBinding(
       client,
@@ -162,7 +162,7 @@ async function provisionManifestOnModel(
       ownerId,
       manifest.app_key,
       provided,
-      actorUserId,
+      actorId,
     );
     await recordAppAttributeBinding(
       client,
@@ -182,13 +182,13 @@ export async function provisionAppAttributesOnModel(
   tenantId: string,
   ownerType: ModelOwnerType,
   ownerId: string,
-  actorUserId: string | null,
+  actorId: string | null,
 ): Promise<void> {
   const activeApps = await listActiveAppKeysForTenant(client, tenantId);
   for (const appKey of activeApps) {
     const manifest = getAppManifest(appKey);
     if (!manifest) continue;
-    await provisionManifestOnModel(client, tenantId, ownerType, ownerId, manifest, actorUserId);
+    await provisionManifestOnModel(client, tenantId, ownerType, ownerId, manifest, actorId);
   }
 }
 
@@ -196,7 +196,7 @@ export async function provisionAppAttributesForTenant(
   client: pg.PoolClient,
   tenantId: string,
   appKey: string,
-  actorUserId: string | null,
+  actorId: string | null,
 ): Promise<void> {
   const manifest = getAppManifest(appKey);
   if (!manifest) return;
@@ -220,7 +220,7 @@ export async function provisionAppAttributesForTenant(
         'case_model',
         row.id,
         manifest,
-        actorUserId,
+        actorId,
       );
     }
   }
@@ -237,7 +237,7 @@ export async function provisionAppAttributesForTenant(
         'task_model',
         row.id,
         manifest,
-        actorUserId,
+        actorId,
       );
     }
   }

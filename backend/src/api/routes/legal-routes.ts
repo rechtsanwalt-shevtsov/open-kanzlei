@@ -46,7 +46,7 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
     const { tenantId, userId } = ctx(req);
     const body = req.body as models.CreateCaseModelInput;
     const item = await handle(() =>
-      models.createCaseModel(tenantId, body, { defaultLocale: req.locale, actorUserId: userId }),
+      models.createCaseModel(tenantId, body, { defaultLocale: req.locale, actorId: userId }),
     );
     return reply.status(201).send(models.enrichCaseModel(item, req.locale));
   });
@@ -63,7 +63,7 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
     const item = await handle(() =>
       models.updateCaseModel(tenantId, idParam(req), body, {
         defaultLocale: req.locale,
-        actorUserId: userId,
+        actorId: userId,
       }),
     );
     return models.enrichCaseModel(item, req.locale);
@@ -129,7 +129,7 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
     const item = await handle(() =>
       taskModels.createTaskModel(tenantId, body, {
         defaultLocale: req.locale,
-        actorUserId: userId,
+        actorId: userId,
       }),
     );
     return reply.status(201).send(taskModels.enrichTaskModel(item, req.locale));
@@ -147,7 +147,7 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
     const item = await handle(() =>
       taskModels.updateTaskModel(tenantId, idParam(req), body, {
         defaultLocale: req.locale,
-        actorUserId: userId,
+        actorId: userId,
       }),
     );
     return taskModels.enrichTaskModel(item, req.locale);
@@ -214,7 +214,7 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
       case_model_id: string;
       status?: string;
       attributes?: Record<string, unknown>;
-      assignee_user_ids?: string[];
+      assignee_actor_ids?: string[];
     };
     const item = await handle(() =>
       instances.createCase(ctx(req).tenantId, body),
@@ -232,7 +232,7 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
     const body = req.body as {
       status?: string;
       attributes?: Record<string, unknown>;
-      assignee_user_ids?: string[];
+      assignee_actor_ids?: string[];
     };
     return handle(() => instances.updateCase(ctx(req).tenantId, idParam(req), body));
   });
@@ -281,7 +281,7 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
         predecessor_task_ids: body.predecessor_task_ids,
         dependent_task_ids: body.dependent_task_ids,
         attributes: body.attributes,
-        assignee_user_ids: body.assignee_user_ids,
+        assignee_actor_ids: body.assignee_actor_ids,
       }),
     );
     return reply.status(201).send(item);
@@ -317,7 +317,7 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
     const item = await handle(() =>
       actorModels.createActorModel(tenantId, body, {
         defaultLocale: req.locale,
-        actorUserId: userId,
+        actorId: userId,
       }),
     );
     return reply.status(201).send(actorModels.enrichActorModel(item, req.locale));
@@ -335,7 +335,7 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
     const item = await handle(() =>
       actorModels.updateActorModel(tenantId, idParam(req), body, {
         defaultLocale: req.locale,
-        actorUserId: userId,
+        actorId: userId,
       }),
     );
     return actorModels.enrichActorModel(item, req.locale);
@@ -389,7 +389,7 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
       attributes?: Record<string, unknown>;
     };
     const item = await handle(() =>
-      actors.createActor(tenantId, body, { actorUserId: userId }),
+      actors.createActor(tenantId, body, { actorId: userId }),
     );
     return reply.status(201).send(item);
   });

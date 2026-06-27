@@ -26,9 +26,9 @@ export function useWorkFilters<T extends FilterableItem>(
           return false;
         }
       }
-      if (filter.kind === 'assignee' && filter.assigneeUserId) {
-        const ids = (item.assignees ?? []).map((a) => a.user_id);
-        if (!ids.includes(filter.assigneeUserId)) return false;
+      if (filter.kind === 'assignee' && filter.assigneeActorId) {
+        const ids = (item.assignees ?? []).map((a) => a.actor_id);
+        if (!ids.includes(filter.assigneeActorId)) return false;
       }
       if (filter.kind === 'attribute' && filter.attributeKey) {
         const val = item.attributes?.[filter.attributeKey];
@@ -44,7 +44,7 @@ export function useWorkFilters<T extends FilterableItem>(
 
       const title = titleFor(item).toLowerCase();
       const attrs = attributeSearchText(item.attributes);
-      const assignees = (item.assignees ?? []).map((a) => a.username).join(' ').toLowerCase();
+      const assignees = (item.assignees ?? []).map((a) => a.label).join(' ').toLowerCase();
       return title.includes(q) || attrs.includes(q) || assignees.includes(q);
     });
   }, [items, search, filter, titleFor]);

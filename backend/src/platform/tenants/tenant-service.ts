@@ -26,7 +26,7 @@ export async function getTenantProfile(tenantId: string): Promise<TenantProfile>
 export async function updateTenantProfile(
   tenantId: string,
   input: UpdateTenantProfileInput,
-  actorUserId: string,
+  actorId: string,
 ): Promise<TenantProfile> {
   if (input.defaultLanguage && !isSupportedLocale(input.defaultLanguage)) {
     throw badRequest('error.validation_failed');
@@ -72,7 +72,7 @@ export async function updateTenantProfile(
         type: 'tenant_profile.updated',
         aggregateType: 'tenant_profile',
         aggregateId: tenantId,
-        actorUserId,
+        actorId,
         data: {},
       });
     }

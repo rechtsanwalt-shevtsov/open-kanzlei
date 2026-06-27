@@ -55,12 +55,12 @@ paths:
     $ref: './paths/apps.yaml#/tenant-app-assignments'
   /v1/tenant/teams/{teamId}/app-assignments:
     $ref: './paths/apps.yaml#/tenant-team-app-assignments'
-  /v1/tenant/users/{userId}/app-assignments:
-    $ref: './paths/apps.yaml#/tenant-user-app-assignments'
+  /v1/tenant/actors/{actorId}/app-assignments:
+    $ref: './paths/apps.yaml#/tenant-actor-app-assignments'
   /v1/me/active-apps-by-group:
     $ref: './paths/apps.yaml#/me-active-apps-by-group'
-  /v1/users/{userId}/active-apps-by-group:
-    $ref: './paths/apps.yaml#/user-active-apps-by-group'
+  /v1/actors/{actorId}/active-apps-by-group:
+    $ref: './paths/apps.yaml#/actor-active-apps-by-group'
   /v1/apps/{appKey}/manifest:
     $ref: './paths/apps.yaml#/apps-manifest'
   /v1/apps/{appKey}/settings/effective:
@@ -79,11 +79,13 @@ paths:
 
   /v1/teams:
     $ref: './paths/platform.yaml#/teams-list'
+  /v1/teams/assignable:
+    $ref: './paths/platform.yaml#/teams-assignable-list'
   /v1/teams/{id}:
     $ref: './paths/platform.yaml#/teams-item'
-  /v1/users:
+  /v1/platform-users:
     $ref: './paths/platform.yaml#/users-list'
-  /v1/users/{id}:
+  /v1/platform-users/{id}:
     $ref: './paths/platform.yaml#/users-item'
 
   /v1/case-models:
