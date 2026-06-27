@@ -234,6 +234,11 @@ AttributeDefinition:
       additionalProperties:
         type: string
       description: Resolved option labels for the effective request locale (read-only in responses)
+    locked_select_options:
+      type: array
+      items:
+        type: string
+      description: Shared-registry option keys that may be labeled but not removed or renamed (read-only in responses)
     default_value:
       description: Default for new instances (instance scope) or model value (model scope)
     display_name:
@@ -437,6 +442,11 @@ Task:
     updated_at:
       type: string
       format: date-time
+    completed_at:
+      type: string
+      format: date-time
+      nullable: true
+      description: Set when status becomes completed; cleared when status leaves completed
 
 CreateTaskRequest:
   type: object

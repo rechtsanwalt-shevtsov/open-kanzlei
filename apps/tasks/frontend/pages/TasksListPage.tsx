@@ -17,6 +17,7 @@ import { selectOptionLabel } from '@shell/lib/select-option-labels.js';
 import { instanceTitle } from '@shell/lib/work-instance.js';
 import type { components } from '@shell/api/schema.js';
 import { CreateTaskDialog } from '../components/CreateTaskDialog.js';
+import { TaskAssigneeSelect } from '../components/TaskAssigneeSelect.js';
 import { useEffectiveSettings } from '../hooks/useEffectiveSettings.js';
 import {
   formatTaskDate,
@@ -28,6 +29,7 @@ import {
 type TaskModel = components['schemas']['TaskModel'];
 type CaseItem = components['schemas']['Case'];
 type CaseModel = components['schemas']['CaseModel'];
+type TenantUser = components['schemas']['TenantUser'];
 type SortColumn = 'title' | 'case' | 'model' | 'status' | 'created';
 type SortDirection = 'asc' | 'desc';
 
@@ -39,6 +41,7 @@ export function TasksListPage() {
   const [taskModels, setTaskModels] = useState<TaskModel[]>([]);
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [caseModels, setCaseModels] = useState<CaseModel[]>([]);
+  const [users, setUsers] = useState<TenantUser[]>([]);
   const [statusDefsByModel, setStatusDefsByModel] = useState<Map<string, AttributeDefinition>>(
     () => new Map(),
   );
@@ -50,6 +53,7 @@ export function TasksListPage() {
   const [actionsOpen, setActionsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [assigneeSaving, setAssigneeSaving] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -98,11 +102,12 @@ export function TasksListPage() {
     setLoading(true);
     setError(null);
     const headers = apiHeaders(locale);
-    const [tasksRes, modelsRes, casesRes, caseModelsRes] = await Promise.all([
+    const [tasksRes, modelsRes, casesRes, caseModelsRes, usersRes] = await Promise.all([
       api.GET('/v1/tasks', { headers }),
       api.GET('/v1/task-models', { headers }),
       api.GET('/v1/cases', { headers }),
       api.GET('/v1/case-models', { headers }),
+      api.GET('/v1/users', { headers }),
     ]);
     if (tasksRes.error || modelsRes.error || casesRes.error || caseModelsRes.error) {
       setError(msg('errorGeneric'));
@@ -114,6 +119,9 @@ export function TasksListPage() {
     setTaskModels(loadedModels);
     setCases(casesRes.data?.items ?? []);
     setCaseModels(caseModelsRes.data?.items ?? []);
+    if (!usersRes.error && usersRes.data) {
+      setUsers(usersRes.data.items ?? []);
+    }
 
     const statusEntries = await Promise.all(
       loadedModels.map(async (model) => {
@@ -188,7 +196,7 @@ export function TasksListPage() {
   const pageIds = useMemo(() => pageItems.map((t) => t.id), [pageItems]);
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
   const somePageSelected = pageIds.some((id) => selectedIds.has(id));
-  const colCount = 6;
+  const colCount = 7;
   const rangeFrom = sorted.length === 0 ? 0 : page * itemsPerPage + 1;
   const rangeTo = Math.min(sorted.length, page * itemsPerPage + pageItems.length);
   const pageRangeLabel = msg('cmdPageRange')
@@ -452,6 +460,7 @@ export function TasksListPage() {
                       {sortIcon('status')}
                     </button>
                   </th>
+                  <th>{msg('tasColAssignee')}</th>
                   <th
                     aria-sort={
                       sortColumn === 'created'
@@ -501,6 +510,21 @@ export function TasksListPage() {
                         </td>
                         <td>{modelLabel}</td>
                         <td className="admin-table-col-status">{formatTaskStatus(t)}</td>
+                        <td>
+                          <TaskAssigneeSelect
+                            taskId={t.id}
+                            assignees={t.assignees}
+                            users={users}
+                            locale={locale}
+                            saving={assigneeSaving}
+                            onSavingChange={setAssigneeSaving}
+                            onUpdated={(updated) => {
+                              setTasks((prev) =>
+                                prev.map((row) => (row.id === updated.id ? updated : row)),
+                              );
+                            }}
+                          />
+                        </td>
                         <td>{formatTaskDate(t.created_at, locale)}</td>
                       </tr>
                     );

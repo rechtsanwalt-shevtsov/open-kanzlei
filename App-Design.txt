@@ -1,6 +1,6 @@
 OpenKanzlei — App-UI Design-Vorgaben
 =====================================
-Stand: Mai 2026
+Stand: Juni 2026
 Referenz-Implementierung: apps/case-model-designer/
 CSS-Basis: frontend/react-app/src/styles/admin.css, global.css
 Farben: frontend/react-app/src/styles/themes.css (CSS-Variablen, data-theme am <html>)
@@ -210,10 +210,24 @@ Primäre Erstell-Aktion: führendes „+ “ vor dem Label (+ Case-Modell anlege
     Spalten: Einstellung | Standard | Kanzlei | Benutzer
 - Zeilen aus manifest.json settings_schema generieren
 - Technischer Schlüssel unter dem Label als code.admin-settings-key
-- Kanzlei-Spalte: nur für admin editierbar (select.admin-settings-select)
-- Benutzer-Spalte: nur wenn userOverridable im Schema
+- Skalare Typen (string, boolean, number):
+    Kanzlei-Spalte: nur für admin editierbar (select.admin-settings-select)
+    Benutzer-Spalte: nur wenn userOverridable im Schema
+- Typ record (strukturierte Map-of-Maps, siehe Konzept.txt 18.3b):
+    Alle Spalten: read-only JSON-Vorschau in code.admin-settings-record-preview
+    (kein Select, kein Speichern über die Standard-Tabelle — app-spezifischer
+    Editor kommt später pro Setting)
+    Tooltip/title: i18n appSettingsRecordReadOnly
 - Speichern-Button unterhalb der Karte (admin-settings-actions), button-primary
+    (betrifft nur editierbare Skalar-Felder)
 - Gespeichert-/Fehler-Feedback wie bei Formularen (form-success / form-error)
+
+settings_schema — unterstützte Feldtypen (Referenz):
+  string, boolean, number   — Top-Level; Select-UI wie bisher
+  record                    — verschachteltes Unterschema record; Vorschau-only in MVP
+  Innerhalb von record: string, boolean, number, integer, record (rekursiv)
+  Schema-Details und Validierung: Konzept.txt Abschnitt 18.3b
+  Geteilte TS-Typen: frontend/react-app/src/lib/app-settings-schema.ts
 
 
 9. Formulare und Dialoge
@@ -273,10 +287,13 @@ Primäre Erstell-Aktion: führendes „+ “ vor dem Label (+ Case-Modell anlege
   - Standardwert:
       • single_select: Dropdown mit übersetzten Labels (Wert = Key)
       • multi_select: Checkbox-Liste (FieldSelectInput), Mehrfachauswahl möglich
-  - Plattform-Status (Systemfeld „Status“ auf Instanz-Tab): gleicher Dialog, aber
-    Name, Datentyp, Pflichtfeld und Verschlüsselung sind schreibgeschützt; nur
-    Auswahlwerte und Standardwert sind editierbar. Zeile in der Tabelle wie andere
-    Felder — Klick auf den Namen öffnet den Dialog (kein separater Inline-Editor).
+  - Plattform-Status (Systemfeld „Status“ auf Instanz-Tab, Case + Task): gleicher Dialog,
+    aber Name, Datentyp, Pflichtfeld, Verschlüsselung und Standardwert sind
+    schreibgeschützt. Die drei Werte (not_started, started, completed) sind fest;
+    nur die Bezeichnungen pro UI-Sprache sind editierbar (SelectOptionsEditor im
+    Modus labelsOnly: Wert-Spalte sichtbar, kein Hinzufügen/Löschen/Drag).
+    Zeile in der Tabelle wie andere Felder — Klick auf den Namen öffnet den Dialog;
+    Standardwert in der Tabelle nur lesbar (readOnly).
 
   Modell anlegen (CaseFieldsEditor)
   - Beim Anlegen eines Case-Modells mit neuen Feldern: für single_select und
@@ -289,6 +306,7 @@ Primäre Erstell-Aktion: führendes „+ “ vor dem Label (+ Case-Modell anlege
   - Änderungen werden sofort per PATCH default_value gespeichert (Keys, nicht Labels)
 
   i18n (Auswahlwerte-Editor)
+  - cmdStatusOptionKey         Spaltenüberschrift „Wert“ (nur Plattform-Status, labelsOnly)
   - cmdStatusOptionLabel       Spaltenüberschrift / Platzhalter „Bezeichnung“
   - cmdStatusOptionAdd         Button „Werte hinzufügen“
   - cmdStatusOptionDrag        Aria-Label Drag-Handle
@@ -303,8 +321,10 @@ Primäre Erstell-Aktion: führendes „+ “ vor dem Label (+ Case-Modell anlege
 
   Nicht-Ziel
   - Kein Freitext-Textarea für Auswahlwerte (weder im Dialog noch beim Modell-Anlegen)
-  - Keine sichtbare Key-Spalte für Endnutzer; Keys nur im Advanced-Modus indirekt
-    über API/Backend relevant
+  - Keine sichtbare Key-Spalte für Endnutzer bei benutzerdefinierten Select-Feldern;
+    Keys nur im Advanced-Modus indirekt über API/Backend relevant
+  - Ausnahme Plattform-Status: die drei festen Werte (not_started, started, completed)
+    werden im Dialog als technische Keys angezeigt; nur Labels sind editierbar
 
 ---------------------------
 
@@ -332,35 +352,66 @@ submitSave, workColStatus, …
 12. Navigation und Sidebar
 --------------------------
 
-- App erscheint in der Sidebar unter dem Manifest (nav_path, nav_icon aus manifest.json)
-- menu_category: administration | work — gruppiert Einträge in der Shell-Sidebar
+- Aktive Apps erscheinen als gleichrangige Menüpunkte oben in der Sidebar
+  (nav_path, nav_icon aus manifest.json) — keine Gruppierung nach menu_category
+- Sichtbarkeit: App muss für mindestens ein Team des Benutzers aktiv sein
+- Bereich „Administration“ (aufklappbar) nur für Mitglieder des Teams admin:
+    Settings, Teams und Benutzer, Apps — keine Apps in dieser Gruppe
+- /admin/apps: Matrix App × Team (Aktiv/Inaktiv), Spalte mit LuSettings-Link
+  zu /apps/<app-key>/settings (gleiche Funktion wie LuSettings in der App-Toolbar)
 - App-interne Navigation primär über Breadcrumb und Links in Tabellen, nicht über
   zusätzliche Sub-Sidebar in der App
 
 
 13. Plattform-Administration vs. Apps
--------------------------------------
+------------------------------------
 
-Plattform-Seiten unter /admin/* (Users, Apps, Settings der Kanzlei):
-  - admin-page ohne --shell (ganze Seite als eine Karte)
+Plattform-Seiten unter /admin/* (Teams und Benutzer, Apps, Settings der Kanzlei):
+  - admin-page ohne --shell (ganze Seite als eine Karte), außer /admin/apps nutzt
+    admin-page--shell mit Matrix-Tabelle (Card-on-Gray)
   - Gleiche Tabellen-/Formular-Klassen, gleiche Breadcrumb-Logik
   - Kein LuSettings in der Toolbar (Kontext ist nicht „eine App“)
+  - Nur sichtbar für Benutzer im Team „Administratoren“ (key admin)
 
 Apps unter /apps/<app-key>/*:
   - admin-page--shell für Listen/Details/Einstellungen
   - LuSettings immer in der Toolbar, sofern settings_schema im Manifest existiert
 
 
-14. Checkliste für neue Apps
+14. App-Manifest — requires_attributes und provides_attributes
+--------------------------------------------------------------
+
+Apps deklarieren im manifest.json, welche Modell-Attribute sie brauchen oder bereitstellen.
+Details und Architektur: Konzept.txt §7 und §18.2b.
+
+requires_attributes (gemeinsame Keys):
+  - Verweis auf Plattform-Standard oder Shared Registry (z. B. due_date, priority)
+  - target: case_model | task_model
+  - Mehrere Apps teilen denselben Key — Benutzer pflegen den Wert nur einmal
+
+provides_attributes (app-spezifisch):
+  - local key ohne Namespace (z. B. sprint → gespeichert als {app_key}.sprint)
+  - Vollständige Definition: data_type, translations, ggf. select_options
+  - UI der App zeigt und bearbeitet das Feld; Plattform speichert nur den Wert
+
+Für App-Autoren:
+  - Gemeinsame fachliche Begriffe (Frist, Priorität, Aktenzeichen) → requires
+  - Nur für diese App relevante Felder (Sprint, Board-Spalte) → provides
+  - Neue Shared-Registry-Keys nur nach Plattform-Entscheidung, nicht pro App erfinden
+
+
+15. Checkliste für neue Apps
 ----------------------------
 
 [ ] manifest.json: routes, nav_icon, settings_schema
+[ ] manifest.json: requires_attributes / provides_attributes (falls nötig; sonst [])
 [ ] Listen-Startseite: admin-page--shell, Header, Toolbar (+ Anlegen, LuSettings)
 [ ] Card-on-Gray: Steuerung außerhalb, admin-list-card für Tabelle
 [ ] Suche, Pagination, Sortierung nach diesem Dokument
 [ ] Checkbox-Auswahl + Actions-Dropdown für sinnvolle Bulk-Operationen
 [ ] Detailseite mit Breadcrumb, hint, Unterliste im gleichen Muster
 [ ] Einstellungsseite mit Vier-Spalten-Tabelle aus settings_schema
+    (Skalare: Select; record: read-only Vorschau, siehe §8)
 [ ] Formularseiten mit Breadcrumb und admin-dialog-actions
 [ ] Select-Attribute (single_select / multi_select): SelectOptionsEditor, keine Textarea
 [ ] Alle Texte in i18n (de/en)
@@ -368,7 +419,7 @@ Apps unter /apps/<app-key>/*:
 [ ] Icons aus react-icons/lu, Größen wie oben
 
 
-15. Referenz — wichtige CSS-Klassen
+16. Referenz — wichtige CSS-Klassen
 ------------------------------------
 
   Layout:        admin-page, admin-page--shell, admin-page-header, admin-page-title,
@@ -379,7 +430,8 @@ Apps unter /apps/<app-key>/*:
                  admin-bulk-actions-menu--danger, admin-list-toolbar-meta
   Navigation:    admin-breadcrumb, admin-breadcrumb-sep
   Buttons:       button-outline, button-icon, button-primary
-  Einstellungen: admin-table--settings, admin-settings-col-*, admin-settings-select
+  Einstellungen: admin-table--settings, admin-settings-col-*, admin-settings-select,
+                 admin-settings-record-preview
   Formulare:     form, form-error, form-success, admin-dialog, admin-dialog-actions
   Select-Attr.:  select-options-fieldset, select-options-editor, select-options-add,
                  select-options-drag-handle, cas-field-option-list, cas-field-option-label
@@ -387,11 +439,37 @@ Apps unter /apps/<app-key>/*:
   Pagination:    admin-list-pagination
 
 
-16. Abgrenzung / Nicht-Ziele
+18. Tasks-Kanban — Board-Layout (Ausnahme)
+------------------------------------------
+
+Die App tasks-kanban nutzt kein admin-table-Listenmuster, sondern ein eigenes
+Kanban-Board (CSS: frontend/react-app/src/styles/kanban.css).
+
+Layout:
+  - work-page / kanban-page als äußerer Container
+  - Filter: Benutzer-Select (alle Tenant-Benutzer), Suchfeld
+  - Board: linke Spalte not_started (volle Höhe); Mitte started mit Swimlanes;
+    rechte Spalte completed (volle Höhe, gemeinsam für alle Swimlanes)
+  - Erledigte Tasks: sortiert nach completed_at absteigend (jüngste zuerst)
+  - Leeres Board (User ohne Tasks): drei Spalten not_started | started | completed
+  - Karten: kanban-card mit Pfeil-Buttons (kein Drag & Drop im MVP)
+  - WIP: Bruchzahl in Spaltenköpfen; LuPencil für Admin am Board; LuSiren bei weichem Limit
+
+API (App-Fach-Endpunkte):
+  GET  /v1/apps/tasks-kanban/board
+  POST /v1/apps/tasks-kanban/moves
+  PATCH /v1/apps/tasks-kanban/wip-limits (admin)
+
+CSS-Klassen: kanban-board, kanban-col, kanban-swimlane, kanban-card,
+  kanban-card-sticker, kanban-wip, kanban-wip--over
+
+
+19. Abgrenzung / Nicht-Ziele
 ----------------------------
 
 - Work-Bereich (/cases, /tasks): eigenes Layout in work.css — andere UX (Arbeitskontext,
   nicht Entity-Manager). Neue Verwaltungs-Apps folgen diesem Dokument, nicht work.css.
+  Ausnahme: tasks-kanban (§18).
 - Kein eigenes Design-System pro App; Abweichungen nur nach expliziter Entscheidung
   und Aktualisierung dieses Dokuments.
 - Responsive/mobile Optimierung: bisher Desktop-first; gleiche Klassen beibehalten,

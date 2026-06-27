@@ -3,6 +3,116 @@ AppKey:
   pattern: '^[a-z][a-z0-9-]{0,62}$'
   example: case-model-designer
 
+AppGroup:
+  type: string
+  enum:
+    - unassigned
+    - flight_level_0
+    - flight_level_1
+    - flight_level_2
+    - flight_level_3
+  description: >
+    App group membership declared in manifest.json. Flight-level groups allow
+    exactly one active app per team/user; unassigned apps are multi-select.
+
+AppGroupAssignments:
+  type: object
+  required:
+    - flight_level_0
+    - flight_level_1
+    - flight_level_2
+    - flight_level_3
+    - unassigned
+  properties:
+    flight_level_0:
+      oneOf:
+        - $ref: '#/AppKey'
+        - type: 'null'
+    flight_level_1:
+      oneOf:
+        - $ref: '#/AppKey'
+        - type: 'null'
+    flight_level_2:
+      oneOf:
+        - $ref: '#/AppKey'
+        - type: 'null'
+    flight_level_3:
+      oneOf:
+        - $ref: '#/AppKey'
+        - type: 'null'
+    unassigned:
+      type: array
+      items:
+        $ref: '#/AppKey'
+
+ActiveAppsByGroup:
+  allOf:
+    - $ref: '#/AppGroupAssignments'
+    - type: object
+      required: [active_apps]
+      properties:
+        active_apps:
+          type: array
+          items:
+            $ref: '#/AppKey'
+
+AppCatalogItem:
+  type: object
+  required: [app_key, name, app_group, has_react_ui, settings_path]
+  properties:
+    app_key:
+      $ref: '#/AppKey'
+    name:
+      type: string
+    app_group:
+      $ref: '#/AppGroup'
+    has_react_ui:
+      type: boolean
+    settings_path:
+      type: string
+      nullable: true
+
+TeamAppAssignmentRow:
+  type: object
+  required: [team_id, team_name, assignments]
+  properties:
+    team_id:
+      type: string
+      format: uuid
+    team_name:
+      type: string
+    assignments:
+      $ref: '#/AppGroupAssignments'
+
+UserAppAssignmentRow:
+  type: object
+  required: [user_id, username, assignments]
+  properties:
+    user_id:
+      type: string
+      format: uuid
+    username:
+      type: string
+    assignments:
+      $ref: '#/AppGroupAssignments'
+
+TenantAppAssignments:
+  type: object
+  required: [apps, teams, user_overrides]
+  properties:
+    apps:
+      type: array
+      items:
+        $ref: '#/AppCatalogItem'
+    teams:
+      type: array
+      items:
+        $ref: '#/TeamAppAssignmentRow'
+    user_overrides:
+      type: array
+      items:
+        $ref: '#/UserAppAssignmentRow'
+
 AppInstallationStatus:
   type: string
   enum: [active, inactive]
@@ -25,6 +135,7 @@ TenantAppCatalogEntry:
     - version
     - has_react_ui
     - settings_path
+    - app_group
     - team_activations
   properties:
     app_key:
@@ -39,6 +150,8 @@ TenantAppCatalogEntry:
       type: string
       nullable: true
       description: Route to app settings page (e.g. /apps/cases/settings)
+    app_group:
+      $ref: '#/AppGroup'
     team_activations:
       type: array
       items:
@@ -92,6 +205,62 @@ AppInstallation:
       nullable: true
       description: Lucide icon name for sidebar navigation (e.g. LuBriefcaseBusiness)
 
+AppAttributeTarget:
+  type: string
+  enum: [case_model, task_model]
+
+AppAttributeDefinitionScope:
+  type: string
+  enum: [model, instance]
+  default: instance
+
+AppRequiresAttribute:
+  type: object
+  required: [key, target]
+  properties:
+    key:
+      type: string
+      description: Shared registry or platform-standard attribute key
+    target:
+      $ref: '#/AppAttributeTarget'
+    definition_scope:
+      $ref: '#/AppAttributeDefinitionScope'
+
+AppProvidesAttribute:
+  type: object
+  required: [key, target, data_type, translations]
+  properties:
+    key:
+      type: string
+      description: Local key without namespace; stored as {app_key}.{key}
+    target:
+      $ref: '#/AppAttributeTarget'
+    definition_scope:
+      $ref: '#/AppAttributeDefinitionScope'
+    data_type:
+      type: string
+      enum: [text, number, money, date, boolean, single_select, multi_select]
+    translations:
+      type: object
+      additionalProperties:
+        type: string
+    encryption_mode:
+      type: string
+      enum: [server_readable, zero_knowledge]
+    is_required:
+      type: boolean
+    select_options:
+      type: array
+      items:
+        type: string
+    select_option_translations:
+      type: object
+      additionalProperties:
+        type: object
+        additionalProperties:
+          type: string
+    default_value: {}
+
 AppManifest:
   type: object
   required:
@@ -107,6 +276,7 @@ AppManifest:
     - required_teams
     - settings_schema
     - supported_locales
+    - app_group
   properties:
     app_key:
       $ref: '#/AppKey'
@@ -141,6 +311,16 @@ AppManifest:
       items:
         type: string
       description: Deprecated; app access is controlled via team activation
+    requires_attributes:
+      type: array
+      items:
+        $ref: '#/AppRequiresAttribute'
+      description: Shared or platform attributes the app needs on models
+    provides_attributes:
+      type: array
+      items:
+        $ref: '#/AppProvidesAttribute'
+      description: App-specific attributes provisioned on activation
     settings_schema:
       type: object
       additionalProperties:
@@ -154,6 +334,62 @@ AppManifest:
       type: array
       items:
         type: string
+    app_group:
+      $ref: '#/AppGroup'
+
+AppSettingRecordKeySchema:
+  type: object
+  properties:
+    enum:
+      type: array
+      items:
+        type: string
+    format:
+      type: string
+      enum: [uuid, identifier]
+
+AppSettingValueSchema:
+  type: object
+  required: [type]
+  properties:
+    type:
+      type: string
+      enum: [string, boolean, number, integer, record]
+    allowedValues:
+      type: array
+      items: {}
+    minimum:
+      type: number
+    maximum:
+      type: number
+    nullable:
+      type: boolean
+    keys:
+      $ref: '#/AppSettingRecordKeySchema'
+    properties:
+      type: object
+      additionalProperties:
+        $ref: '#/AppSettingValueSchema'
+    values:
+      $ref: '#/AppSettingValueSchema'
+  description: Recursive value schema for record fields and nested maps
+
+AppSettingRecordSchema:
+  type: object
+  properties:
+    keys:
+      $ref: '#/AppSettingRecordKeySchema'
+    properties:
+      type: object
+      additionalProperties:
+        $ref: '#/AppSettingValueSchema'
+    values:
+      $ref: '#/AppSettingValueSchema'
+    nullable:
+      type: boolean
+  description: >
+    Open map (values) and/or fixed properties. At least one of properties or values
+    is required when used as a record field schema.
 
 AppSettingFieldSchema:
   type: object
@@ -165,7 +401,7 @@ AppSettingFieldSchema:
   properties:
     type:
       type: string
-      enum: [string, boolean, number]
+      enum: [string, boolean, number, record]
     default: {}
     allowedValues:
       type: array
@@ -174,6 +410,8 @@ AppSettingFieldSchema:
       type: boolean
     userOverridable:
       type: boolean
+    record:
+      $ref: '#/AppSettingRecordSchema'
 
 AppSettings:
   type: object

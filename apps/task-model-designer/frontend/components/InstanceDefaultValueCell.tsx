@@ -26,6 +26,7 @@ interface InstanceDefaultValueCellProps {
   saving: boolean;
   onSavingChange: (saving: boolean) => void;
   onUpdated: () => void;
+  readOnly?: boolean;
 }
 
 export function InstanceDefaultValueCell({
@@ -34,6 +35,7 @@ export function InstanceDefaultValueCell({
   saving,
   onSavingChange,
   onUpdated,
+  readOnly = false,
 }: InstanceDefaultValueCellProps) {
   const { msg } = useI18n();
   const [draft, setDraft] = useState(formatDefault(attribute));
@@ -46,6 +48,7 @@ export function InstanceDefaultValueCell({
   }, [attribute]);
 
   async function persist(next: unknown) {
+    if (readOnly) return;
     onSavingChange(true);
     const res = await updateAttributeDefinition(attribute.id, locale, {
       default_value: next,
@@ -54,6 +57,14 @@ export function InstanceDefaultValueCell({
     if (!res.error && res.response.ok) {
       onUpdated();
     }
+  }
+
+  if (readOnly) {
+    if (attribute.data_type === 'single_select' && typeof attribute.default_value === 'string') {
+      return <span>{selectOptionLabel(attribute.default_value, attribute)}</span>;
+    }
+    const text = formatDefault(attribute);
+    return <span>{text || '—'}</span>;
   }
 
   if (attribute.data_type === 'boolean') {

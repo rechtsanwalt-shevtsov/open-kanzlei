@@ -637,6 +637,7 @@ export function CaseModelDetailPage() {
                               saving={fieldSaving}
                               onSavingChange={setFieldSaving}
                               onUpdated={() => void refresh()}
+                              readOnly
                             />
                           </td>
                           <td className="admin-table-col-encryption">
@@ -756,7 +757,14 @@ export function CaseModelDetailPage() {
         extendedFields
         lockFields={
           editTarget && isCaseInstanceStatusAttribute(editTarget)
-            ? { name: true, dataType: true, isRequired: true, encryption: true }
+            ? {
+                name: true,
+                dataType: true,
+                isRequired: true,
+                encryption: true,
+                selectOptions: true,
+                defaultValue: true,
+              }
             : undefined
         }
         onClose={() => setEditTarget(null)}

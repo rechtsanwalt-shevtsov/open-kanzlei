@@ -12,6 +12,11 @@
     { "path": "/apps/cases/settings", "label": "Einstellungen" }
   ],
   "required_teams": [],
+  "requires_attributes": [
+    { "key": "title", "target": "case_model" },
+    { "key": "reference", "target": "case_model" }
+  ],
+  "provides_attributes": [],
   "supported_locales": ["de", "en"],
   "event_subscriptions": [],
   "settings_schema": {

@@ -1,5 +1,10 @@
 import type { MessageKey } from '@shell/i18n/messages.js';
 import {
+  coerceRecordSettingValue,
+  formatRecordSettingValue,
+  isRecordSettingField,
+} from '@shell/lib/app-settings-schema.js';
+import {
   encryptionModeMessageKey,
   type EncryptionMode,
 } from '@shell/lib/encryption-mode-label.js';
@@ -23,6 +28,10 @@ export function settingOptions(
   field: AppSettingFieldSchema,
   msg: (k: MessageKey) => string,
 ): Array<{ value: string; label: string }> {
+  if (isRecordSettingField(field)) {
+    return [];
+  }
+
   if (field.type === 'boolean') {
     return [
       { value: 'true', label: msg('usersActiveYes') },
@@ -41,7 +50,9 @@ export function formatSettingValue(
   key: string,
   value: unknown,
   msg: (k: MessageKey) => string,
+  field?: AppSettingFieldSchema,
 ): string {
+  if (field && isRecordSettingField(field)) return formatRecordSettingValue(value);
   if (key === 'defaultTaskModelStatus' && typeof value === 'string') {
     return taskModelStatusLabel(value as TaskModelStatus, msg);
   }
@@ -57,12 +68,14 @@ export function formatSettingValue(
 }
 
 export function parseSettingSelectValue(field: AppSettingFieldSchema, raw: string): unknown {
+  if (isRecordSettingField(field)) return field.default;
   if (field.type === 'boolean') return raw === 'true';
   if (field.type === 'number') return Number(raw);
   return raw;
 }
 
 export function coerceSettingValue(field: AppSettingFieldSchema, value: unknown): unknown {
+  if (isRecordSettingField(field)) return coerceRecordSettingValue(field, value);
   if (value === undefined || value === null) return field.default;
   if (field.type === 'boolean') {
     if (typeof value === 'boolean') return value;

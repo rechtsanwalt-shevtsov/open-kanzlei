@@ -21,6 +21,7 @@ import { assertCaseModelStatus, assertModelKey, toIso } from './validation.js';
 import { allocateUniqueCaseModelKey, slugifyModelKey } from './model-key.js';
 import { seedCaseModelStandardInstanceAttributes } from './case-model-defaults.js';
 import { deleteAttributeDefinitionsForModel } from './entity-guards.js';
+import { provisionAppAttributesOnModel } from '../platform/apps/app-attribute-provisioning.js';
 
 export type CreateCaseModelInput = {
   key?: string;
@@ -232,6 +233,13 @@ export async function createCaseModel(
       await seedCaseModelStandardInstanceAttributes(
         client,
         tenantId,
+        model.id,
+        actorUserId ?? null,
+      );
+      await provisionAppAttributesOnModel(
+        client,
+        tenantId,
+        'case_model',
         model.id,
         actorUserId ?? null,
       );

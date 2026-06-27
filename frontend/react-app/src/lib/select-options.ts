@@ -85,6 +85,61 @@ export function buildSelectOptionsPayload(
   return { select_options, select_option_translations, normalized };
 }
 
+export function buildFixedSelectOptionsLabelPayload(
+  rows: SelectOptionRow[],
+  locale: Locale,
+  fixedKeys: readonly string[],
+  existing?: Pick<AttributeDefinition, 'select_option_translations'>,
+): {
+  select_options: string[];
+  select_option_translations: Record<string, Record<string, string>>;
+} {
+  const select_options = [...fixedKeys];
+  const select_option_translations: Record<string, Record<string, string>> = {};
+  const rowByKey = new Map(rows.map((row) => [row.key, row]));
+
+  for (const key of fixedKeys) {
+    const row = rowByKey.get(key);
+    const prev = existing?.select_option_translations?.[key] ?? {};
+    const label = row?.label.trim();
+    select_option_translations[key] = label ? { ...prev, [locale]: label } : { ...prev };
+  }
+
+  return { select_options, select_option_translations };
+}
+
+export function buildSelectOptionsPayloadWithLockedKeys(
+  rows: SelectOptionRow[],
+  locale: Locale,
+  lockedKeys: readonly string[],
+  existing?: Pick<AttributeDefinition, 'select_option_translations'>,
+): {
+  select_options: string[];
+  select_option_translations: Record<string, Record<string, string>>;
+} {
+  const lockedSet = new Set(lockedKeys);
+  const rowByKey = new Map(rows.filter((row) => row.key).map((row) => [row.key, row]));
+  const customRows = rows.filter((row) => !row.key || !lockedSet.has(row.key));
+  const customNormalized = normalizeSelectOptionRows(customRows);
+
+  const select_options = [...lockedKeys, ...customNormalized.map((row) => row.key)];
+  const select_option_translations: Record<string, Record<string, string>> = {};
+
+  for (const key of lockedKeys) {
+    const row = rowByKey.get(key);
+    const prev = existing?.select_option_translations?.[key] ?? {};
+    const label = row?.label.trim();
+    select_option_translations[key] = label ? { ...prev, [locale]: label } : { ...prev };
+  }
+
+  for (const row of customNormalized) {
+    const prev = existing?.select_option_translations?.[row.key] ?? {};
+    select_option_translations[row.key] = { ...prev, [locale]: row.label.trim() };
+  }
+
+  return { select_options, select_option_translations };
+}
+
 export function reorderSelectOptionRows(
   rows: SelectOptionRow[],
   fromIndex: number,

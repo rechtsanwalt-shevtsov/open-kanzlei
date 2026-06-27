@@ -51,6 +51,16 @@ paths:
     $ref: './paths/apps.yaml#/tenant-apps-catalog'
   /v1/tenant/apps/{appKey}/teams/{teamId}:
     $ref: './paths/apps.yaml#/tenant-app-team-status'
+  /v1/tenant/app-assignments:
+    $ref: './paths/apps.yaml#/tenant-app-assignments'
+  /v1/tenant/teams/{teamId}/app-assignments:
+    $ref: './paths/apps.yaml#/tenant-team-app-assignments'
+  /v1/tenant/users/{userId}/app-assignments:
+    $ref: './paths/apps.yaml#/tenant-user-app-assignments'
+  /v1/me/active-apps-by-group:
+    $ref: './paths/apps.yaml#/me-active-apps-by-group'
+  /v1/users/{userId}/active-apps-by-group:
+    $ref: './paths/apps.yaml#/user-active-apps-by-group'
   /v1/apps/{appKey}/manifest:
     $ref: './paths/apps.yaml#/apps-manifest'
   /v1/apps/{appKey}/settings/effective:
@@ -59,6 +69,13 @@ paths:
     $ref: './paths/apps.yaml#/tenant-app-settings'
   /v1/me/apps/{appKey}/settings:
     $ref: './paths/apps.yaml#/me-app-settings'
+
+  /v1/apps/tasks-kanban/board:
+    $ref: './paths/tasks-kanban.yaml#/tasks-kanban-board'
+  /v1/apps/tasks-kanban/moves:
+    $ref: './paths/tasks-kanban.yaml#/tasks-kanban-moves'
+  /v1/apps/tasks-kanban/wip-limits:
+    $ref: './paths/tasks-kanban.yaml#/tasks-kanban-wip-limits'
 
   /v1/teams:
     $ref: './paths/platform.yaml#/teams-list'

@@ -17,6 +17,18 @@ import {
   isPlatformTaskModelInstanceAttribute,
   isTaskInstanceStatusDefinition,
 } from './task-model-platform-attributes.js';
+import { DEFAULT_WORK_STATUS, WORK_STATUS_VALUES } from './work-status.js';
+import { assertAttributeKeyFormat, parseAppProvidedAttributeKey } from '../platform/apps/app-attribute-contract.js';
+import {
+  assertAppAttributeDefinitionDeletable,
+  deleteAppAttributeBindings,
+} from '../platform/apps/app-attribute-bindings.js';
+import { isSharedRegistryKey } from '../platform/apps/shared-attribute-registry.js';
+import {
+  assertSharedRegistryLockedSelectOptionsPreserved,
+  isSharedRegistryLockedSelectOption,
+  resolveSharedRegistryLockedSelectOptions,
+} from '../platform/apps/shared-registry-select-options.js';
 import {
   normalizeSelectOptionTranslations,
   pruneSelectOptionTranslations,
@@ -80,6 +92,8 @@ export interface AttributeDefinitionDto {
   default_value: unknown;
   display_name?: string;
   select_option_labels?: Record<string, string>;
+  /** Shared-registry option keys that may be labeled but not removed or renamed (read-only in responses). */
+  locked_select_options?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -138,25 +152,43 @@ export function enrichAttributeDefinition(
       definition.select_option_translations,
       locale,
     );
+    const locked = resolveSharedRegistryLockedSelectOptions(definition.key);
+    if (locked.length > 0) {
+      enriched.locked_select_options = locked;
+    }
   }
   return enriched;
+}
+
+function assertCustomAttributeKeyAllowedOnCreate(
+  key: string,
+  options?: { allowSharedRegistryKeys?: boolean; allowAppKeys?: boolean },
+): void {
+  if (!options?.allowAppKeys && parseAppProvidedAttributeKey(key)) {
+    throw forbidden('error.attribute_definition_reserved');
+  }
+  if (!options?.allowSharedRegistryKeys && isSharedRegistryKey(key)) {
+    throw forbidden('error.attribute_definition_reserved');
+  }
 }
 
 function assertAttributeKeyAllowedOnCreate(
   ownerType: ModelOwnerType,
   definitionScope: DefinitionScope,
   key: string,
+  options?: { allowSharedRegistryKeys?: boolean; allowAppKeys?: boolean },
 ): void {
   if (ownerType === 'case_model') {
     assertCaseAttributeKeyAllowedOnCreate(ownerType, definitionScope, key);
-    return;
-  }
-  if (ownerType === 'task_model') {
+  } else if (ownerType === 'task_model') {
     assertTaskAttributeKeyAllowedOnCreate(ownerType, definitionScope, key);
   }
+  assertCustomAttributeKeyAllowedOnCreate(key, options);
 }
 
-function assertAttributeDefinitionDeletable(def: AttributeDefinitionDto): void {
+function assertAttributeDefinitionDeletable(
+  def: AttributeDefinitionDto,
+): void {
   if (isPlatformCaseModelInstanceAttribute(def.owner_type, def.definition_scope, def.key)) {
     throw forbidden('error.attribute_definition_reserved');
   }
@@ -176,6 +208,11 @@ function assertAttributeDefinitionUpdateAllowed(
   if (isPlatformTaskModelInstanceAttribute(def.owner_type, def.definition_scope, def.key)) {
     assertTaskPlatformAttributeUpdateAllowed(def, input);
   }
+  if (isSharedRegistryKey(def.key) && isSelectDataType(def.data_type)) {
+    if (input.select_options !== undefined) {
+      assertSharedRegistryLockedSelectOptionsPreserved(def.key, input.select_options);
+    }
+  }
 }
 
 async function assertRemovedSelectOptionsNotInUse(
@@ -188,6 +225,10 @@ async function assertRemovedSelectOptionsNotInUse(
   if (removed.length === 0) return;
 
   for (const option of removed) {
+    if (isSharedRegistryLockedSelectOption(existing.key, option)) {
+      throw forbidden('error.attribute_definition_reserved');
+    }
+
     if (isCaseInstanceStatusDefinition(existing)) {
       const inUse = await client.query(
         `SELECT 1 FROM legal.cases
@@ -332,7 +373,7 @@ function resolveCreateAttributeFields(
   if (!input.key || !input.translations) {
     throw badRequest('error.validation_failed');
   }
-  assertModelKey(input.key);
+  assertAttributeKeyFormat(input.key);
   return {
     key: input.key,
     definition_scope: definitionScope,
@@ -392,7 +433,12 @@ export async function createAttributeDefinition(
   ownerId: string,
   input: CreateAttributeDefinitionInput,
   createdBy: string | null,
-  options?: { defaultLocale?: Locale; allowPlatformKeys?: boolean },
+  options?: {
+    defaultLocale?: Locale;
+    allowPlatformKeys?: boolean;
+    allowSharedRegistryKeys?: boolean;
+    allowAppKeys?: boolean;
+  },
 ): Promise<AttributeDefinitionDto> {
   const defaultLocale = options?.defaultLocale ?? 'de';
   const resolved = resolveCreateAttributeFields(input, defaultLocale);
@@ -407,8 +453,19 @@ export async function createAttributeDefinition(
       slugifyModelKey(resolved.generateKeyFromName!),
     ));
 
-  if (!options?.allowPlatformKeys) {
+  const privileged =
+    options?.allowPlatformKeys || options?.allowSharedRegistryKeys || options?.allowAppKeys;
+  if (!privileged) {
     assertAttributeKeyAllowedOnCreate(ownerType, resolved.definition_scope, key);
+  } else {
+    if (!options?.allowPlatformKeys) {
+      if (ownerType === 'case_model') {
+        assertCaseAttributeKeyAllowedOnCreate(ownerType, resolved.definition_scope, key);
+      } else if (ownerType === 'task_model') {
+        assertTaskAttributeKeyAllowedOnCreate(ownerType, resolved.definition_scope, key);
+      }
+    }
+    assertCustomAttributeKeyAllowedOnCreate(key, options);
   }
 
   try {
@@ -462,15 +519,25 @@ export async function updateAttributeDefinition(
     resolveUpdateAttributeTranslations(existing, input, options?.defaultLocale ?? 'de') ??
     existing.translations;
 
-  const selectOptions =
-    input.select_options !== undefined
+  const isPlatformStatusDefinition =
+    isCaseInstanceStatusDefinition(existing) || isTaskInstanceStatusDefinition(existing);
+
+  const selectOptions = isPlatformStatusDefinition
+    ? [...WORK_STATUS_VALUES]
+    : input.select_options !== undefined
       ? resolveSelectOptions(dataType, input.select_options)
       : existing.select_options;
   if (isSelectDataType(dataType) && selectOptions.length === 0) {
     throw badRequest('error.validation_failed');
   }
 
-  await assertRemovedSelectOptionsNotInUse(client, tenantId, existing, selectOptions);
+  if (!isPlatformStatusDefinition) {
+    await assertRemovedSelectOptionsNotInUse(client, tenantId, existing, selectOptions);
+  }
+
+  if (isSharedRegistryKey(existing.key) && isSelectDataType(dataType)) {
+    assertSharedRegistryLockedSelectOptionsPreserved(existing.key, selectOptions);
+  }
 
   const selectOptionTranslations =
     input.select_option_translations !== undefined
@@ -483,10 +550,11 @@ export async function updateAttributeDefinition(
         : existing.select_option_translations;
 
   const isRequired = input.is_required ?? existing.is_required;
-  let defaultValue = existing.default_value;
-  if (input.default_value !== undefined) {
-    defaultValue = resolveDefaultValue(dataType, selectOptions, input.default_value, false);
-  }
+  const defaultValue = isPlatformStatusDefinition
+    ? DEFAULT_WORK_STATUS
+    : input.default_value !== undefined
+      ? resolveDefaultValue(dataType, selectOptions, input.default_value, false)
+      : existing.default_value;
 
   const result = await client.query<DefinitionRow>(
     `UPDATE meta.attribute_definitions
@@ -518,6 +586,14 @@ export async function deleteAttributeDefinition(
   const existing = await getAttributeDefinition(client, tenantId, id);
   if (!existing) throw notFound();
   assertAttributeDefinitionDeletable(existing);
+  await assertAppAttributeDefinitionDeletable(
+    client,
+    tenantId,
+    existing.owner_type,
+    existing.owner_id,
+    existing.definition_scope,
+    existing.key,
+  );
 
   const inUse = await client.query(
     `SELECT 1 FROM meta.attribute_values WHERE attribute_definition_id = $1 LIMIT 1`,
@@ -532,6 +608,15 @@ export async function deleteAttributeDefinition(
     [tenantId, id],
   );
   if (!result.rowCount) throw notFound();
+
+  await deleteAppAttributeBindings(
+    client,
+    tenantId,
+    existing.owner_type,
+    existing.owner_id,
+    existing.definition_scope,
+    existing.key,
+  );
 }
 
 export async function getAttributeDefinition(

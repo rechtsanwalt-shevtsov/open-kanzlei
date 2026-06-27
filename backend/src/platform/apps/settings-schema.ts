@@ -1,14 +1,83 @@
-export type SettingFieldType = 'string' | 'boolean' | 'number';
+import { badRequest } from '../../api/errors.js';
+import {
+  assertAppSettingRecordSchema,
+  assertAppSettingValueSchema,
+  type AppSettingRecordSchema,
+  validateAppSettingRecordFieldValue,
+} from './settings-schema-record.js';
+
+export type SettingFieldType = 'string' | 'boolean' | 'number' | 'record';
+
+export type {
+  AppSettingRecordKeyFormat,
+  AppSettingRecordKeySchema,
+  AppSettingRecordSchema,
+  AppSettingScalarValueType,
+  AppSettingValueSchema,
+} from './settings-schema-record.js';
 
 export interface AppSettingFieldSchema {
   type: SettingFieldType;
-  default: string | boolean | number;
+  default: unknown;
   allowedValues?: Array<string | boolean | number>;
   tenantConfigurable: boolean;
   userOverridable: boolean;
+  /** Required when type === 'record'. Describes keys and nested value shapes. */
+  record?: AppSettingRecordSchema;
 }
 
 export type AppSettingsSchema = Record<string, AppSettingFieldSchema>;
+
+export function assertAppSettingsSchema(schema: AppSettingsSchema): void {
+  for (const [key, field] of Object.entries(schema)) {
+    assertAppSettingFieldSchema(key, field);
+  }
+}
+
+export function assertAppSettingFieldSchema(key: string, field: AppSettingFieldSchema): void {
+  if (field.type === 'record') {
+    if (!field.record) {
+      throw badRequest('error.validation_failed', { key, reason: 'record schema is required' });
+    }
+    assertAppSettingRecordSchema(key, field.record);
+    validateAppSettingRecordFieldValue(key, field.record, field.default);
+    return;
+  }
+
+  if (field.default === null || field.default === undefined) {
+    throw badRequest('error.validation_failed', { key, reason: 'default is required' });
+  }
+
+  validateScalarFieldValue(key, field, field.default);
+}
+
+function validateScalarFieldValue(
+  key: string,
+  field: AppSettingFieldSchema,
+  value: unknown,
+): unknown {
+  if (field.type === 'string') {
+    if (typeof value !== 'string') throw badRequest('error.validation_failed', { key });
+    if (field.allowedValues && !field.allowedValues.includes(value)) {
+      throw badRequest('error.validation_failed', { key });
+    }
+    return value;
+  }
+  if (field.type === 'boolean') {
+    if (typeof value !== 'boolean') throw badRequest('error.validation_failed', { key });
+    return value;
+  }
+  if (field.type === 'number') {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw badRequest('error.validation_failed', { key });
+    }
+    if (field.allowedValues && !field.allowedValues.includes(value)) {
+      throw badRequest('error.validation_failed', { key });
+    }
+    return value;
+  }
+  throw badRequest('error.validation_failed', { key });
+}
 
 export function buildDefaultSettings(schema: AppSettingsSchema): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -23,21 +92,11 @@ function validateFieldValue(
   field: AppSettingFieldSchema,
   value: unknown,
 ): unknown {
-  if (field.type === 'string') {
-    if (typeof value !== 'string') throw new Error(key);
-    if (field.allowedValues && !field.allowedValues.includes(value)) throw new Error(key);
-    return value;
+  if (field.type === 'record') {
+    if (!field.record) throw badRequest('error.validation_failed', { key });
+    return validateAppSettingRecordFieldValue(key, field.record, value);
   }
-  if (field.type === 'boolean') {
-    if (typeof value !== 'boolean') throw new Error(key);
-    return value;
-  }
-  if (field.type === 'number') {
-    if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(key);
-    if (field.allowedValues && !field.allowedValues.includes(value)) throw new Error(key);
-    return value;
-  }
-  throw new Error(key);
+  return validateScalarFieldValue(key, field, value);
 }
 
 export function pickValidSettings(

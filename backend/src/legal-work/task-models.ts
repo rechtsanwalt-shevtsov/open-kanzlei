@@ -19,6 +19,7 @@ import { assertCaseModelStatus, assertModelKey, toIso } from './validation.js';
 import { allocateUniqueTaskModelKey, slugifyModelKey } from './model-key.js';
 import { seedTaskModelStandardInstanceAttributes } from './task-model-defaults.js';
 import { deleteAttributeDefinitionsForModel } from './entity-guards.js';
+import { provisionAppAttributesOnModel } from '../platform/apps/app-attribute-provisioning.js';
 
 export type { CreateAttributeDefinitionInput, UpdateAttributeDefinitionInput };
 
@@ -228,6 +229,13 @@ export async function createTaskModel(
       await seedTaskModelStandardInstanceAttributes(
         client,
         tenantId,
+        model.id,
+        actorUserId ?? null,
+      );
+      await provisionAppAttributesOnModel(
+        client,
+        tenantId,
+        'task_model',
         model.id,
         actorUserId ?? null,
       );

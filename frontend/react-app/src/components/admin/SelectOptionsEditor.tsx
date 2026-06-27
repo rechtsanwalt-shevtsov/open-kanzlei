@@ -9,6 +9,10 @@ interface SelectOptionsEditorProps {
   onChange: (rows: SelectOptionRow[]) => void;
   disabled?: boolean;
   minRows?: number;
+  /** Fixed platform options: labels editable, keys/order immutable. */
+  labelsOnly?: boolean;
+  /** Shared-registry options: labels editable, keys immutable, may add custom options. */
+  lockedOptionKeys?: readonly string[];
 }
 
 export function SelectOptionsEditor({
@@ -16,10 +20,18 @@ export function SelectOptionsEditor({
   onChange,
   disabled = false,
   minRows = 1,
+  labelsOnly = false,
+  lockedOptionKeys = [],
 }: SelectOptionsEditorProps) {
   const { msg } = useI18n();
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const lockedSet = new Set(lockedOptionKeys);
+  const partialLock = !labelsOnly && lockedOptionKeys.length > 0;
+
+  function isRowLocked(row: SelectOptionRow): boolean {
+    return lockedSet.has(row.key);
+  }
 
   function updateRow(index: number, patch: Partial<SelectOptionRow>) {
     onChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -30,16 +42,23 @@ export function SelectOptionsEditor({
   }
 
   function removeRow(index: number) {
+    const row = rows[index];
+    if (row && isRowLocked(row)) return;
     onChange(rows.filter((_, i) => i !== index));
   }
 
   function moveRow(fromIndex: number, toIndex: number) {
     if (fromIndex === toIndex || disabled) return;
+    const fromRow = rows[fromIndex];
+    const toRow = rows[toIndex];
+    if ((fromRow && isRowLocked(fromRow)) || (toRow && isRowLocked(toRow))) return;
     onChange(reorderSelectOptionRows(rows, fromIndex, toIndex));
   }
 
   function handleDragStart(index: number, event: DragEvent) {
-    if (disabled || rows.length <= minRows) return;
+    const row = rows[index];
+    if (disabled || !row || isRowLocked(row)) return;
+    if (!labelsOnly && rows.length <= minRows) return;
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', String(index));
     setDraggedIndex(index);
@@ -51,7 +70,8 @@ export function SelectOptionsEditor({
   }
 
   function handleDragOver(index: number, event: DragEvent) {
-    if (draggedIndex === null || draggedIndex === index) return;
+    const row = rows[index];
+    if (draggedIndex === null || draggedIndex === index || (row && isRowLocked(row))) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     setDragOverIndex(index);
@@ -67,82 +87,108 @@ export function SelectOptionsEditor({
     setDragOverIndex(null);
   }
 
-  const dragEnabled = !disabled && rows.length > minRows;
+  const showKeyColumn = labelsOnly || partialLock;
+  const showActionsColumn = !labelsOnly;
+  const dragEnabled = !disabled && !labelsOnly;
 
   return (
     <div className="select-options-editor">
       <table className="admin-table admin-table--compact">
         <thead>
           <tr>
-            <th className="admin-table-col-drag" aria-hidden />
+            {!labelsOnly && <th className="admin-table-col-drag" aria-hidden />}
+            {showKeyColumn && <th>{msg('cmdStatusOptionKey')}</th>}
             <th>{msg('cmdStatusOptionLabel')}</th>
-            <th className="admin-table-col-actions" />
+            {showActionsColumn && <th className="admin-table-col-actions" />}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, index) => (
-            <tr
-              key={row.id}
-              className={[
-                draggedIndex === index ? 'select-options-row--dragging' : '',
-                dragOverIndex === index ? 'select-options-row--drag-over' : '',
-              ]
-                .filter(Boolean)
-                .join(' ') || undefined}
-              onDragOver={(event) => handleDragOver(index, event)}
-              onDragLeave={() => {
-                if (dragOverIndex === index) setDragOverIndex(null);
-              }}
-              onDrop={(event) => handleDrop(index, event)}
-            >
-              <td className="admin-table-col-drag">
-                <span
-                  role="button"
-                  tabIndex={dragEnabled ? 0 : -1}
-                  className="select-options-drag-handle"
-                  draggable={dragEnabled}
-                  aria-disabled={!dragEnabled}
-                  aria-label={msg('cmdStatusOptionDrag')}
-                  title={msg('cmdStatusOptionDrag')}
-                  onDragStart={(event) => handleDragStart(index, event)}
-                  onDragEnd={handleDragEnd}
-                >
-                  <LuGripVertical size={16} aria-hidden />
-                </span>
-              </td>
-              <td>
-                <input
-                  className="admin-table-inline-input"
-                  value={row.label}
-                  disabled={disabled}
-                  placeholder={msg('cmdStatusOptionLabel')}
-                  onChange={(e) => updateRow(index, { label: e.target.value })}
-                />
-              </td>
-              <td className="admin-table-col-actions">
-                <button
-                  type="button"
-                  className="button-icon button-icon--danger"
-                  title={msg('attributesDelete')}
-                  aria-label={msg('attributesDelete')}
-                  disabled={disabled || rows.length <= minRows}
-                  onClick={() => removeRow(index)}
-                >
-                  <LuTrash2 size={16} aria-hidden />
-                </button>
-              </td>
-            </tr>
-          ))}
+          {rows.map((row, index) => {
+            const locked = isRowLocked(row);
+            const rowDragEnabled = dragEnabled && !locked && rows.length > minRows;
+            return (
+              <tr
+                key={row.id}
+                className={
+                  !labelsOnly
+                    ? [
+                        draggedIndex === index ? 'select-options-row--dragging' : '',
+                        dragOverIndex === index ? 'select-options-row--drag-over' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ') || undefined
+                    : undefined
+                }
+                onDragOver={labelsOnly ? undefined : (event) => handleDragOver(index, event)}
+                onDragLeave={
+                  labelsOnly
+                    ? undefined
+                    : () => {
+                        if (dragOverIndex === index) setDragOverIndex(null);
+                      }
+                }
+                onDrop={labelsOnly ? undefined : (event) => handleDrop(index, event)}
+              >
+                {!labelsOnly && (
+                  <td className="admin-table-col-drag">
+                    <span
+                      role="button"
+                      tabIndex={rowDragEnabled ? 0 : -1}
+                      className="select-options-drag-handle"
+                      draggable={rowDragEnabled}
+                      aria-disabled={!rowDragEnabled}
+                      aria-label={msg('cmdStatusOptionDrag')}
+                      title={msg('cmdStatusOptionDrag')}
+                      onDragStart={(event) => handleDragStart(index, event)}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <LuGripVertical size={16} aria-hidden />
+                    </span>
+                  </td>
+                )}
+                {showKeyColumn && (
+                  <td>
+                    {locked || labelsOnly ? <code>{row.key}</code> : null}
+                  </td>
+                )}
+                <td>
+                  <input
+                    className="admin-table-inline-input"
+                    value={row.label}
+                    disabled={disabled}
+                    placeholder={msg('cmdStatusOptionLabel')}
+                    onChange={(e) => updateRow(index, { label: e.target.value })}
+                  />
+                </td>
+                {showActionsColumn && (
+                  <td className="admin-table-col-actions">
+                    <button
+                      type="button"
+                      className="button-icon button-icon--danger"
+                      title={msg('attributesDelete')}
+                      aria-label={msg('attributesDelete')}
+                      disabled={disabled || locked || rows.length <= minRows}
+                      onClick={() => removeRow(index)}
+                    >
+                      <LuTrash2 size={16} aria-hidden />
+                    </button>
+                  </td>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
-      <button
-        type="button"
-        className="button-outline select-options-add"
-        disabled={disabled}
-        onClick={addRow}
-      >
-        <LuPlus size={16} aria-hidden /> {msg('cmdStatusOptionAdd')}
-      </button>
+      {!labelsOnly && (
+        <button
+          type="button"
+          className="button-outline select-options-add"
+          disabled={disabled}
+          onClick={addRow}
+        >
+          <LuPlus size={16} aria-hidden /> {msg('cmdStatusOptionAdd')}
+        </button>
+      )}
     </div>
   );
 }

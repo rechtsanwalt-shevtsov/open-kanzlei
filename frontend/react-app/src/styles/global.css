@@ -28,6 +28,26 @@
   /* Case Model Designer — Hintergrund nur für Attributtabellen */
   --cmd-zone-model-bg: #c8ddf5;
   --cmd-zone-case-bg: #fde6b0;
+  --kanban-header-1: #5b8fc9;
+  --kanban-header-1-fg: #ffffff;
+  --kanban-header-2: #5fa377;
+  --kanban-header-2-fg: #ffffff;
+  --kanban-header-3: #cf9347;
+  --kanban-header-3-fg: #ffffff;
+  --kanban-header-4: #9483c4;
+  --kanban-header-4-fg: #ffffff;
+  --kanban-header-5: #cf7676;
+  --kanban-header-5-fg: #ffffff;
+  --kanban-header-6: #56a3b3;
+  --kanban-header-6-fg: #ffffff;
+  --kanban-header-7: #c19a4a;
+  --kanban-header-7-fg: #ffffff;
+  --kanban-header-8: #8086cf;
+  --kanban-header-8-fg: #ffffff;
+  --kanban-header-9: #5fab8f;
+  --kanban-header-9-fg: #ffffff;
+  --kanban-header-10: #cf7693;
+  --kanban-header-10-fg: #ffffff;
   --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
   --radius: 8px;
   --shadow: 0 1px 3px var(--color-shadow);

@@ -11,6 +11,7 @@ import { tenantRoutes } from './api/routes/tenant-routes.js';
 import { legalRoutes } from './api/routes/legal-routes.js';
 import { platformRoutes } from './api/routes/platform-routes.js';
 import { appRoutes } from './api/routes/app-routes.js';
+import { tasksKanbanRoutes } from './api/routes/tasks-kanban-routes.js';
 import { meRoutes, tenantUiRoutes } from './api/routes/ui-preferences-routes.js';
 import { registerAppAssetRoutes } from './platform/apps/app-assets.js';
 import { initializeAppRegistry } from './platform/apps/registry.js';
@@ -76,6 +77,7 @@ export async function buildApp() {
   await app.register(legalRoutes);
   await app.register(platformRoutes);
   await app.register(appRoutes);
+  await app.register(tasksKanbanRoutes);
   await app.register(meRoutes);
   await app.register(tenantUiRoutes);
   await registerAppAssetRoutes(app);

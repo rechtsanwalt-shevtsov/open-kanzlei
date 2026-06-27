@@ -1,0 +1,65 @@
+{
+  "app_key": "tasks-kanban",
+  "name": "Tasks-Kanban",
+  "version": "1.0.0",
+  "description": "Personal Kanban-Board für zugewiesene Tasks.",
+  "has_react_ui": true,
+  "menu_category": "work",
+  "nav_path": "/apps/tasks-kanban",
+  "nav_icon": "LuColumns3",
+  "routes": [
+    { "path": "/apps/tasks-kanban", "label": "Tasks-Kanban" },
+    { "path": "/apps/tasks-kanban/settings", "label": "Einstellungen" }
+  ],
+  "app_group": "flight_level_1",
+  "required_teams": [],
+  "requires_attributes": [
+    { "key": "activity", "target": "task_model" },
+    { "key": "activity_status", "target": "task_model" }
+  ],
+  "provides_attributes": [],
+  "supported_locales": ["de", "en"],
+  "event_subscriptions": [],
+  "settings_schema": {
+    "wipLimitMode": {
+      "type": "string",
+      "default": "soft",
+      "allowedValues": ["soft", "hard"],
+      "tenantConfigurable": true,
+      "userOverridable": false
+    },
+    "wipLimits": {
+      "type": "record",
+      "default": {
+        "default": { "started": 10 },
+        "users": {}
+      },
+      "tenantConfigurable": true,
+      "userOverridable": false,
+      "record": {
+        "properties": {
+          "default": {
+            "type": "record",
+            "properties": {
+              "started": { "type": "integer", "minimum": 0 }
+            },
+            "values": {
+              "type": "integer",
+              "minimum": 0,
+              "keys": { "format": "identifier" }
+            }
+          },
+          "users": {
+            "type": "record",
+            "keys": { "format": "uuid" },
+            "values": {
+              "type": "record",
+              "keys": { "format": "identifier" },
+              "values": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

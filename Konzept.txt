@@ -193,7 +193,8 @@ WICHTIG — title (Instanz-Anzeigename):
   - Kein Ableiten serverlesbarer Keys/Indizes aus dem Titel
 
 WICHTIG — reference/Aktenzeichen:
-  - modelldefiniertes Attribut (optional), nicht Plattform-Standard
+  - Shared-Registry-Attribut key „reference“ (optional, server_readable)
+  - Apps können es per requires_attributes anfordern; Provisionierung bei App-Aktivierung
 
 ================================================================================
 6b. MODELL / INSTANZ — TASKS
@@ -214,7 +215,7 @@ Systemspalten Task-Instanz:
   status, predecessor_task_ids[], dependent_task_ids[] (+ id, tenant_id, …)
 
 Plattform-Instanzattribute Task-Modell:
-  status, title (zero_knowledge, Pflicht), weight (number, optional),
+  status (fest, siehe work status unten), title (zero_knowledge, Pflicht), weight (number, optional),
   due_date (date, optional — Fristende; Vergabe durch Apps),
   predecessor_task_ids, dependent_task_ids
   Referenzen: Hybrid (Spalten + attributes.*), Validierung nur Existenz im Tenant,
@@ -222,7 +223,8 @@ Plattform-Instanzattribute Task-Modell:
 
 Assignees: legal.task_assignees (n:1 Benutzer)
 
-Code: task-models.ts, tasks.ts, task-model-platform-attributes.ts; Migration 021, 024
+Code: task-models.ts, tasks.ts, task-model-platform-attributes.ts, work-status.ts;
+  Migration 021, 024, 029
 
 ================================================================================
 7. BENUTZERDEFINIERTE ATTRIBUTE
@@ -234,10 +236,18 @@ Unterscheidung:
 
   2. Plattform-Standard-Instanzattribute — feste Attributdefinitionen pro Modelltyp,
      vom Backend beim Modell-Anlegen gesetzt; stabile Keys; nicht über die normale
-     Attribute-API löschbar oder strukturell änderbar (nur Instanzwerte pflegbar)
+     Attribute-API löschbar. Struktur (Typ, Optionen, Default) ist plattformfest;
+     nur Anzeige-Labels pro Sprache sind tenant-seitig editierbar (Ausnahme: title).
 
-  3. Benutzerdefinierte Attribute (Tenant/Fach) — vom Admin oder Apps am Modell
-     definiert; KEINE eigenen DB-Spalten pro Attribut
+  3. Shared-Registry-Attribute — zentral kuratiertes, domänenübergreifendes Vokabular
+     (z. B. priority, reminder_date, reference); mehrere Apps können denselben Key
+     per requires_attributes teilen; ein Wert pro Instanz
+
+  4. App-provided Attribute — app-spezifische Keys im Format {app_key}.{local_key}
+     (z. B. scrum.sprint); nur die bereitstellende App deklariert sie im Manifest
+
+  5. Benutzerdefinierte Attribute (Tenant/Fach) — vom Admin in Designer-Apps am Modell
+     manuell definiert; KEINE eigenen DB-Spalten pro Attribut
 
 Tabellen:
   attribute_definitions
@@ -260,34 +270,82 @@ Regeln:
   - Verschlüsselungsentscheidung über attribute_definitions.encryption_mode,
     NICHT über Tabellen- oder Spaltennamen
 
-Plattform-Standard-Instanzattribut — Case-Modell (case_model, scope instance):
+Plattform-Standard-Instanzattribut — work status (Case + Task, scope instance):
   Key (reserviert): status
-  - data_type: single_select — erlaubte Werte pro Case-Modell in select_options
-  - select_option_translations (JSONB): Anzeigenamen pro Option und Sprache
-  - default_value: Standard-Status für neue Case-Instanzen (Key aus select_options)
-  - Standard-Seed bei Modell-Anlage: not_started, started, completed, deferred
-    mit DE/EN-Labels (überschreibbar am Modell)
-  Key (reserviert): title
-  - data_type: text, encryption_mode: zero_knowledge, is_required: true
-  - Pflicht bei Anlage neuer Case-Instanz (attributes.title)
-  Speicherung Instanz status:
-    - Systemspalte legal.cases.status (NOT NULL, für Filter/Indizes)
-    - zusätzlich in API attributes.status gespiegelt (RESERVED_INSTANCE_ATTRIBUTE_KEYS)
-    - Validierung gegen select_options des jeweiligen Case-Modells (nicht global fest)
-  Schutz Definition:
-    - DELETE /v1/attribute-definitions/{id} → 403
-    - manuelles Anlegen von key „status“ am Case-Modell → 403
-    - PATCH erlaubt: select_options, select_option_translations, default_value,
-      translations (Attributlabel); nicht erlaubt: key, data_type, encryption_mode, is_required
-  Schutz select_options:
-    - Entfernen/Umbenennen eines Option-Keys nur, wenn keine Case-Instanz des Modells
-      diesen status-Wert trägt → 409 error.select_option_in_use
-    - Hinzufügen neuer Optionen und Ändern von Labels jederzeit erlaubt
-  Code: case-model-platform-attributes.ts, case-model-defaults.ts, case-instance-status.ts,
-    select-option-translations.ts; Migration 019, 022 (title auf bestehende Case-Modelle)
+  - Zentrale Definition: work-status.ts — WORK_STATUS_VALUES
+  - Feste Werte (sprachneutral, von allen Apps gleich interpretiert):
+      not_started | started | completed
+  - data_type: single_select, encryption_mode: server_readable, is_required: false
+  - select_options: plattformfest (nicht pro Modell änderbar, keine zusätzlichen Werte)
+  - select_option_translations: Anzeigenamen pro Wert und UI-Sprache editierbar
+  - default_value: not_started (plattformfest, nicht änderbar)
+  - Seed bei Modell-Anlage: DEFAULT_WORK_STATUS_OPTION_TRANSLATIONS (DE/EN)
 
-Hinweis: Modell-Lebenszyklus (case_models.status: draft|active|archived) ist ein
-separates Systemfeld — nicht mit Instanz-status verwechseln.
+  Speicherung Instanz status (Hybrid, Case und Task identisch):
+    - Systemspalte legal.cases.status bzw. legal.tasks.status (NOT NULL, Filter/Indizes)
+    - zusätzlich in API attributes.status gespiegelt (RESERVED_INSTANCE_ATTRIBUTE_KEYS)
+    - Validierung gegen WORK_STATUS_VALUES (plattformweit, nicht modellspezifisch)
+
+  Schutz Definition (Case- und Task-Modell):
+    - DELETE /v1/attribute-definitions/{id} → 403
+    - manuelles Anlegen von key „status“ am Modell → 403
+    - PATCH erlaubt: select_option_translations (Labels), translations (Attributlabel)
+    - PATCH nicht erlaubt: select_options, default_value, key, data_type,
+      encryption_mode, is_required
+
+  Key (reserviert): title (nur Case + Task)
+  - data_type: text, encryption_mode: zero_knowledge, is_required: true
+  - Pflicht bei Anlage neuer Case-/Task-Instanz (attributes.title)
+
+  Code: work-status.ts, case-model-platform-attributes.ts, task-model-platform-attributes.ts,
+    case-model-defaults.ts, task-model-defaults.ts, case-instance-status.ts,
+    task-instance-status.ts; Migration 019, 022, 029
+
+Hinweis: Modell-Lebenszyklus (case_models.status / task_models.status: draft|active|archived)
+  ist ein separates Systemfeld — nicht mit Instanz-status verwechseln.
+
+Shared-Registry (Stand, Code: shared-attribute-registry.ts):
+  task_model / instance:
+    - priority (single_select: low, medium, high, critical)
+    - reminder_date (date) — Erinnerung, unterschiedlich zu due_date (Fristende)
+    - activity (single_select) — Bearbeitungsstadium; Kanban-App requires
+    - activity_status (single_select) — in_process | done; Kanban-App requires
+  case_model / instance:
+    - reference (text) — Aktenzeichen / Referenz
+
+App-Attribute — requires vs. provides (Manifest, Code: app-attribute-provisioning.ts):
+  requires_attributes[]:
+    - App fordert einen bekannten Key an (Plattform-Standard oder Shared Registry)
+    - Ziel: target = case_model | task_model, optional definition_scope (default instance)
+    - Plattform legt Definition am Modell an, falls noch nicht vorhanden
+    - Mehrere Apps können denselben Key requires — kein doppeltes Anlegen, ein Wertfeld
+  provides_attributes[]:
+    - App stellt app-eigenes Attribut bereit; local key ohne Namespace im Manifest
+    - Gespeicherter Key: {app_key}.{local_key}
+    - Vollständige Definition (data_type, translations, …) im Manifest
+
+Provisionierung (tenantweit am Modell-Schema):
+  - Bei App-Aktivierung für ein Team: Attribute an allen Modellen des passenden
+    target-Typs im Tenant (alle case_models bzw. alle task_models)
+  - Bei Anlage eines neuen Case-/Task-Modells: Attribute aller für den Tenant
+    aktiven Apps (mindestens ein Team mit status active)
+  - Bindings: platform.app_model_attribute_bindings (app_key, owner, key, role)
+  - Team-Aktivierung steuert Sichtbarkeit/Zugriff; Modell-Schema bleibt kanzleiweit
+
+Schutz App-/Registry-Attribute:
+  - Manuelles Anlegen von Shared-Registry-Keys oder {app_key}.* im Designer → 403
+  - Löschen einer Definition blockiert, solange eine aktive App sie gebunden hat
+    (zusätzlich zu bestehenden Regeln bei Instanzwerten)
+  - App-Deaktivierung entfernt Definitionen nicht; Werte bleiben erhalten
+
+Integrität beim Löschen (keine verwaisten „Leichen“, Code: entity-guards.ts):
+  - Case-Modell: nur löschbar ohne Case-Instanzen → 409 error.model_in_use
+  - Task-Modell: nur löschbar ohne Task-Instanzen → 409 error.model_in_use
+  - Case-Instanz: nur löschbar ohne Task-Instanzen → 409 error.case_in_use;
+    bei erlaubtem Löschen werden zugehörige Attributwerte und Dokumente mit entfernt
+  - Task-Instanz: nur löschbar, wenn kein anderer Task sie als Vorgänger/Nachfolger
+    referenziert → 409 error.task_in_use; Attributwerte werden mit entfernt
+  - Attributdefinition: nur löschbar ohne Instanzwerte → 409 error.attribute_in_use
 
 ================================================================================
 8. DOKUMENTE
@@ -572,22 +630,20 @@ MVP-Regel „Austauschbar“:
   - Plattform kennt Apps über Registry-Scan von apps/ beim Serverstart
     (APPS_PATH, Standard: <repo>/apps); kein manueller Code-Eintrag pro App
   - Jeder Tenant hat eigene app_installations (Status, Version, Timestamps)
-  - GET /v1/apps: nur für den aktuellen Tenant installierte und aktive Apps,
-    für den eingeloggten Benutzer sichtbar (Sidebar, normale Nutzung)
-  - GET /v1/tenant/apps (nur admin): Katalog aller serverweit bekannten Apps
-    mit Installationsstatus für den aktuellen Tenant (aktiv/inaktiv/nicht installiert)
-  - PATCH /v1/tenant/apps/{appKey} (nur admin): App für den Tenant aktivieren
-    oder deaktivieren (status active|inactive); nur eigene app_installations
+  - Team-Aktivierung: platform.app_team_activations (tenant_id, team_id, app_key, status)
+  - GET /v1/apps: Apps, die für mindestens ein Team des Benutzers aktiv sind
+    (Sidebar, gleichrangige Menüpunkte — keine Trennung administration/work)
+  - GET /v1/tenant/apps (nur admin): Katalog mit team_activations[] pro App
+  - PATCH /v1/tenant/apps/{appKey}/teams/{teamId} (nur admin):
+    App für ein Team aktivieren oder deaktivieren (status active|inactive)
+  - Administration in der Sidebar nur für Mitglieder des Teams admin; enthält nur
+    Plattform-Punkte (Settings, Teams und Benutzer, Apps) — keine Apps darin
+  - Tenant-App-Einstellungen nur admin; User-App-Einstellungen für alle mit App-Zugriff
   - First-Party-Apps sind plattformweit in der Registry verfügbar; Nutzung pro
-    Tenant erst nach Aktivierung (Option A, multitenant-sicher)
-  - Administration → Apps: Admin sieht den vollen Katalog und schaltet Apps
-    für seine Kanzlei ein/aus; normale User sehen nur aktive Apps
-  - Neue Tenants (MVP): alle in der Registry bekannten Apps werden bei
-    Registrierung sofort für den neuen Tenant aktiviert (status active)
-  - Neue Tenants (später, mit Kanzlei-Vorlagen): beim Anlegen einer Kanzlei
-    legt die gewählte Vorlage fest, welche Apps von Anfang an aktiviert werden;
-    nicht in der Vorlage enthaltene Apps erscheinen im Katalog, sind aber inaktiv,
-    bis der Admin sie aktiviert
+    Team erst nach Aktivierung durch einen Administrator
+  - Administration → Apps: Matrix (App × Team), Einstellungen-Link pro App
+  - Neue Tenants: alle Apps für alle Teams zunächst inaktiv (Migration/Seed)
+  - Neue Tenants (später, mit Kanzlei-Vorlagen): Initial-Apps über Vorlage
 
 ----------------------------------------------------------------------
 18.2 App-Manifest
@@ -601,12 +657,47 @@ Jede App besitzt ein Manifest mit mindestens:
   description
   routes            — Frontend-Routen der App (Navigation)
   required_teams    — veraltet; Zugriff über Team-Aktivierung in app_team_activations
-  settings_schema   — Definition aller Einstellungen (siehe 18.3)
+  requires_attributes — optional; Shared-/Plattform-Keys, die die App am Modell braucht
+  provides_attributes — optional; app-eigene Attributdefinitionen (→ {app_key}.{key})
+  settings_schema   — Definition aller Einstellungen (siehe 18.3 und 18.3b)
   supported_locales — z. B. ["de", "en"]
   event_subscriptions — optional, MVP nicht auswerten
 
-Manifest und settings_schema liegen in manifest.json; Server validiert daraus,
-Frontend importiert dasselbe JSON für UI-Hilfen (keine Duplikat-TS-Datei mehr).
+Manifest und settings_schema liegen in manifest.json; Server validiert daraus
+(einschließlich requires/provides gegen Shared Registry), Frontend importiert dasselbe
+JSON für UI-Hilfen (keine Duplikat-TS-Datei mehr).
+
+Beispiel requires_attributes (Tasks-App):
+  [{ "key": "due_date", "target": "task_model" },
+   { "key": "priority", "target": "task_model" }]
+
+Beispiel provides_attributes (hypothetische Scrum-App):
+  [{ "key": "sprint", "target": "task_model", "data_type": "single_select",
+     "translations": { "de": "Sprint", "en": "Sprint" },
+     "select_options": ["sprint-1", "sprint-2"] }]
+  → gespeicherter Key: scrum.sprint
+
+----------------------------------------------------------------------
+18.2b App-Attribute und Shared Registry
+----------------------------------------------------------------------
+
+Entscheidung: zentral kuratierte Shared Registry (keine tenant-erweiterbare Registry).
+
+Quellen für requires_attributes:
+  1. Plattform-Standard (z. B. title, due_date) — seed beim Modell-Anlegen
+     Ausnahme status: plattformfest (WORK_STATUS_VALUES), nicht requires-fähig
+  2. Shared Registry — backend/src/platform/apps/shared-attribute-registry.ts
+
+Regeln:
+  - requires verweist nur auf bekannte Keys; unbekannte Keys → Fehler beim Registry-Scan
+  - provides nutzt local keys; Konflikt mit Plattform/Shared-Vokabular verboten
+  - Logik (Scrum, Fristen, Kanban) bleibt in der App; Plattform speichert nur Werte
+  - menu_category im Manifest ist nur noch Metadatum; Sidebar gruppiert nicht mehr danach
+
+Code:
+  - app-attribute-contract.ts — Validierung, Key-Format {app_key}.{local_key}
+  - app-attribute-provisioning.ts — Anlegen an Modellen, Hooks bei Aktivierung/Modell-Neuanlage
+  - app-attribute-bindings.ts — Bindings und Löschschutz
 
 ----------------------------------------------------------------------
 18.3 App-Einstellungen (drei Ebenen)
@@ -621,7 +712,7 @@ Effektive Einstellungen (serverseitig berechnet):
   effective_settings = defaults + tenant_overrides + user_overrides
 
 Regeln:
-  - Plattform validiert alle Werte anhand settings_schema
+  - Plattform validiert alle Werte anhand settings_schema (Feldtypen: siehe 18.3b)
   - Tenant-Settings: PATCH nur mit Team-Mitgliedschaft admin
   - User-Settings: nur Keys mit userOverridable = true
   - App-Settings sind UI-/Vorschlagswerte; sie erzwingen keine Fachregeln
@@ -634,6 +725,101 @@ Tabellen (Vorschlag):
   platform.app_tenant_settings — tenant_id, app_key, settings JSONB, updated_at
   platform.app_user_settings   — tenant_id, user_id, app_key, settings JSONB,
                                updated_at
+
+----------------------------------------------------------------------
+18.3b settings_schema — Feldtypen und record
+----------------------------------------------------------------------
+
+Jeder Key in settings_schema beschreibt ein Einstellungsfeld mit gemeinsamen
+Metadaten und typspezifischer Validierung.
+
+Gemeinsame Felder (AppSettingFieldSchema):
+  type                  — string | boolean | number | record
+  default               — Pflicht; Startwert aus dem Manifest
+  tenantConfigurable    — ob Tenant-Admin den Wert überschreiben darf
+  userOverridable       — ob der Benutzer den Wert überschreiben darf
+  allowedValues         — optional, nur bei type string | number (Top-Level-Skalare)
+
+Skalare Typen (Top-Level und verschachtelt in record):
+  string     — Zeichenkette; optional allowedValues
+  boolean    — true/false
+  number     — endliche Zahl; optional allowedValues, minimum, maximum
+  integer    — ganze Zahl (nur innerhalb record-Wertschemas); optional minimum,
+               maximum, allowedValues
+
+Typ record (strukturierte Einstellungen, Map-of-Maps):
+  Für verschachtelte Konfigurationen (z. B. WIP-Limits pro Benutzer und Spalte).
+  Kein generisches JSON — Form und Validierung sind im Schema festgelegt.
+
+  Zusätzlich am Top-Level-Feld erforderlich:
+    record   — AppSettingRecordSchema (Unterschema)
+
+  AppSettingRecordSchema (mindestens eines von properties oder values):
+    properties   — feste Unterkeys mit je eigenem AppSettingValueSchema
+                   (Struct/Teil-Struct; unbekannte Keys → Validierungsfehler)
+    values       — offene Map: beliebige Keys, alle Werte gleicher Form
+                   (typisch für dynamische IDs wie Benutzer-UUIDs)
+    keys         — optional, nur bei values relevant:
+                     enum: [ … ]           — nur diese Keys erlaubt
+                     format: uuid          — Key muss UUID sein
+                     format: identifier    — Key: Kleinbuchstabe, Ziffern, _
+    nullable     — optional; null als Ganzwert erlaubt
+
+  AppSettingValueSchema ist rekursiv: Werte in properties/values können wieder
+  record sein (beliebige Verschachtelungstiefe im Schema).
+
+Speicherung:
+  - record-Werte werden als JSON-Objekt in platform.app_tenant_settings.settings
+    bzw. app_user_settings.settings abgelegt (JSONB)
+  - Keine Arrays als record-Wurzel; Listen gehören nicht in settings_schema
+
+Validierung (serverseitig):
+  - Beim Registry-Scan: assertAppSettingsSchema — Schema und default je Feld
+  - Bei PATCH tenant/user settings: pickValidSettings — nur erlaubte Keys,
+    Werte gegen Schema (inkl. record keys/values rekursiv)
+  - mergeEffectiveSettings validiert nicht erneut (nur Merge der Ebenen)
+
+Code:
+  - backend/src/platform/apps/settings-schema.ts
+  - backend/src/platform/apps/settings-schema-record.ts
+  - frontend/react-app/src/lib/app-settings-schema.ts (geteilte TS-Typen)
+  - OpenAPI: AppSettingFieldSchema, AppSettingRecordSchema, AppSettingValueSchema
+
+UI (Stand MVP):
+  - Skalare: Select in Kanzlei-/Benutzer-Spalte (wie bisher)
+  - record: read-only JSON-Vorschau (code.admin-settings-record-preview);
+    kein generischer Editor — app-spezifische UI folgt pro Setting später
+
+Abstraktes Beispiel (noch in keiner App manifestiert — Kanban-Vorbereitung):
+
+  wipLimits:
+    type: record
+    default: { "users": {}, "teams": {}, "default": {} }
+    tenantConfigurable: true
+    userOverridable: false
+    record:
+      properties:
+        users:
+          type: record
+          keys: { format: uuid }
+          values:
+            type: record
+            keys: { format: identifier }
+            values: { type: integer, minimum: 0 }
+        teams:
+          type: record
+          keys: { format: uuid }
+          values:
+            type: record
+            keys: { format: identifier }
+            values: { type: integer, minimum: 0 }
+        default:
+          type: record
+          keys: { format: identifier }
+          values: { type: integer, minimum: 0 }
+
+  Bedeutung: users["<uuid>"]["started"] = 5 — WIP-Limit 5 für Spalte started
+  eines Benutzers; teams analog; default für Fallback ohne Benutzer-/Team-Eintrag.
 
 ----------------------------------------------------------------------
 18.4 settings_schema — case-model-designer (Muster-App)
@@ -674,10 +860,11 @@ OpenAPI-Tag: Apps (openapi/paths/apps.yaml)
        — installierte/aktive Apps des aktuellen Tenants für den User (Sidebar)
 
   GET  /v1/tenant/apps
-       — Katalog aller serverweit bekannten Apps mit Status für den Tenant (admin)
+       — Katalog aller serverweit bekannten Apps mit team_activations[] (admin)
 
-  PATCH /v1/tenant/apps/{appKey}
-       — App für den Tenant aktivieren oder deaktivieren (admin)
+  PATCH /v1/tenant/apps/{appKey}/teams/{teamId}
+       — App für ein Team aktivieren oder deaktivieren (admin);
+         bei Aktivierung: Provisionierung requires/provides an betroffenen Modellen
 
   GET  /v1/apps/{appKey}/manifest
 
@@ -689,6 +876,31 @@ OpenAPI-Tag: Apps (openapi/paths/apps.yaml)
 
   GET  /v1/me/apps/{appKey}/settings
   PATCH /v1/me/apps/{appKey}/settings
+
+----------------------------------------------------------------------
+18.5b App-Fach-APIs — tasks-kanban
+----------------------------------------------------------------------
+
+Erste App mit app-spezifischen Fach-Endpunkten unter /v1/apps/{appKey}/…
+(Fachlogik im Modul backend/src/apps/tasks-kanban/, nicht in legal-work).
+
+  GET  /v1/apps/tasks-kanban/board?assignee_user_id=&search=
+       — Board-Struktur, Karten, WIP-Zähler; Auto-Reparatur inkonsistenter Tasks
+
+  POST /v1/apps/tasks-kanban/moves
+       — body: { assignee_user_id?, task_id, direction: left|right|goal }
+       — Zustandsmaschine + WIP-Prüfung (hart/weich); nur Kanban-Move erzwingt WIP
+
+  PATCH /v1/apps/tasks-kanban/wip-limits (admin)
+       — WIP-Limit für gefilterten Benutzer / Spalte (auch Inline-Stift am Board)
+
+Manifest: apps/tasks-kanban/manifest.json
+  requires_attributes: activity, activity_status (Shared Registry)
+  settings: wipLimitMode (soft|hard), wipLimits (record: default + users)
+
+Board-Layout (API): not_started | started (Swimlanes) | completed (gemeinsame Spalte).
+Erledigte Tasks: legal.tasks.completed_at (gesetzt bei status=completed), Sortierung
+absteigend nach Erledigungsdatum.
 
 ----------------------------------------------------------------------
 18.6 Case-Model APIs (bestehend, von App genutzt)
@@ -851,7 +1063,7 @@ Phase A — OpenAPI und Konzept (Dokumentation)
 Phase B — Backend Plattform (Apps)
   [x] Migration: app_installations, app_tenant_settings, app_user_settings
   [x] platform/apps/: Registry (statisch case-model-designer), Manifest laden,
-      Settings-Merge, Validierung gegen settings_schema
+      Settings-Merge, Validierung gegen settings_schema (inkl. Typ record, 18.3b)
   [x] api/routes/app-routes.ts: alle Endpunkte aus 18.5
   [x] Bei register-tenant: alle Registry-Apps installieren (status active)
   [x] Event app_settings.updated bei PATCH tenant/user settings
@@ -888,9 +1100,12 @@ Phase F — später (nicht in dieser Runde)
 
 Phase G — App-Plattform ausbauen [x]
   [x] apps/<app-key>/ im Monorepo; case-model-designer migriert
-  [x] OpenAPI: GET /v1/tenant/apps, PATCH /v1/tenant/apps/{appKey}/teams/{teamId}
-  [x] Backend: Registry-Scan, listTenantAppCatalog, setTeamAppStatus, app_team_activations
-  [x] Frontend: AdminAppsPage Katalog + Toggle; Sidebar-Refresh
+  [x] Teams statt Rollen; Team-Aktivierung pro App (026, 027)
+  [x] OpenAPI: GET /v1/tenant/apps, PATCH …/teams/{teamId}
+  [x] Backend: setTeamAppStatus, app_team_activations, Sidebar-Zugriff per User-Teams
+  [x] Frontend: AdminAppsPage Matrix; Sidebar ohne administration/work-Gruppierung
+  [x] requires_attributes / provides_attributes; Shared Registry; Provisionierung
+  [x] Integrität beim Löschen (Modelle, Cases, Tasks, Attribute)
   [x] apps/-Scan beim Serverstart; /app-assets/{appKey}/; npm run build:apps
   [ ] Tests: admin-only Katalog; User sieht nur aktive Apps; Tenant-Isolation
   [ ] Später: Kanzlei-Vorlagen steuern Initial-Apps (20.1)
@@ -912,7 +1127,7 @@ Abnahme App-MVP:
   | Work Context im Backend  | Keine Interpretation; nur Rohdaten + APIs |
   | Work-Context API         | Gruppe reservieren, Endpunkte später      |
   | Case title               | Modell-Attribut, zero_knowledge           |
-  | Aktenzeichen/reference   | Modell-Attribut                           |
+  | Aktenzeichen/reference   | Shared-Registry-Attribut reference (optional) |
   | Attribute definieren     | Nur auf Modellen, nicht auf Instanzen     |
   | Instanziierung           | Lazy (B)                                  |
   | Login                    | tenant_slug + username + password         |
@@ -930,10 +1145,16 @@ Abnahme App-MVP:
   | Registry                   | Scan APPS_PATH beim Serverstart           |
   | App-Assets                 | /app-assets/{appKey}/ aus frontend/dist/  |
   | App-Berechtigung         | Team-Aktivierung pro App (app_team_activations) |
+  | App-Sidebar              | Alle aktiven Apps gleichrangig; Admin-Gruppe nur admin |
+  | App-Attribute requires   | Shared Registry + Plattform-Standard; ein Key, ein Wert |
+  | App-Attribute provides   | {app_key}.{local_key}; nur bereitstellende App         |
+  | Shared Registry          | Zentral kuratiert (priority, reminder_date, reference) |
+  | Lösch-Integrität         | Keine Modelle/Cases/Tasks/Attribute mit Abhängigkeiten |
   | Case-Model-UI            | Nur in case-model-designer-App            |
   | Case-Model API-Pfade     | Bestehende /case-models, /attributes      |
   | CaseModel status         | draft, active, archived (Enum)              |
   | App-Settings vs. POST    | Nur Formular-Vorschlag, kein POST-Zwang   |
+  | App-Settings record      | Typ record für Map-of-Maps; Schema in 18.3b |
   | Attribute API-Pfad       | …/attributes (nicht attribute-definitions)|
   | Attribut-Felder Phase 2  | help_text, required, sort_order           |
   | data_type Phase 2        | money, select                             |

@@ -119,6 +119,7 @@ Rechte werden über **Teams** vergeben (kein separates Rollen-System). Standard-
 - Verwaltung: `/admin/users` (Teams und Benutzer anlegen, bearbeiten, löschen — nur Administratoren)
 - Team „Administratoren“ kann nicht gelöscht werden; andere Teams nur ohne zugewiesene Benutzer
 - App-Zugriff: pro Team aktivierbar unter `/admin/apps` (nur Administratoren); Sidebar zeigt Apps, die für mindestens ein Team des Benutzers aktiv sind
+- App-Attribute: Apps deklarieren `requires_attributes` (Shared Registry) und `provides_attributes` (app-spezifisch) im Manifest — siehe Konzept.txt §7 und §18.2b
 
 ## Frontend (Schritt 3)
 

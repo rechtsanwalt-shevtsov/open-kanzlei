@@ -1,0 +1,76 @@
+tasks-kanban-board:
+  get:
+    tags: [Apps]
+    operationId: getTasksKanbanBoard
+    summary: Kanban board for an assignee user
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - name: assignee_user_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: search
+        in: query
+        schema:
+          type: string
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/tasks-kanban.yaml#/KanbanBoard'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+tasks-kanban-moves:
+  post:
+    tags: [Apps]
+    operationId: postTasksKanbanMove
+    summary: Move a task card on the Kanban board
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/tasks-kanban.yaml#/KanbanMoveRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/tasks-kanban.yaml#/KanbanBoard'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+tasks-kanban-wip-limits:
+  patch:
+    tags: [Apps]
+    operationId: patchTasksKanbanWipLimits
+    summary: Set WIP limit for a user column (admin)
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/tasks-kanban.yaml#/KanbanWipLimitPatch'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/tasks-kanban.yaml#/KanbanWipLimitResponse'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'

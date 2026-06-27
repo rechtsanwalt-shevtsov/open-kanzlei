@@ -3,6 +3,9 @@ import { badRequest } from '../api/errors.js';
 import type { AttributeDefinitionDto } from './attributes.js';
 import { listAttributeDefinitions } from './attributes.js';
 import { isTaskInstanceStatusDefinition } from './task-model-platform-attributes.js';
+import { DEFAULT_WORK_STATUS, WORK_STATUS_VALUES } from './work-status.js';
+
+const WORK_STATUS_SET = new Set<string>(WORK_STATUS_VALUES);
 
 export async function getTaskStatusDefinition(
   client: pg.PoolClient,
@@ -31,11 +34,6 @@ export async function resolveTaskInstanceStatus(
     throw badRequest('error.validation_failed');
   }
 
-  const options = statusDef.select_options ?? [];
-  if (options.length === 0) {
-    throw badRequest('error.validation_failed');
-  }
-
   const fromAttrs = attributes?.status;
   let raw: string | undefined;
   if (typeof fromAttrs === 'string' && fromAttrs.trim()) {
@@ -45,10 +43,10 @@ export async function resolveTaskInstanceStatus(
   } else if (typeof statusDef.default_value === 'string' && statusDef.default_value.trim()) {
     raw = statusDef.default_value.trim();
   } else {
-    raw = options[0];
+    raw = DEFAULT_WORK_STATUS;
   }
 
-  if (!raw || !options.includes(raw)) {
+  if (!raw || !WORK_STATUS_SET.has(raw)) {
     throw badRequest('error.invalid_attribute_value');
   }
   return raw;

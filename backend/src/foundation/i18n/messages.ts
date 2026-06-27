@@ -28,7 +28,8 @@ export type MessageKey =
   | 'error.team_protected'
   | 'error.team_has_members'
   | 'error.cannot_delete_self'
-  | 'error.task_model_not_allowed_on_case_model';
+  | 'error.task_model_not_allowed_on_case_model'
+  | 'error.kanban_wip_limit';
 
 const messages: Record<MessageKey, Record<Locale, string>> = {
   'error.unauthorized': {
@@ -142,6 +143,10 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
   'error.task_model_not_allowed_on_case_model': {
     de: 'Dieses Task-Modell ist für das Case-Modell nicht erlaubt.',
     en: 'This task model is not allowed on the case model.',
+  },
+  'error.kanban_wip_limit': {
+    de: 'Nicht zulässig. WIP-Limit erreicht.',
+    en: 'Not allowed. WIP limit reached.',
   },
 };
 

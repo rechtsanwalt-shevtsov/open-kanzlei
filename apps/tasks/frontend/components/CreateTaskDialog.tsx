@@ -26,8 +26,12 @@ function fieldLabel(def: AttributeDefinition, locale: string): string {
   );
 }
 
-function isEditableCreateField(def: AttributeDefinition): boolean {
+function isEditableCreateField(
+  def: AttributeDefinition,
+  hiddenFieldKeys: ReadonlySet<string>,
+): boolean {
   if (def.key === 'status') return false;
+  if (hiddenFieldKeys.has(def.key)) return false;
   if (isTaskReferencePlatformKey(def.key)) return false;
   return true;
 }
@@ -39,6 +43,11 @@ interface CreateTaskDialogProps {
   caseModels: CaseModel[];
   onClose: () => void;
   onCreated: (taskId: string) => void;
+  /** When true, status is not shown and `forcedStatus` is sent on create. */
+  hideStatus?: boolean;
+  forcedStatus?: string;
+  /** Instance field keys hidden in the create form (e.g. activity). */
+  hiddenFieldKeys?: string[];
 }
 
 export function CreateTaskDialog({
@@ -48,8 +57,13 @@ export function CreateTaskDialog({
   caseModels,
   onClose,
   onCreated,
+  hideStatus = false,
+  forcedStatus = 'not_started',
+  hiddenFieldKeys = [],
 }: CreateTaskDialogProps) {
   const { locale, msg } = useI18n();
+  const hiddenKeys = useMemo(() => new Set(hiddenFieldKeys), [hiddenFieldKeys]);
+
   const activeModels = useMemo(
     () => taskModels.filter((m) => m.status === 'active'),
     [taskModels],
@@ -80,6 +94,8 @@ export function CreateTaskDialog({
   const [instanceFields, setInstanceFields] = useState<AttributeDefinition[]>([]);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [multiFieldValues, setMultiFieldValues] = useState<Record<string, string[]>>({});
+  const [assigneeUserId, setAssigneeUserId] = useState('');
+  const [users, setUsers] = useState<components['schemas']['TenantUser'][]>([]);
   const [fieldsLoading, setFieldsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -92,8 +108,21 @@ export function CreateTaskDialog({
     setInstanceFields([]);
     setFieldValues({});
     setMultiFieldValues({});
+    setAssigneeUserId('');
     setError(null);
   }, [open, activeModels, caseOptions]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void api.GET('/v1/users', { headers: apiHeaders(locale) }).then((res) => {
+      if (cancelled || res.error || !res.data) return;
+      setUsers(res.data.items ?? []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, locale]);
 
   useEffect(() => {
     if (!open || !taskModelId) {
@@ -122,7 +151,7 @@ export function CreateTaskDialog({
       const initial: Record<string, string> = {};
       const initialMulti: Record<string, string[]> = {};
       for (const def of defs) {
-        if (!isEditableCreateField(def)) continue;
+        if (!isEditableCreateField(def, hiddenKeys)) continue;
         if (def.data_type === 'multi_select') {
           initialMulti[def.key] = defaultMultiSelectValue(def);
         } else {
@@ -145,9 +174,9 @@ export function CreateTaskDialog({
   const sortedFields = useMemo(
     () =>
       [...instanceFields]
-        .filter(isEditableCreateField)
+        .filter((def) => isEditableCreateField(def, hiddenKeys))
         .sort((a, b) => fieldLabel(a, locale).localeCompare(fieldLabel(b, locale))),
-    [instanceFields, locale],
+    [instanceFields, hiddenKeys, locale],
   );
 
   if (!open) return null;
@@ -237,7 +266,7 @@ export function CreateTaskDialog({
 
     const attributes: Record<string, unknown> = {};
     for (const def of instanceFields) {
-      if (!isEditableCreateField(def)) continue;
+      if (!isEditableCreateField(def, hiddenKeys)) continue;
       const raw = fieldValues[def.key] ?? '';
       const multi = multiFieldValues[def.key] ?? [];
       const parsed = parseFieldValueFromState(def, raw, multi);
@@ -258,7 +287,8 @@ export function CreateTaskDialog({
       body: {
         case_id: caseId,
         task_model_id: taskModelId,
-        status,
+        status: hideStatus ? forcedStatus : status,
+        assignee_user_ids: assigneeUserId ? [assigneeUserId] : undefined,
         attributes: Object.keys(attributes).length ? attributes : undefined,
       },
     });
@@ -316,7 +346,7 @@ export function CreateTaskDialog({
                 </select>
               </label>
 
-              {statusDefinition && (
+              {!hideStatus && statusDefinition && (
                 <label>
                   {statusDefinition.display_name ??
                     labelFromTranslations(statusDefinition.translations, 'status', locale)}
@@ -329,6 +359,21 @@ export function CreateTaskDialog({
                   />
                 </label>
               )}
+
+              <label>
+                {msg('tasColAssignee')}
+                <select
+                  value={assigneeUserId}
+                  onChange={(e) => setAssigneeUserId(e.target.value)}
+                >
+                  <option value="">{msg('tasAssigneeNone')}</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.username}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
               {fieldsLoading && <p className="status">{msg('loading')}</p>}
               {!fieldsLoading && sortedFields.length > 0 && (

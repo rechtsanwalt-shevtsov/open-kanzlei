@@ -24,6 +24,7 @@ import {
 } from '../settings-schema.js';
 
 import { userIsAdmin } from '@shell/lib/is-admin.js';
+import { isRecordSettingField } from '@shell/lib/app-settings-schema.js';
 
 function normalizeSettings(raw: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -260,10 +261,19 @@ export function AppSettingsPage() {
                           <code className="admin-settings-key">{key}</code>
                         </td>
                         <td className="admin-table-muted">
-                          {formatSettingValue(key, field.default, msg)}
+                          {formatSettingValue(key, field.default, msg, field)}
                         </td>
                         <td>
-                          {field.tenantConfigurable && admin ? (
+                          {isRecordSettingField(field) ? (
+                            <span
+                              className="admin-table-muted"
+                              title={msg('appSettingsRecordReadOnly')}
+                            >
+                              <code className="admin-settings-record-preview">
+                                {formatSettingValue(key, firm, msg, field)}
+                              </code>
+                            </span>
+                          ) : field.tenantConfigurable && admin ? (
                             <select
                               className="admin-settings-select"
                               value={settingSelectValue(firm)}
@@ -278,14 +288,23 @@ export function AppSettingsPage() {
                             </select>
                           ) : field.tenantConfigurable ? (
                             <span className="admin-table-muted">
-                              {formatSettingValue(key, firm, msg)}
+                              {formatSettingValue(key, firm, msg, field)}
                             </span>
                           ) : (
                             <span className="admin-table-muted">{msg('tmdSettingsNotConfigurable')}</span>
                           )}
                         </td>
                         <td>
-                          {field.userOverridable ? (
+                          {isRecordSettingField(field) ? (
+                            <span
+                              className="admin-table-muted"
+                              title={msg('appSettingsRecordReadOnly')}
+                            >
+                              <code className="admin-settings-record-preview">
+                                {formatSettingValue(key, user, msg, field)}
+                              </code>
+                            </span>
+                          ) : field.userOverridable ? (
                             <select
                               className="admin-settings-select"
                               value={settingSelectValue(user)}

@@ -15,7 +15,9 @@ import type { Locale } from '../../i18n/locale.js';
 import { labelFromTranslations } from '../../lib/model-label.js';
 import type { DefinitionScope } from '../../lib/attribute-api.js';
 import {
+  buildFixedSelectOptionsLabelPayload,
   buildSelectOptionsPayload,
+  buildSelectOptionsPayloadWithLockedKeys,
   createEmptySelectOptionRow,
   normalizeSelectOptionRows,
   toSelectOptionRows,
@@ -41,6 +43,8 @@ export type AttributeDialogLockFields = {
   dataType?: boolean;
   isRequired?: boolean;
   encryption?: boolean;
+  selectOptions?: boolean;
+  defaultValue?: boolean;
 };
 
 interface AttributeDialogProps {
@@ -101,6 +105,7 @@ export function AttributeDialog({
   const isMultiSelect = dataType === 'multi_select';
   const showSelectOptions = isSelectDataType(dataType);
   const showEncryption = definitionScope === 'instance';
+  const lockedOptionKeys = attribute?.locked_select_options ?? [];
 
   useEffect(() => {
     if (!open) return;
@@ -179,17 +184,42 @@ export function AttributeDialog({
     let selectOptionTranslations: Record<string, Record<string, string>> | undefined;
 
     if (extendedFields && showSelectOptions) {
-      const payload = buildSelectOptionsPayload(optionRows, locale, attribute);
-      if (payload.select_options.length === 0) {
-        setError(msg('cmdStatusOptionLabelRequired'));
-        return;
+      if (lockFields?.selectOptions && attribute) {
+        const fixedKeys = attribute.select_options ?? [];
+        const payload = buildFixedSelectOptionsLabelPayload(
+          optionRows,
+          locale,
+          fixedKeys,
+          attribute,
+        );
+        if (!payload.select_options.every((key) => fixedKeys.includes(key))) {
+          setError(msg('errorGeneric'));
+          return;
+        }
+        selectOptions = payload.select_options;
+        selectOptionTranslations = payload.select_option_translations;
+      } else if (lockedOptionKeys.length > 0 && attribute) {
+        const payload = buildSelectOptionsPayloadWithLockedKeys(
+          optionRows,
+          locale,
+          lockedOptionKeys,
+          attribute,
+        );
+        selectOptions = payload.select_options;
+        selectOptionTranslations = payload.select_option_translations;
+      } else {
+        const payload = buildSelectOptionsPayload(optionRows, locale, attribute);
+        if (payload.select_options.length === 0) {
+          setError(msg('cmdStatusOptionLabelRequired'));
+          return;
+        }
+        selectOptions = payload.select_options;
+        selectOptionTranslations = payload.select_option_translations;
       }
-      selectOptions = payload.select_options;
-      selectOptionTranslations = payload.select_option_translations;
     }
 
     let defaultValue: unknown = null;
-    if (extendedFields) {
+    if (extendedFields && !lockFields?.defaultValue) {
       if (isSingleSelect && defaultText.trim()) {
         defaultValue = defaultText.trim();
         if (!selectOptions?.includes(defaultValue as string)) {
@@ -288,11 +318,16 @@ export function AttributeDialog({
           {extendedFields && showSelectOptions && (
             <fieldset className="select-options-fieldset">
               <legend>{msg('fieldsSelectOptions')}</legend>
-              <SelectOptionsEditor rows={optionRows} onChange={setOptionRows} />
+              <SelectOptionsEditor
+                rows={optionRows}
+                onChange={setOptionRows}
+                labelsOnly={lockFields?.selectOptions}
+                lockedOptionKeys={lockFields?.selectOptions ? undefined : lockedOptionKeys}
+              />
             </fieldset>
           )}
 
-          {extendedFields && (
+          {extendedFields && !lockFields?.defaultValue && (
             <div className="attribute-default-value">
               <span className="attribute-default-value-label">
                 {definitionScope === 'model' ? msg('cmdColValue') : msg('fieldsDefaultValue')}

@@ -32,6 +32,26 @@ html[data-theme='classic'] {
   --color-shadow: rgba(26, 35, 50, 0.08);
   --cmd-zone-model-bg: #c8ddf5;
   --cmd-zone-case-bg: #fde6b0;
+  --kanban-header-1: #5b8fc9;
+  --kanban-header-1-fg: #ffffff;
+  --kanban-header-2: #5fa377;
+  --kanban-header-2-fg: #ffffff;
+  --kanban-header-3: #cf9347;
+  --kanban-header-3-fg: #ffffff;
+  --kanban-header-4: #9483c4;
+  --kanban-header-4-fg: #ffffff;
+  --kanban-header-5: #cf7676;
+  --kanban-header-5-fg: #ffffff;
+  --kanban-header-6: #56a3b3;
+  --kanban-header-6-fg: #ffffff;
+  --kanban-header-7: #c19a4a;
+  --kanban-header-7-fg: #ffffff;
+  --kanban-header-8: #8086cf;
+  --kanban-header-8-fg: #ffffff;
+  --kanban-header-9: #5fab8f;
+  --kanban-header-9-fg: #ffffff;
+  --kanban-header-10: #cf7693;
+  --kanban-header-10-fg: #ffffff;
 }
 
 /* Modern */
@@ -63,9 +83,27 @@ html[data-theme='modern'] {
   --color-shadow: rgba(34, 40, 49, 0.08);
   --cmd-zone-model-bg: #b8e8f0;
   --cmd-zone-case-bg: #ffe4b8;
+  --kanban-header-1: #4a5568;
+  --kanban-header-1-fg: #ffffff;
+  --kanban-header-2: #4fa89b;
+  --kanban-header-2-fg: #ffffff;
+  --kanban-header-3: #d08a52;
+  --kanban-header-3-fg: #ffffff;
+  --kanban-header-4: #9277c4;
+  --kanban-header-4-fg: #ffffff;
+  --kanban-header-5: #d07a52;
+  --kanban-header-5-fg: #ffffff;
+  --kanban-header-6: #5189b3;
+  --kanban-header-6-fg: #ffffff;
+  --kanban-header-7: #c2a052;
+  --kanban-header-7-fg: #ffffff;
+  --kanban-header-8: #7a82cf;
+  --kanban-header-8-fg: #ffffff;
+  --kanban-header-9: #57a884;
+  --kanban-header-9-fg: #ffffff;
+  --kanban-header-10: #cf6f9e;
+  --kanban-header-10-fg: #ffffff;
 }
-
-/* Forest */
 html[data-theme='forest'] {
   --color-bg: #f7f7f5;
   --color-surface: #ffffff;
@@ -94,6 +132,26 @@ html[data-theme='forest'] {
   --color-shadow: rgba(47, 93, 80, 0.08);
   --cmd-zone-model-bg: #c5e0d4;
   --cmd-zone-case-bg: #f0e2c8;
+  --kanban-header-1: #5a8276;
+  --kanban-header-1-fg: #ffffff;
+  --kanban-header-2: #6a9b73;
+  --kanban-header-2-fg: #ffffff;
+  --kanban-header-3: #b39152;
+  --kanban-header-3-fg: #ffffff;
+  --kanban-header-4: #84759b;
+  --kanban-header-4-fg: #ffffff;
+  --kanban-header-5: #b36b6b;
+  --kanban-header-5-fg: #ffffff;
+  --kanban-header-6: #5a9b96;
+  --kanban-header-6-fg: #ffffff;
+  --kanban-header-7: #a8945f;
+  --kanban-header-7-fg: #ffffff;
+  --kanban-header-8: #71916b;
+  --kanban-header-8-fg: #ffffff;
+  --kanban-header-9: #5a9b80;
+  --kanban-header-9-fg: #ffffff;
+  --kanban-header-10: #a86b52;
+  --kanban-header-10-fg: #ffffff;
 }
 
 /* Midnight (dark) */
@@ -125,4 +183,24 @@ html[data-theme='midnight'] {
   --color-shadow: rgba(0, 0, 0, 0.35);
   --cmd-zone-model-bg: #1e3a5f;
   --cmd-zone-case-bg: #422006;
+  --kanban-header-1: #3f5e85;
+  --kanban-header-1-fg: #e2e8f0;
+  --kanban-header-2: #3e7a63;
+  --kanban-header-2-fg: #e2e8f0;
+  --kanban-header-3: #8a6a3c;
+  --kanban-header-3-fg: #e2e8f0;
+  --kanban-header-4: #5f5483;
+  --kanban-header-4-fg: #e2e8f0;
+  --kanban-header-5: #8a4f4f;
+  --kanban-header-5-fg: #e2e8f0;
+  --kanban-header-6: #3f7884;
+  --kanban-header-6-fg: #e2e8f0;
+  --kanban-header-7: #897a45;
+  --kanban-header-7-fg: #e2e8f0;
+  --kanban-header-8: #54588a;
+  --kanban-header-8-fg: #e2e8f0;
+  --kanban-header-9: #3f7d68;
+  --kanban-header-9-fg: #e2e8f0;
+  --kanban-header-10: #8a5068;
+  --kanban-header-10-fg: #e2e8f0;
 }

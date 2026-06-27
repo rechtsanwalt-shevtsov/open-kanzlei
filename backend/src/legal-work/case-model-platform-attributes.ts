@@ -1,6 +1,10 @@
 import { forbidden } from '../api/errors.js';
 import type { DefinitionScope, ModelOwnerType } from './validation.js';
-import { WORK_STATUS_VALUES } from './work-status.js';
+import {
+  WORK_STATUS_VALUES,
+  assertPlatformWorkStatusSelectOptionTranslationsAllowed,
+  assertPlatformWorkStatusSelectOptionsUnchanged,
+} from './work-status.js';
 import type { SelectOptionTranslations } from './select-option-translations.js';
 
 /** Platform contract: instance attribute keys on every case model. */
@@ -13,21 +17,25 @@ const PLATFORM_KEY_SET = new Set<string>(CASE_MODEL_PLATFORM_INSTANCE_ATTRIBUTE_
 
 export type PlatformInstanceAttributeSeed = {
   key: string;
-  data_type: 'text' | 'single_select' | 'number' | 'date';
+  data_type: 'text' | 'single_select' | 'number' | 'date' | 'multi_select';
   translations: Record<string, string>;
   encryption_mode: 'server_readable' | 'zero_knowledge';
   is_required: boolean;
   select_options?: string[];
   select_option_translations?: SelectOptionTranslations;
+  /** Registry options that tenants may label but not remove or rename. */
+  locked_select_options?: string[];
   default_value?: string | number;
 };
 
-export const DEFAULT_CASE_STATUS_OPTION_TRANSLATIONS: SelectOptionTranslations = {
+export const DEFAULT_WORK_STATUS_OPTION_TRANSLATIONS: SelectOptionTranslations = {
   not_started: { de: 'Noch nicht begonnen', en: 'Not started' },
   started: { de: 'In Bearbeitung', en: 'In progress' },
   completed: { de: 'Abgeschlossen', en: 'Completed' },
-  deferred: { de: 'Zurückgestellt', en: 'Deferred' },
 };
+
+/** @deprecated Use DEFAULT_WORK_STATUS_OPTION_TRANSLATIONS */
+export const DEFAULT_CASE_STATUS_OPTION_TRANSLATIONS = DEFAULT_WORK_STATUS_OPTION_TRANSLATIONS;
 
 export const CASE_MODEL_PLATFORM_INSTANCE_DEFINITIONS: ReadonlyArray<PlatformInstanceAttributeSeed> =
   [
@@ -38,7 +46,7 @@ export const CASE_MODEL_PLATFORM_INSTANCE_DEFINITIONS: ReadonlyArray<PlatformIns
       encryption_mode: 'server_readable',
       is_required: false,
       select_options: [...WORK_STATUS_VALUES],
-      select_option_translations: DEFAULT_CASE_STATUS_OPTION_TRANSLATIONS,
+      select_option_translations: DEFAULT_WORK_STATUS_OPTION_TRANSLATIONS,
       default_value: 'not_started',
     },
     {
@@ -109,6 +117,15 @@ export function assertCasePlatformAttributeUpdateAllowed(
     }
     if (input.is_required !== undefined && input.is_required !== def.is_required) {
       throw forbidden('error.attribute_definition_reserved');
+    }
+    if (input.select_options !== undefined) {
+      assertPlatformWorkStatusSelectOptionsUnchanged(input.select_options);
+    }
+    if (input.default_value !== undefined) {
+      throw forbidden('error.attribute_definition_reserved');
+    }
+    if (input.select_option_translations !== undefined) {
+      assertPlatformWorkStatusSelectOptionTranslationsAllowed(input.select_option_translations);
     }
     return;
   }

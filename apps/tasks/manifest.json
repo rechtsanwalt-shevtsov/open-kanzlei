@@ -11,7 +11,13 @@
     { "path": "/apps/tasks", "label": "Tasks" },
     { "path": "/apps/tasks/settings", "label": "Einstellungen" }
   ],
+  "app_group": "flight_level_1",
   "required_teams": [],
+  "requires_attributes": [
+    { "key": "due_date", "target": "task_model" },
+    { "key": "priority", "target": "task_model" }
+  ],
+  "provides_attributes": [],
   "supported_locales": ["de", "en"],
   "event_subscriptions": [],
   "settings_schema": {

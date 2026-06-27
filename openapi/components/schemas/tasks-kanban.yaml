@@ -1,0 +1,187 @@
+KanbanCard:
+  type: object
+  required:
+    - id
+    - title
+    - case_id
+    - case_title
+    - assignee_usernames
+    - open_dependent_tasks
+  properties:
+    id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    case_id:
+      type: string
+      format: uuid
+    case_title:
+      type: string
+    weight:
+      type: number
+      nullable: true
+    due_date:
+      type: string
+      nullable: true
+    assignee_usernames:
+      type: array
+      items:
+        type: string
+    open_dependent_tasks:
+      type: array
+      items:
+        type: object
+        required: [id, title]
+        properties:
+          id:
+            type: string
+            format: uuid
+          title:
+            type: string
+
+KanbanWipCell:
+  type: object
+  required: [count, limit, over]
+  properties:
+    count:
+      type: integer
+    limit:
+      type: integer
+      nullable: true
+    over:
+      type: boolean
+
+KanbanBoard:
+  type: object
+  required:
+    - assignee_user_id
+    - wip_limit_mode
+    - layout
+    - wip
+    - not_started
+    - completed
+  properties:
+    assignee_user_id:
+      type: string
+      format: uuid
+    wip_limit_mode:
+      type: string
+      enum: [soft, hard]
+    layout:
+      type: string
+      enum: [empty, full]
+    wip:
+      type: object
+      required: [started]
+      properties:
+        started:
+          $ref: '#/KanbanWipCell'
+    not_started:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/KanbanCard'
+    completed:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/KanbanCard'
+    swimlanes:
+      type: array
+      items:
+        $ref: '#/KanbanSwimlane'
+
+KanbanSwimlane:
+  type: object
+  required: [id, task_model_ids, activities]
+  properties:
+    id:
+      type: string
+    task_model_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+    activities:
+      type: array
+      items:
+        $ref: '#/KanbanActivityColumn'
+
+KanbanActivityColumn:
+  type: object
+  required: [key, label, labels, wip, in_process, done]
+  properties:
+    key:
+      type: string
+    label:
+      type: string
+      description: Resolved activity label for the request locale
+    labels:
+      type: object
+      additionalProperties:
+        type: string
+    wip:
+      $ref: '#/KanbanWipCell'
+    in_process:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/KanbanCard'
+    done:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/KanbanCard'
+
+KanbanMoveRequest:
+  type: object
+  required: [task_id, direction]
+  properties:
+    assignee_user_id:
+      type: string
+      format: uuid
+    task_id:
+      type: string
+      format: uuid
+    direction:
+      type: string
+      enum: [left, right, goal]
+
+KanbanWipLimitPatch:
+  type: object
+  required: [assignee_user_id, column_key]
+  properties:
+    assignee_user_id:
+      type: string
+      format: uuid
+    column_key:
+      type: string
+    limit:
+      type: integer
+      minimum: 0
+      nullable: true
+
+KanbanWipLimitResponse:
+  type: object
+  required: [assignee_user_id, limits]
+  properties:
+    assignee_user_id:
+      type: string
+      format: uuid
+    limits:
+      type: object
+      additionalProperties:
+        type: integer

@@ -1,8 +1,11 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { badRequest, notFound } from '../../api/errors.js';
+import { badRequest, forbidden, notFound } from '../../api/errors.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 import * as appService from '../../platform/apps/app-service.js';
+import * as assignmentService from '../../platform/apps/app-assignment-service.js';
+import { normalizeAppGroupAssignments } from '../../platform/apps/app-groups.js';
 import { getAppManifest } from '../../platform/apps/registry.js';
+import { userIsAdmin } from '../../platform/teams/team-service.js';
 
 const auth = { preHandler: requireAuth };
 const admin = { preHandler: requireAdmin };
@@ -18,6 +21,10 @@ function appKeyParam(request: FastifyRequest): string {
 
 function teamIdParam(request: FastifyRequest): string {
   return (request.params as { teamId: string }).teamId;
+}
+
+function userIdParam(request: FastifyRequest): string {
+  return (request.params as { userId: string }).userId;
 }
 
 async function assertAppAccess(
@@ -104,5 +111,48 @@ export async function appRoutes(app: FastifyInstance): Promise<void> {
     await assertAppAccess(tenantId, userId, appKey);
     const body = (req.body ?? {}) as Record<string, unknown>;
     return appService.patchUserAppSettings(tenantId, userId, appKey, body);
+  });
+
+  app.get('/v1/tenant/app-assignments', admin, async (req) => {
+    const { tenantId } = ctx(req);
+    return assignmentService.listTenantAppAssignments(tenantId);
+  });
+
+  app.put('/v1/tenant/teams/:teamId/app-assignments', admin, async (req) => {
+    const { tenantId, userId } = ctx(req);
+    const teamId = teamIdParam(req);
+    const assignments = normalizeAppGroupAssignments(req.body);
+    return assignmentService.setTeamAppAssignments(tenantId, teamId, assignments, userId);
+  });
+
+  app.put('/v1/tenant/users/:userId/app-assignments', admin, async (req) => {
+    const { tenantId, userId: actorUserId } = ctx(req);
+    const userId = userIdParam(req);
+    const assignments = normalizeAppGroupAssignments(req.body);
+    return assignmentService.setUserAppAssignments(tenantId, userId, assignments, actorUserId);
+  });
+
+  app.delete('/v1/tenant/users/:userId/app-assignments', admin, async (req) => {
+    const { tenantId } = ctx(req);
+    const userId = userIdParam(req);
+    await assignmentService.clearUserAppAssignments(tenantId, userId);
+    return { ok: true };
+  });
+
+  app.get('/v1/me/active-apps-by-group', auth, async (req) => {
+    const { tenantId, userId } = ctx(req);
+    return assignmentService.getActiveAppsByGroupForUser(tenantId, userId);
+  });
+
+  app.get('/v1/users/:userId/active-apps-by-group', auth, async (req) => {
+    const { tenantId, userId: actorUserId, teams } = {
+      ...ctx(req),
+      teams: req.user!.teams,
+    };
+    const userId = userIdParam(req);
+    if (actorUserId !== userId && !userIsAdmin(teams)) {
+      throw forbidden();
+    }
+    return assignmentService.getActiveAppsByGroupForUser(tenantId, userId);
   });
 }

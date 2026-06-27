@@ -14,9 +14,11 @@ import { selectOptionLabel } from '@shell/lib/select-option-labels.js';
 import { instanceTitle } from '@shell/lib/work-instance.js';
 import type { components } from '@shell/api/schema.js';
 import { TaskFieldValueCell } from '../components/TaskFieldValueCell.js';
+import { TaskAssigneeSelect } from '../components/TaskAssigneeSelect.js';
 import { taskTitle } from '../lib/task-display.js';
 
 type TaskItem = components['schemas']['Task'];
+type TenantUser = components['schemas']['TenantUser'];
 
 function isEditableDetailField(def: AttributeDefinition): boolean {
   if (def.key === 'status') return false;
@@ -32,6 +34,7 @@ export function TaskDetailPage() {
   const [modelLabel, setModelLabel] = useState('');
   const [caseLabel, setCaseLabel] = useState('');
   const [fields, setFields] = useState<AttributeDefinition[]>([]);
+  const [users, setUsers] = useState<TenantUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fieldSaving, setFieldSaving] = useState(false);
@@ -92,6 +95,12 @@ export function TaskDetailPage() {
       return;
     }
     setFields((attrsRes.data?.items ?? []) as AttributeDefinition[]);
+
+    const usersRes = await api.GET('/v1/users', { headers });
+    if (!usersRes.error && usersRes.data) {
+      setUsers(usersRes.data.items ?? []);
+    }
+
     setLoading(false);
   }, [id, locale, msg]);
 
@@ -234,6 +243,24 @@ export function TaskDetailPage() {
                       </td>
                     </tr>
                   )}
+                  <tr className="admin-table-row--system">
+                    <td>
+                      {msg('tasColAssignee')}
+                      <span className="admin-table-sub"> ({msg('cmdSystemField')})</span>
+                    </td>
+                    <td className="admin-table-col-status">{msg('cmdFieldTypeEnum')}</td>
+                    <td>
+                      <TaskAssigneeSelect
+                        taskId={task.id}
+                        assignees={task.assignees}
+                        users={users}
+                        locale={locale}
+                        saving={fieldSaving}
+                        onSavingChange={setFieldSaving}
+                        onUpdated={(updated) => setTask(updated)}
+                      />
+                    </td>
+                  </tr>
                   {sortedFields.length === 0 ? (
                     <tr>
                       <td colSpan={3}>{msg('tasFieldsEmpty')}</td>

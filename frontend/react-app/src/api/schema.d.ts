@@ -176,6 +176,92 @@ export interface paths {
         patch: operations["patchTeamAppStatus"];
         trace?: never;
     };
+    "/v1/tenant/app-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List app group assignments for all teams and user overrides (admin) */
+        get: operations["listTenantAppAssignments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/teams/{teamId}/app-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set app group assignments for a team (admin) */
+        put: operations["setTeamAppAssignments"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/users/{userId}/app-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set per-user app group assignment override (admin) */
+        put: operations["setUserAppAssignments"];
+        post?: never;
+        /** Remove per-user app assignment override (admin) */
+        delete: operations["clearUserAppAssignments"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/active-apps-by-group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Effective active apps per group for the current user */
+        get: operations["getMyActiveAppsByGroup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/users/{userId}/active-apps-by-group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Effective active apps per group for a user (self or admin) */
+        get: operations["getUserActiveAppsByGroup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/apps/{appKey}/manifest": {
         parameters: {
             query?: never;
@@ -244,6 +330,57 @@ export interface paths {
         head?: never;
         /** Update user app settings */
         patch: operations["patchUserAppSettings"];
+        trace?: never;
+    };
+    "/v1/apps/tasks-kanban/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Kanban board for an assignee user */
+        get: operations["getTasksKanbanBoard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/apps/tasks-kanban/moves": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move a task card on the Kanban board */
+        post: operations["postTasksKanbanMove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/apps/tasks-kanban/wip-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set WIP limit for a user column (admin) */
+        patch: operations["patchTasksKanbanWipLimits"];
         trace?: never;
     };
     "/v1/teams": {
@@ -626,6 +763,11 @@ export interface components {
             /** @description Lucide icon name for sidebar navigation (e.g. LuBriefcaseBusiness) */
             nav_icon: string | null;
         };
+        /**
+         * @description App group membership declared in manifest.json. Flight-level groups allow exactly one active app per team/user; unassigned apps are multi-select.
+         * @enum {string}
+         */
+        AppGroup: "unassigned" | "flight_level_0" | "flight_level_1" | "flight_level_2" | "flight_level_3";
         TeamAppActivation: {
             /** Format: uuid */
             team_id: string;
@@ -638,18 +780,116 @@ export interface components {
             has_react_ui: boolean;
             /** @description Route to app settings page (e.g. /apps/cases/settings) */
             settings_path: string | null;
+            app_group: components["schemas"]["AppGroup"];
             team_activations: components["schemas"]["TeamAppActivation"][];
         };
         PatchTeamAppStatusRequest: {
             status: components["schemas"]["AppInstallationStatus"];
         };
+        AppCatalogItem: {
+            app_key: components["schemas"]["AppKey"];
+            name: string;
+            app_group: components["schemas"]["AppGroup"];
+            has_react_ui: boolean;
+            settings_path: string | null;
+        };
+        AppGroupAssignments: {
+            flight_level_0: components["schemas"]["AppKey"] | null;
+            flight_level_1: components["schemas"]["AppKey"] | null;
+            flight_level_2: components["schemas"]["AppKey"] | null;
+            flight_level_3: components["schemas"]["AppKey"] | null;
+            unassigned: components["schemas"]["AppKey"][];
+        };
+        TeamAppAssignmentRow: {
+            /** Format: uuid */
+            team_id: string;
+            team_name: string;
+            assignments: components["schemas"]["AppGroupAssignments"];
+        };
+        UserAppAssignmentRow: {
+            /** Format: uuid */
+            user_id: string;
+            username: string;
+            assignments: components["schemas"]["AppGroupAssignments"];
+        };
+        TenantAppAssignments: {
+            apps: components["schemas"]["AppCatalogItem"][];
+            teams: components["schemas"]["TeamAppAssignmentRow"][];
+            user_overrides: components["schemas"]["UserAppAssignmentRow"][];
+        };
+        ActiveAppsByGroup: components["schemas"]["AppGroupAssignments"] & {
+            active_apps: components["schemas"]["AppKey"][];
+        };
+        /** @enum {string} */
+        AppAttributeTarget: "case_model" | "task_model";
+        /**
+         * @default instance
+         * @enum {string}
+         */
+        AppAttributeDefinitionScope: "model" | "instance";
+        AppRequiresAttribute: {
+            /** @description Shared registry or platform-standard attribute key */
+            key: string;
+            target: components["schemas"]["AppAttributeTarget"];
+            definition_scope?: components["schemas"]["AppAttributeDefinitionScope"];
+        };
+        AppProvidesAttribute: {
+            /** @description Local key without namespace; stored as {app_key}.{key} */
+            key: string;
+            target: components["schemas"]["AppAttributeTarget"];
+            definition_scope?: components["schemas"]["AppAttributeDefinitionScope"];
+            /** @enum {string} */
+            data_type: "text" | "number" | "money" | "date" | "boolean" | "single_select" | "multi_select";
+            translations: {
+                [key: string]: string;
+            };
+            /** @enum {string} */
+            encryption_mode?: "server_readable" | "zero_knowledge";
+            is_required?: boolean;
+            select_options?: string[];
+            select_option_translations?: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
+            default_value?: unknown;
+        };
+        AppSettingRecordKeySchema: {
+            enum?: string[];
+            /** @enum {string} */
+            format?: "uuid" | "identifier";
+        };
+        /** @description Recursive value schema for record fields and nested maps */
+        AppSettingValueSchema: {
+            /** @enum {string} */
+            type: "string" | "boolean" | "number" | "integer" | "record";
+            allowedValues?: unknown[];
+            minimum?: number;
+            maximum?: number;
+            nullable?: boolean;
+            keys?: components["schemas"]["AppSettingRecordKeySchema"];
+            properties?: {
+                [key: string]: components["schemas"]["AppSettingValueSchema"];
+            };
+            values?: components["schemas"]["AppSettingValueSchema"];
+        };
+        /** @description Open map (values) and/or fixed properties. At least one of properties or values is required when used as a record field schema. */
+        AppSettingRecordSchema: {
+            keys?: components["schemas"]["AppSettingRecordKeySchema"];
+            properties?: {
+                [key: string]: components["schemas"]["AppSettingValueSchema"];
+            };
+            values?: components["schemas"]["AppSettingValueSchema"];
+            nullable?: boolean;
+        };
         AppSettingFieldSchema: {
             /** @enum {string} */
-            type: "string" | "boolean" | "number";
+            type: "string" | "boolean" | "number" | "record";
             default: unknown;
             allowedValues?: unknown[];
             tenantConfigurable: boolean;
             userOverridable: boolean;
+            record?: components["schemas"]["AppSettingRecordSchema"];
         };
         AppManifest: {
             app_key: components["schemas"]["AppKey"];
@@ -668,11 +908,16 @@ export interface components {
             }[];
             /** @description Deprecated; app access is controlled via team activation */
             required_teams: string[];
+            /** @description Shared or platform attributes the app needs on models */
+            requires_attributes?: components["schemas"]["AppRequiresAttribute"][];
+            /** @description App-specific attributes provisioned on activation */
+            provides_attributes?: components["schemas"]["AppProvidesAttribute"][];
             settings_schema: {
                 [key: string]: components["schemas"]["AppSettingFieldSchema"];
             };
             supported_locales: ("de" | "en")[];
             event_subscriptions?: string[];
+            app_group: components["schemas"]["AppGroup"];
         };
         AppSettings: {
             [key: string]: unknown;
@@ -684,6 +929,86 @@ export interface components {
         /** @description Partial settings object; only allowed keys are accepted */
         PatchAppSettingsRequest: {
             [key: string]: unknown;
+        };
+        KanbanWipCell: {
+            count: number;
+            limit: number | null;
+            over: boolean;
+        };
+        KanbanCard: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: uuid */
+            case_id: string;
+            case_title: string;
+            weight?: number | null;
+            due_date?: string | null;
+            assignee_usernames: string[];
+            open_dependent_tasks: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+            }[];
+        };
+        KanbanActivityColumn: {
+            key: string;
+            /** @description Resolved activity label for the request locale */
+            label: string;
+            labels: {
+                [key: string]: string;
+            };
+            wip: components["schemas"]["KanbanWipCell"];
+            in_process: {
+                cards: components["schemas"]["KanbanCard"][];
+            };
+            done: {
+                cards: components["schemas"]["KanbanCard"][];
+            };
+        };
+        KanbanSwimlane: {
+            id: string;
+            task_model_ids: string[];
+            activities: components["schemas"]["KanbanActivityColumn"][];
+        };
+        KanbanBoard: {
+            /** Format: uuid */
+            assignee_user_id: string;
+            /** @enum {string} */
+            wip_limit_mode: "soft" | "hard";
+            /** @enum {string} */
+            layout: "empty" | "full";
+            wip: {
+                started: components["schemas"]["KanbanWipCell"];
+            };
+            not_started: {
+                cards: components["schemas"]["KanbanCard"][];
+            };
+            completed: {
+                cards: components["schemas"]["KanbanCard"][];
+            };
+            swimlanes?: components["schemas"]["KanbanSwimlane"][];
+        };
+        KanbanMoveRequest: {
+            /** Format: uuid */
+            assignee_user_id?: string;
+            /** Format: uuid */
+            task_id: string;
+            /** @enum {string} */
+            direction: "left" | "right" | "goal";
+        };
+        KanbanWipLimitPatch: {
+            /** Format: uuid */
+            assignee_user_id: string;
+            column_key: string;
+            limit?: number | null;
+        };
+        KanbanWipLimitResponse: {
+            /** Format: uuid */
+            assignee_user_id: string;
+            limits: {
+                [key: string]: number;
+            };
         };
         Team: {
             /** Format: uuid */
@@ -826,6 +1151,8 @@ export interface components {
             select_option_labels?: {
                 [key: string]: string;
             };
+            /** @description Shared-registry option keys that may be labeled but not removed or renamed (read-only in responses) */
+            locked_select_options?: string[];
             /** @description Default for new instances (instance scope) or model value (model scope) */
             default_value?: unknown;
             /** @description Resolved label for the effective request locale (Accept-Language), with fallback de → en → key */
@@ -969,6 +1296,11 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /**
+             * Format: date-time
+             * @description Set when status becomes completed; cleared when status leaves completed
+             */
+            completed_at?: string | null;
         };
         CreateCaseTaskRequest: {
             /** Format: uuid */
@@ -1346,6 +1678,155 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listTenantAppAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantAppAssignments"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setTeamAppAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppGroupAssignments"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamAppAssignmentRow"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setUserAppAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppGroupAssignments"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAppAssignmentRow"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    clearUserAppAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getMyActiveAppsByGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveAppsByGroup"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getUserActiveAppsByGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveAppsByGroup"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getAppManifest: {
         parameters: {
             query?: never;
@@ -1494,6 +1975,82 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getTasksKanbanBoard: {
+        parameters: {
+            query?: {
+                assignee_user_id?: string;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KanbanBoard"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postTasksKanbanMove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KanbanMoveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KanbanBoard"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchTasksKanbanWipLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KanbanWipLimitPatch"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KanbanWipLimitResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     listTeams: {

@@ -9,10 +9,18 @@ import {
   type AppMenuCategory,
 } from './registry.js';
 import {
-  buildDefaultSettings,
+  getTeamAssignments,
+  listActiveAppsForUser,
+  setTeamAppAssignmentsInTx,
+  userHasAppAccessFromAssignments,
+} from './app-assignment-service.js';
+import { EMPTY_APP_GROUP_ASSIGNMENTS, type AppGroupAssignments } from './app-groups.js';
+import {
   mergeEffectiveSettings,
   pickValidSettings,
 } from './settings-schema.js';
+import { parseWipLimits } from '../../apps/tasks-kanban/wip-limits.js';
+import { TASKS_KANBAN_APP_KEY } from '../../apps/tasks-kanban/constants.js';
 
 export interface AppInstallationDto {
   app_key: string;
@@ -37,11 +45,44 @@ export interface TenantAppCatalogEntryDto {
   version: string;
   has_react_ui: boolean;
   settings_path: string | null;
+  app_group: string;
   team_activations: TeamAppActivationDto[];
 }
 
 function toIso(date: Date): string {
   return date.toISOString();
+}
+
+function applyTeamAppToggle(
+  assignments: AppGroupAssignments,
+  appKey: string,
+  appGroup: string,
+  status: 'active' | 'inactive',
+): AppGroupAssignments {
+  const next: AppGroupAssignments = {
+    ...assignments,
+    unassigned: [...assignments.unassigned],
+  };
+
+  if (appGroup === 'unassigned') {
+    const idx = next.unassigned.indexOf(appKey);
+    if (status === 'active' && idx < 0) next.unassigned.push(appKey);
+    if (status === 'inactive' && idx >= 0) next.unassigned.splice(idx, 1);
+    next.unassigned.sort();
+    return next;
+  }
+
+  if (
+    appGroup === 'flight_level_0' ||
+    appGroup === 'flight_level_1' ||
+    appGroup === 'flight_level_2' ||
+    appGroup === 'flight_level_3'
+  ) {
+    if (status === 'active') next[appGroup] = appKey;
+    else if (next[appGroup] === appKey) next[appGroup] = null;
+  }
+
+  return next;
 }
 
 function settingsPathFromManifest(manifest: AppManifestDto): string | null {
@@ -116,6 +157,15 @@ export async function seedTeamActivationsForTenant(
       );
     }
   }
+
+  for (const team of teams.rows) {
+    await client.query(
+      `INSERT INTO platform.team_app_assignments (tenant_id, team_id, assignments)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (tenant_id, team_id) DO NOTHING`,
+      [tenantId, team.id, JSON.stringify(EMPTY_APP_GROUP_ASSIGNMENTS)],
+    );
+  }
 }
 
 export async function seedTeamActivationsForTeam(
@@ -132,6 +182,13 @@ export async function seedTeamActivationsForTeam(
       [tenantId, teamId, appKey],
     );
   }
+
+  await client.query(
+    `INSERT INTO platform.team_app_assignments (tenant_id, team_id, assignments)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (tenant_id, team_id) DO NOTHING`,
+    [tenantId, teamId, JSON.stringify(EMPTY_APP_GROUP_ASSIGNMENTS)],
+  );
 }
 
 export async function installDefaultAppsForNewTenant(
@@ -147,18 +204,7 @@ async function userHasAppAccess(
   userId: string,
   appKey: string,
 ): Promise<boolean> {
-  const manifest = getAppManifest(appKey);
-  if (!manifest) return false;
-
-  const result = await client.query(
-    `SELECT 1
-     FROM platform.app_team_activations ata
-     JOIN platform.user_teams ut ON ut.team_id = ata.team_id AND ut.user_id = $3
-     WHERE ata.tenant_id = $1 AND ata.app_key = $2 AND ata.status = 'active'
-     LIMIT 1`,
-    [tenantId, appKey, userId],
-  );
-  return Boolean(result.rowCount);
+  return userHasAppAccessFromAssignments(client, tenantId, userId, appKey);
 }
 
 async function requireAppAccess(
@@ -188,28 +234,27 @@ export async function listInstalledAppsForUser(
   tenantId: string,
   userId: string,
 ): Promise<AppInstallationDto[]> {
-  return withTenantTransaction(tenantId, async (client) => {
-    const result = await client.query<{
-      app_key: string;
-      version: string;
-      installed_at: Date;
-    }>(
-      `SELECT DISTINCT ai.app_key, ai.version, ai.installed_at
-       FROM platform.app_team_activations ata
-       JOIN platform.user_teams ut ON ut.team_id = ata.team_id AND ut.user_id = $2
-       JOIN platform.app_installations ai
-         ON ai.tenant_id = ata.tenant_id AND ai.app_key = ata.app_key
-       WHERE ata.tenant_id = $1 AND ata.status = 'active'
-       ORDER BY ai.app_key`,
-      [tenantId, userId],
-    );
+  const activeKeys = await listActiveAppsForUser(tenantId, userId);
 
+  return withTenantTransaction(tenantId, async (client) => {
     const items: AppInstallationDto[] = [];
-    for (const row of result.rows) {
-      const manifest = getAppManifest(row.app_key);
+    for (const appKey of activeKeys) {
+      const manifest = getAppManifest(appKey);
       if (!manifest) continue;
+
+      const installation = await client.query<{
+        version: string;
+        installed_at: Date;
+      }>(
+        `SELECT version, installed_at FROM platform.app_installations
+         WHERE tenant_id = $1 AND app_key = $2`,
+        [tenantId, appKey],
+      );
+      const row = installation.rows[0];
+      if (!row) continue;
+
       items.push({
-        app_key: row.app_key,
+        app_key: appKey,
         name: manifest.name,
         version: row.version,
         status: 'active',
@@ -280,6 +325,7 @@ export async function listTenantAppCatalog(tenantId: string): Promise<TenantAppC
         version: manifest.version,
         has_react_ui: manifest.has_react_ui,
         settings_path: settingsPathFromManifest(manifest),
+        app_group: manifest.app_group,
         team_activations: teamActivations,
       });
     }
@@ -311,29 +357,10 @@ export async function setTeamAppStatus(
 
     await registerAppForTenant(client, tenantId, appKey);
 
-    await client.query(
-      `INSERT INTO platform.app_team_activations (tenant_id, team_id, app_key, status)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (tenant_id, team_id, app_key) DO UPDATE
-         SET status = EXCLUDED.status, updated_at = now()`,
-      [tenantId, teamId, appKey, status],
-    );
+    const assignments = await getTeamAssignments(client, tenantId, teamId);
+    const next = applyTeamAppToggle(assignments, appKey, manifest.app_group, status);
 
-    const installation = await client.query<{ id: string }>(
-      `SELECT id FROM platform.app_installations WHERE tenant_id = $1 AND app_key = $2`,
-      [tenantId, appKey],
-    );
-    const installationId = installation.rows[0]?.id;
-    if (installationId) {
-      await getEventService().publish(client, {
-        tenantId,
-        type: status === 'active' ? 'app.activated' : 'app.deactivated',
-        aggregateType: 'app_installation',
-        aggregateId: installationId,
-        actorUserId,
-        data: { app_key: appKey, team_id: teamId },
-      });
-    }
+    await setTeamAppAssignmentsInTx(client, tenantId, teamId, next, actorUserId);
   });
 
   const catalog = await listTenantAppCatalog(tenantId);
@@ -422,6 +449,9 @@ export async function patchTenantAppSettings(
       ...(existing.rows[0]?.settings ?? {}),
       ...validated,
     };
+    if (appKey === TASKS_KANBAN_APP_KEY && merged.wipLimits !== undefined) {
+      merged.wipLimits = parseWipLimits(merged.wipLimits);
+    }
 
     await client.query(
       `INSERT INTO platform.app_tenant_settings (tenant_id, app_key, settings)

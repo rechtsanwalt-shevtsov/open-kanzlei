@@ -450,7 +450,14 @@ export function TaskModelDetailPage() {
   }
 
   const platformLockFields = editTarget && isTaskPlatformInstanceAttribute(editTarget)
-    ? { name: true, dataType: true, isRequired: true, encryption: true }
+    ? {
+        name: true,
+        dataType: true,
+        isRequired: true,
+        encryption: true,
+        selectOptions: editTarget.key === 'status',
+        defaultValue: editTarget.key === 'status',
+      }
     : undefined;
 
   return (
@@ -669,6 +676,7 @@ export function TaskModelDetailPage() {
                                 saving={fieldSaving}
                                 onSavingChange={setFieldSaving}
                                 onUpdated={() => void refresh()}
+                                readOnly={row.platformKey === 'status'}
                               />
                             )}
                           </td>

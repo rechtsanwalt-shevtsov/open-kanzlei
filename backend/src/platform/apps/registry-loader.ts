@@ -1,6 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { AppSettingsSchema } from './settings-schema.js';
+import { assertAppSettingsSchema } from './settings-schema.js';
+import {
+  assertManifestAttributeContracts,
+  type ManifestProvidesAttribute,
+  type ManifestRequiresAttribute,
+} from './app-attribute-contract.js';
+import { isAppGroup, type AppGroup } from './app-groups.js';
+
+export type { ManifestProvidesAttribute, ManifestRequiresAttribute };
 
 export type AppMenuCategory = 'administration' | 'work';
 
@@ -15,9 +24,12 @@ export interface AppManifestDto {
   nav_icon: string;
   routes: Array<{ path: string; label: string }>;
   required_teams: string[];
+  requires_attributes: ManifestRequiresAttribute[];
+  provides_attributes: ManifestProvidesAttribute[];
   settings_schema: AppSettingsSchema;
   supported_locales: readonly string[];
   event_subscriptions: string[];
+  app_group: AppGroup;
 }
 
 interface RawManifest {
@@ -33,8 +45,11 @@ interface RawManifest {
   required_teams?: string[];
   required_roles?: string[];
   settings_schema?: AppSettingsSchema;
+  requires_attributes?: ManifestRequiresAttribute[];
+  provides_attributes?: ManifestProvidesAttribute[];
   supported_locales?: string[];
   event_subscriptions?: string[];
+  app_group?: string;
 }
 
 function normalizeManifest(raw: RawManifest, appDir: string): AppManifestDto {
@@ -43,6 +58,10 @@ function normalizeManifest(raw: RawManifest, appDir: string): AppManifestDto {
   }
   if (!raw.settings_schema || typeof raw.settings_schema !== 'object') {
     throw new Error(`Invalid manifest in ${appDir}: settings_schema is required`);
+  }
+  const appGroup = raw.app_group ?? 'unassigned';
+  if (!isAppGroup(appGroup)) {
+    throw new Error(`Invalid manifest in ${appDir}: unknown app_group "${appGroup}"`);
   }
 
   return {
@@ -56,9 +75,12 @@ function normalizeManifest(raw: RawManifest, appDir: string): AppManifestDto {
     nav_icon: raw.nav_icon ?? 'LuPuzzle',
     routes: raw.routes ?? [],
     required_teams: raw.required_teams ?? raw.required_roles ?? [],
+    requires_attributes: raw.requires_attributes ?? [],
+    provides_attributes: raw.provides_attributes ?? [],
     settings_schema: raw.settings_schema,
     supported_locales: raw.supported_locales ?? ['de', 'en'],
     event_subscriptions: raw.event_subscriptions ?? [],
+    app_group: appGroup,
   };
 }
 
@@ -78,7 +100,9 @@ export function loadAppManifestsFromDirectory(appsDir: string): Record<string, A
     if (!fs.existsSync(manifestPath)) continue;
 
     const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as RawManifest;
+    assertAppSettingsSchema(raw.settings_schema ?? {});
     const manifest = normalizeManifest(raw, appDir);
+    assertManifestAttributeContracts(manifest);
     registry[manifest.app_key] = manifest;
   }
 

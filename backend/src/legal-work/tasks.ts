@@ -57,6 +57,7 @@ export interface TaskDto {
   assignees: AssigneeDto[];
   created_at: string;
   updated_at: string;
+  completed_at: string | null;
 }
 
 type TaskRow = {
@@ -70,7 +71,11 @@ type TaskRow = {
   encryption_version: number | null;
   created_at: Date;
   updated_at: Date;
+  completed_at: Date | null;
 };
+
+const TASK_ROW_SELECT = `id, case_id, task_model_id, status, predecessor_task_ids, dependent_task_ids,
+                encryption_status, encryption_version, created_at, updated_at, completed_at`;
 
 function withPlatformTaskAttributes(
   row: Pick<TaskRow, 'status' | 'predecessor_task_ids' | 'dependent_task_ids'>,
@@ -115,6 +120,7 @@ function mapTaskRow(row: TaskRow): Omit<TaskDto, 'attributes' | 'assignees'> {
     encryption_version: row.encryption_version,
     created_at: toIso(row.created_at),
     updated_at: toIso(row.updated_at),
+    completed_at: row.completed_at ? toIso(row.completed_at) : null,
   };
 }
 
@@ -151,8 +157,7 @@ export async function listTasks(
     let result;
     if (filters?.case_id && filters?.task_model_id) {
       result = await client.query<TaskRow>(
-        `SELECT id, case_id, task_model_id, status, predecessor_task_ids, dependent_task_ids,
-                encryption_status, encryption_version, created_at, updated_at
+        `SELECT ${TASK_ROW_SELECT}
          FROM legal.tasks
          WHERE tenant_id = $1 AND case_id = $2 AND task_model_id = $3
          ORDER BY created_at DESC`,
@@ -160,8 +165,7 @@ export async function listTasks(
       );
     } else if (filters?.case_id) {
       result = await client.query<TaskRow>(
-        `SELECT id, case_id, task_model_id, status, predecessor_task_ids, dependent_task_ids,
-                encryption_status, encryption_version, created_at, updated_at
+        `SELECT ${TASK_ROW_SELECT}
          FROM legal.tasks
          WHERE tenant_id = $1 AND case_id = $2
          ORDER BY created_at DESC`,
@@ -169,8 +173,7 @@ export async function listTasks(
       );
     } else if (filters?.task_model_id) {
       result = await client.query<TaskRow>(
-        `SELECT id, case_id, task_model_id, status, predecessor_task_ids, dependent_task_ids,
-                encryption_status, encryption_version, created_at, updated_at
+        `SELECT ${TASK_ROW_SELECT}
          FROM legal.tasks
          WHERE tenant_id = $1 AND task_model_id = $2
          ORDER BY created_at DESC`,
@@ -178,8 +181,7 @@ export async function listTasks(
       );
     } else {
       result = await client.query<TaskRow>(
-        `SELECT id, case_id, task_model_id, status, predecessor_task_ids, dependent_task_ids,
-                encryption_status, encryption_version, created_at, updated_at
+        `SELECT ${TASK_ROW_SELECT}
          FROM legal.tasks
          WHERE tenant_id = $1
          ORDER BY created_at DESC`,
@@ -235,10 +237,11 @@ export async function createTask(
 
     const result = await client.query<TaskRow>(
       `INSERT INTO legal.tasks
-         (tenant_id, case_id, task_model_id, status, predecessor_task_ids, dependent_task_ids)
-       VALUES ($1, $2, $3, $4, $5::uuid[], $6::uuid[])
-       RETURNING id, case_id, task_model_id, status, predecessor_task_ids, dependent_task_ids,
-                 encryption_status, encryption_version, created_at, updated_at`,
+         (tenant_id, case_id, task_model_id, status, predecessor_task_ids, dependent_task_ids,
+          completed_at)
+       VALUES ($1, $2, $3, $4, $5::uuid[], $6::uuid[],
+               CASE WHEN $4 = 'completed' THEN now() ELSE NULL END)
+       RETURNING ${TASK_ROW_SELECT}`,
       [
         tenantId,
         input.case_id,
@@ -273,8 +276,7 @@ export async function createTask(
 export async function getTask(tenantId: string, id: string): Promise<TaskDto | null> {
   return withTenantTransaction(tenantId, async (client) => {
     const result = await client.query<TaskRow>(
-      `SELECT id, case_id, task_model_id, status, predecessor_task_ids, dependent_task_ids,
-              encryption_status, encryption_version, created_at, updated_at
+      `SELECT ${TASK_ROW_SELECT}
        FROM legal.tasks WHERE id = $1 AND tenant_id = $2`,
       [id, tenantId],
     );
@@ -318,21 +320,35 @@ export async function updateTask(
       },
     });
 
+    let completedAtAction: 'set' | 'clear' | null = null;
+    if (nextStatus !== undefined) {
+      if (nextStatus === 'completed') {
+        completedAtAction = 'set';
+      } else if (existing.status === 'completed') {
+        completedAtAction = 'clear';
+      }
+    }
+
     const result = await client.query<TaskRow>(
       `UPDATE legal.tasks
        SET status = COALESCE($3, status),
            predecessor_task_ids = $4::uuid[],
            dependent_task_ids = $5::uuid[],
+           completed_at = CASE
+             WHEN $6 = 'set' THEN now()
+             WHEN $6 = 'clear' THEN NULL
+             ELSE completed_at
+           END,
            updated_at = now()
        WHERE id = $1 AND tenant_id = $2
-       RETURNING id, case_id, task_model_id, status, predecessor_task_ids, dependent_task_ids,
-                 encryption_status, encryption_version, created_at, updated_at`,
+       RETURNING ${TASK_ROW_SELECT}`,
       [
         id,
         tenantId,
         nextStatus ?? null,
         refs.predecessor_task_ids,
         refs.dependent_task_ids,
+        completedAtAction,
       ],
     );
     const row = result.rows[0]!;

@@ -106,6 +106,7 @@
   max-width: none;
   flex: 1;
   margin: 0;
+  min-width: 0;
 }
 
 /* Administration UI (Entity-Manager style) */
@@ -734,6 +735,25 @@
 
 .admin-table-actions-cell {
   text-align: right;
+}
+
+.admin-page-header--spaced {
+  margin-top: 2.5rem;
+}
+
+.admin-override-subject {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.admin-override-subject .admin-settings-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-override-subject-meta {
+  margin-top: 0.35rem;
 }
 
 .admin-table-link--button {
