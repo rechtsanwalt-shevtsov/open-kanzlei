@@ -29,6 +29,8 @@ export type MessageKey =
   | 'error.team_has_members'
   | 'error.cannot_delete_self'
   | 'error.task_model_not_allowed_on_case_model'
+  | 'error.model_protected'
+  | 'error.actor_tenant_root'
   | 'error.kanban_wip_limit';
 
 const messages: Record<MessageKey, Record<Locale, string>> = {
@@ -83,6 +85,14 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
   'error.model_in_use': {
     de: 'Modell wird noch verwendet und kann nicht gelöscht werden.',
     en: 'Model is in use and cannot be deleted.',
+  },
+  'error.model_protected': {
+    de: 'Dieses Modell ist geschützt und kann nicht gelöscht werden.',
+    en: 'This model is protected and cannot be deleted.',
+  },
+  'error.actor_tenant_root': {
+    de: 'Dieser Beteiligte ist die Kanzlei-Instanz und kann nicht gelöscht werden.',
+    en: 'This actor is the firm instance and cannot be deleted.',
   },
   'error.case_in_use': {
     de: 'Die Akte enthält noch Tasks und kann nicht gelöscht werden.',

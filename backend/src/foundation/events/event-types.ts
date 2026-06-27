@@ -35,6 +35,13 @@ export const PUBLIC_EVENT_TYPES = [
   'task.created',
   'task.updated',
   'task.deleted',
+  'actor_model.created',
+  'actor_model.updated',
+  'actor_model.archived',
+  'actor_model.deleted',
+  'actor.created',
+  'actor.updated',
+  'actor.deleted',
 ] as const;
 
 export const INTERNAL_EVENT_TYPES = [

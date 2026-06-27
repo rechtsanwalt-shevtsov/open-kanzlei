@@ -1,4 +1,4 @@
-export type ModelKind = 'case_model';
+export type ModelKind = 'case_model' | 'actor_model';
 
 export interface ModelListItem {
   id: string;

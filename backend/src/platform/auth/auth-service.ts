@@ -21,6 +21,7 @@ import type {
 } from './types.js';
 import { createSession, hashSessionToken } from './session.js';
 import { installDefaultAppsForNewTenant } from '../apps/app-service.js';
+import { bootstrapActorTenantDataWithClient } from '../../legal-work/actor-tenant-seed.js';
 
 async function loadUserWithTeams(
   client: pg.PoolClient,
@@ -119,6 +120,7 @@ export async function registerTenant(
     }
 
     await installDefaultAppsForNewTenant(client, tenantId);
+    await bootstrapActorTenantDataWithClient(client, tenantId, input.firmName.trim(), userId);
 
     await getEventService().publish(client, {
       tenantId,

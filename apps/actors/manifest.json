@@ -1,0 +1,29 @@
+{
+  "app_key": "actors",
+  "name": "Beteiligte",
+  "version": "1.0.0",
+  "description": "Beteiligte anlegen und verwalten.",
+  "has_react_ui": true,
+  "menu_category": "work",
+  "nav_path": "/apps/actors",
+  "nav_icon": "LuUsers",
+  "app_group": "unassigned",
+  "routes": [
+    { "path": "/apps/actors", "label": "Beteiligte" },
+    { "path": "/apps/actors/settings", "label": "Einstellungen" }
+  ],
+  "required_teams": [],
+  "requires_attributes": [],
+  "provides_attributes": [],
+  "supported_locales": ["de", "en"],
+  "event_subscriptions": [],
+  "settings_schema": {
+    "itemsPerPage": {
+      "type": "number",
+      "default": 25,
+      "allowedValues": [5, 10, 25, 50, 100],
+      "tenantConfigurable": true,
+      "userOverridable": true
+    }
+  }
+}

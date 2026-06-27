@@ -118,6 +118,18 @@ paths:
   /v1/tasks/{id}:
     $ref: './paths/legal.yaml#/tasks-item'
 
+  /v1/actor-models:
+    $ref: './paths/legal.yaml#/actor-models-list'
+  /v1/actor-models/{id}:
+    $ref: './paths/legal.yaml#/actor-models-item'
+  /v1/actor-models/{id}/attributes:
+    $ref: './paths/legal.yaml#/actor-models-attributes'
+
+  /v1/actors:
+    $ref: './paths/legal.yaml#/actors-list'
+  /v1/actors/{id}:
+    $ref: './paths/legal.yaml#/actors-item'
+
 components:
   securitySchemes:
     sessionCookie:

@@ -202,7 +202,7 @@ AttributeDefinition:
       format: uuid
     owner_type:
       type: string
-      enum: [case_model, task_model]
+      enum: [case_model, task_model, actor_model]
     owner_id:
       type: string
       format: uuid
@@ -541,3 +541,119 @@ CaseModelTaskModelExclusions:
         type: string
         format: uuid
       description: Task models excluded from this case model (opt-out; all others allowed)
+
+ActorModel:
+  type: object
+  required:
+    [id, key, status, is_system, translations, description, display_name, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/CaseModelStatus'
+    is_system:
+      type: boolean
+    translations:
+      $ref: '#/Translations'
+    description:
+      type: string
+    description_translations:
+      $ref: '#/Translations'
+      deprecated: true
+    display_name:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateActorModelRequest:
+  type: object
+  properties:
+    name:
+      type: string
+      minLength: 1
+    locale:
+      type: string
+      enum: [de, en]
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/CaseModelStatus'
+    translations:
+      $ref: '#/Translations'
+    description:
+      type: string
+
+UpdateActorModelRequest:
+  type: object
+  properties:
+    name:
+      type: string
+      minLength: 1
+    locale:
+      type: string
+      enum: [de, en]
+    status:
+      $ref: '#/CaseModelStatus'
+    translations:
+      $ref: '#/Translations'
+    description:
+      type: string
+
+Actor:
+  type: object
+  required:
+    [id, actor_model_id, status, is_tenant_root, encryption_status, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    actor_model_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/StatusKey'
+    is_tenant_root:
+      type: boolean
+    encryption_status:
+      type: string
+    encryption_version:
+      type: integer
+      nullable: true
+    attributes:
+      type: object
+      additionalProperties: true
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateActorRequest:
+  type: object
+  required: [actor_model_id]
+  properties:
+    actor_model_id:
+      type: string
+      format: uuid
+    status:
+      $ref: '#/StatusKey'
+    attributes:
+      type: object
+      additionalProperties: true
+
+UpdateActorRequest:
+  type: object
+  properties:
+    status:
+      $ref: '#/StatusKey'
+    attributes:
+      type: object
+      additionalProperties: true

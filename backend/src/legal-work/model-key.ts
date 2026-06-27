@@ -57,6 +57,25 @@ export async function allocateUniqueTaskModelKey(
   }
 }
 
+export async function allocateUniqueActorModelKey(
+  client: pg.PoolClient,
+  tenantId: string,
+  baseKey: string,
+): Promise<string> {
+  let candidate = baseKey;
+  let n = 2;
+  while (true) {
+    const exists = await client.query(
+      `SELECT 1 FROM legal.actor_models WHERE tenant_id = $1 AND key = $2 LIMIT 1`,
+      [tenantId, candidate],
+    );
+    if (!exists.rowCount) return candidate;
+    const suffix = `_${n}`;
+    candidate = `${baseKey.slice(0, 63 - suffix.length)}${suffix}`;
+    n++;
+  }
+}
+
 export async function allocateUniqueAttributeKey(
   client: pg.PoolClient,
   tenantId: string,

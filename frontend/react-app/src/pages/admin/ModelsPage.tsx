@@ -4,17 +4,20 @@ import { CreateModelDialog } from '../../components/admin/CreateModelDialog.js';
 import { useModelsList } from '../../hooks/useModelsList.js';
 import { useI18n } from '../../i18n/I18nContext.js';
 import type { MessageKey } from '../../i18n/messages.js';
+import type { ModelKind } from '../../types/models.js';
 
-function kindLabel(msg: (k: MessageKey) => string): string {
+function kindLabel(kind: ModelKind, msg: (k: MessageKey) => string): string {
+  if (kind === 'actor_model') return msg('modelsTypeActor');
   return msg('modelsTypeCase');
+}
+
+function modelPath(kind: ModelKind, id: string): string {
+  if (kind === 'actor_model') return `/apps/actor-model-designer/${id}`;
+  return `/apps/case-model-designer/${id}`;
 }
 
 export function ModelsPage() {
   const { msg } = useI18n();
-
-  function modelPath(id: string): string {
-    return `/apps/case-model-designer/${id}`;
-  }
 
   const { items, loading, error, refresh } = useModelsList();
   const [search, setSearch] = useState('');
@@ -27,7 +30,7 @@ export function ModelsPage() {
       (row) =>
         row.label.toLowerCase().includes(q) ||
         row.key.toLowerCase().includes(q) ||
-        kindLabel(msg).toLowerCase().includes(q),
+        kindLabel(row.kind, msg).toLowerCase().includes(q),
     );
   }, [items, search, msg]);
 
@@ -41,6 +44,8 @@ export function ModelsPage() {
 
       <p className="hint">
         <Link to="/apps/case-model-designer">{msg('cmdOpenInApp')}</Link>
+        {' · '}
+        <Link to="/apps/actor-model-designer">{msg('navActorModelDesigner')}</Link>
       </p>
 
       <header className="admin-page-header">
@@ -99,7 +104,7 @@ export function ModelsPage() {
                   <tr key={`${row.kind}-${row.id}`}>
                     <td>
                       <Link
-                        to={modelPath(row.id)}
+                        to={modelPath(row.kind, row.id)}
                         className="admin-table-link admin-table-link--anchor"
                       >
                         {row.label}
@@ -107,7 +112,7 @@ export function ModelsPage() {
                     </td>
                     <td className="admin-table-muted">{row.key}</td>
                     <td>
-                      <span className="admin-type-badge">{kindLabel(msg)}</span>
+                      <span className="admin-type-badge">{kindLabel(row.kind, msg)}</span>
                     </td>
                   </tr>
                 ))

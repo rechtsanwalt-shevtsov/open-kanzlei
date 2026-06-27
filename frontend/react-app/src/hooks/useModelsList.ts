@@ -22,16 +22,19 @@ export function useModelsList(): UseModelsListResult {
     setError(null);
 
     const headers = apiHeaders(locale);
-    const res = await api.GET('/v1/case-models', { headers });
+    const [caseRes, actorRes] = await Promise.all([
+      api.GET('/v1/case-models', { headers }),
+      api.GET('/v1/actor-models', { headers }),
+    ]);
 
-    if (res.error) {
-      const err = res.error as { message?: string };
+    if (caseRes.error || actorRes.error) {
+      const err = (caseRes.error ?? actorRes.error) as { message?: string };
       setError(err?.message ?? msg('errorGeneric'));
       setLoading(false);
       return;
     }
 
-    const caseItems: ModelListItem[] = (res.data?.items ?? []).map((m) => ({
+    const caseItems: ModelListItem[] = (caseRes.data?.items ?? []).map((m) => ({
       id: m.id,
       kind: 'case_model' as const,
       key: m.key,
@@ -39,7 +42,17 @@ export function useModelsList(): UseModelsListResult {
       status: m.status,
     }));
 
-    setItems(caseItems.sort((a, b) => a.label.localeCompare(b.label, locale)));
+    const actorItems: ModelListItem[] = (actorRes.data?.items ?? []).map((m) => ({
+      id: m.id,
+      kind: 'actor_model' as const,
+      key: m.key,
+      label: m.display_name ?? labelFromTranslations(m.translations, m.key, locale),
+      status: m.status,
+    }));
+
+    setItems(
+      [...caseItems, ...actorItems].sort((a, b) => a.label.localeCompare(b.label, locale)),
+    );
     setLoading(false);
   }, [locale, msg]);
 

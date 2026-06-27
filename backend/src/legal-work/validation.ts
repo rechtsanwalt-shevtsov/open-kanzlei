@@ -14,8 +14,8 @@ export const DATA_TYPES = [
 
 export type DataType = (typeof DATA_TYPES)[number];
 export type DefinitionScope = 'model' | 'instance';
-export type ModelOwnerType = 'case_model' | 'task_model';
-export type InstanceOwnerType = 'case' | 'task';
+export type ModelOwnerType = 'case_model' | 'task_model' | 'actor_model';
+export type InstanceOwnerType = 'case' | 'task' | 'actor';
 export type AttributeValueOwnerType = InstanceOwnerType | ModelOwnerType;
 
 export function assertModelKey(key: string): void {

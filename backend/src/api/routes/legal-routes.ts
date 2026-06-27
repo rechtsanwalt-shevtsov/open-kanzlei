@@ -6,7 +6,10 @@ import * as models from '../../legal-work/models.js';
 import * as instances from '../../legal-work/instances.js';
 import * as taskModels from '../../legal-work/task-models.js';
 import * as tasks from '../../legal-work/tasks.js';
+import * as actorModels from '../../legal-work/actor-models.js';
+import * as actors from '../../legal-work/actors.js';
 import * as exclusions from '../../legal-work/case-model-task-exclusions.js';
+import { bootstrapActorTenantData } from '../../legal-work/actor-tenant-seed.js';
 
 function ctx(request: FastifyRequest) {
   const user = request.user!;
@@ -297,6 +300,118 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete('/v1/tasks/:id', auth, async (req, reply) => {
     await handle(() => tasks.deleteTask(ctx(req).tenantId, idParam(req)));
+    return reply.status(204).send();
+  });
+
+  // Actor models
+  app.get('/v1/actor-models', auth, async (req) => {
+    const { tenantId, userId } = ctx(req);
+    await handle(() => bootstrapActorTenantData(tenantId, undefined, userId, req.locale));
+    const items = await handle(() => actorModels.listActorModels(tenantId));
+    return { items: items.map((item) => actorModels.enrichActorModel(item, req.locale)) };
+  });
+
+  app.post('/v1/actor-models', auth, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
+    const body = req.body as actorModels.CreateActorModelInput;
+    const item = await handle(() =>
+      actorModels.createActorModel(tenantId, body, {
+        defaultLocale: req.locale,
+        actorUserId: userId,
+      }),
+    );
+    return reply.status(201).send(actorModels.enrichActorModel(item, req.locale));
+  });
+
+  app.get('/v1/actor-models/:id', auth, async (req) => {
+    const item = await handle(() => actorModels.getActorModel(ctx(req).tenantId, idParam(req)));
+    if (!item) throw notFound();
+    return actorModels.enrichActorModel(item, req.locale);
+  });
+
+  app.patch('/v1/actor-models/:id', auth, async (req) => {
+    const { tenantId, userId } = ctx(req);
+    const body = req.body as actorModels.UpdateActorModelInput;
+    const item = await handle(() =>
+      actorModels.updateActorModel(tenantId, idParam(req), body, {
+        defaultLocale: req.locale,
+        actorUserId: userId,
+      }),
+    );
+    return actorModels.enrichActorModel(item, req.locale);
+  });
+
+  app.delete('/v1/actor-models/:id', auth, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
+    await handle(() => actorModels.deleteActorModel(tenantId, idParam(req), userId));
+    return reply.status(204).send();
+  });
+
+  app.get('/v1/actor-models/:id/attributes', auth, async (req) => {
+    const q = req.query as { definition_scope?: string };
+    const scope =
+      q.definition_scope === 'model' || q.definition_scope === 'instance'
+        ? q.definition_scope
+        : undefined;
+    const items = await handle(() =>
+      actorModels.listActorModelAttributes(ctx(req).tenantId, idParam(req), scope),
+    );
+    return { items: items.map((item) => enrichAttributeDefinition(item, req.locale)) };
+  });
+
+  app.post('/v1/actor-models/:id/attributes', auth, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
+    const body = req.body as actorModels.CreateAttributeDefinitionInput;
+    const item = await handle(() =>
+      actorModels.createActorModelAttribute(tenantId, idParam(req), userId, body, {
+        defaultLocale: req.locale,
+      }),
+    );
+    return reply.status(201).send(enrichAttributeDefinition(item, req.locale));
+  });
+
+  // Actors
+  app.get('/v1/actors', auth, async (req) => {
+    const { tenantId, userId } = ctx(req);
+    const q = req.query as { actor_model_id?: string };
+    await handle(() => bootstrapActorTenantData(tenantId, undefined, userId, req.locale));
+    const items = await handle(() =>
+      actors.listActors(tenantId, q.actor_model_id),
+    );
+    return { items };
+  });
+
+  app.post('/v1/actors', auth, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
+    const body = req.body as {
+      actor_model_id: string;
+      status?: string;
+      attributes?: Record<string, unknown>;
+    };
+    const item = await handle(() =>
+      actors.createActor(tenantId, body, { actorUserId: userId }),
+    );
+    return reply.status(201).send(item);
+  });
+
+  app.get('/v1/actors/:id', auth, async (req) => {
+    const item = await handle(() => actors.getActor(ctx(req).tenantId, idParam(req)));
+    if (!item) throw notFound();
+    return item;
+  });
+
+  app.patch('/v1/actors/:id', auth, async (req) => {
+    const { tenantId, userId } = ctx(req);
+    const body = req.body as {
+      status?: string;
+      attributes?: Record<string, unknown>;
+    };
+    return handle(() => actors.updateActor(tenantId, idParam(req), body, userId));
+  });
+
+  app.delete('/v1/actors/:id', auth, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
+    await handle(() => actors.deleteActor(tenantId, idParam(req), userId));
     return reply.status(204).send();
   });
 }

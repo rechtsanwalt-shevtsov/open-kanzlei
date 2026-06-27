@@ -18,6 +18,9 @@ logs/
 *.log
 npm-debug.log*
 
+# Local dev process tracking
+.dev.pids
+
 # IDE / OS
 .idea/
 .vscode/

@@ -669,3 +669,260 @@ case-tasks-list:
       '404':
         $ref: '../components/responses/common.yaml#/NotFound'
 
+actor-models-list:
+  get:
+    tags: [LegalWork]
+    operationId: listActorModels
+    security: [{ sessionCookie: [] }]
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/ActorModel'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+  post:
+    tags: [LegalWork]
+    operationId: createActorModel
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateActorModelRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/ActorModel'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+actor-models-item:
+  get:
+    tags: [LegalWork]
+    operationId: getActorModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/ActorModel'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [LegalWork]
+    operationId: updateActorModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/UpdateActorModelRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/ActorModel'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  delete:
+    tags: [LegalWork]
+    operationId: deleteActorModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+actor-models-attributes:
+  get:
+    tags: [LegalWork]
+    operationId: listActorModelAttributes
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+      - name: definition_scope
+        in: query
+        schema:
+          $ref: '../components/schemas/legal.yaml#/DefinitionScope'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/AttributeDefinition'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  post:
+    tags: [LegalWork]
+    operationId: createActorModelAttribute
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateAttributeDefinitionRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/AttributeDefinition'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+actors-list:
+  get:
+    tags: [LegalWork]
+    operationId: listActors
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - name: actor_model_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/Actor'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+  post:
+    tags: [LegalWork]
+    operationId: createActor
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateActorRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Actor'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+actors-item:
+  get:
+    tags: [LegalWork]
+    operationId: getActor
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Actor'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [LegalWork]
+    operationId: updateActor
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/UpdateActorRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Actor'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  delete:
+    tags: [LegalWork]
+    operationId: deleteActor
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'

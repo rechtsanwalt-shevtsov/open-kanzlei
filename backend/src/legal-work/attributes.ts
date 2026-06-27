@@ -12,6 +12,12 @@ import {
   isPlatformCaseModelInstanceAttribute,
 } from './case-model-platform-attributes.js';
 import {
+  assertActorAttributeKeyAllowedOnCreate,
+  assertActorPlatformAttributeUpdateAllowed,
+  isActorInstanceStatusDefinition,
+  isPlatformActorModelInstanceAttribute,
+} from './actor-model-platform-attributes.js';
+import {
   assertTaskAttributeKeyAllowedOnCreate,
   assertTaskPlatformAttributeUpdateAllowed,
   isPlatformTaskModelInstanceAttribute,
@@ -182,6 +188,8 @@ function assertAttributeKeyAllowedOnCreate(
     assertCaseAttributeKeyAllowedOnCreate(ownerType, definitionScope, key);
   } else if (ownerType === 'task_model') {
     assertTaskAttributeKeyAllowedOnCreate(ownerType, definitionScope, key);
+  } else if (ownerType === 'actor_model') {
+    assertActorAttributeKeyAllowedOnCreate(ownerType, definitionScope, key);
   }
   assertCustomAttributeKeyAllowedOnCreate(key, options);
 }
@@ -193,6 +201,9 @@ function assertAttributeDefinitionDeletable(
     throw forbidden('error.attribute_definition_reserved');
   }
   if (isPlatformTaskModelInstanceAttribute(def.owner_type, def.definition_scope, def.key)) {
+    throw forbidden('error.attribute_definition_reserved');
+  }
+  if (isPlatformActorModelInstanceAttribute(def.owner_type, def.definition_scope, def.key)) {
     throw forbidden('error.attribute_definition_reserved');
   }
 }
@@ -207,6 +218,9 @@ function assertAttributeDefinitionUpdateAllowed(
   }
   if (isPlatformTaskModelInstanceAttribute(def.owner_type, def.definition_scope, def.key)) {
     assertTaskPlatformAttributeUpdateAllowed(def, input);
+  }
+  if (isPlatformActorModelInstanceAttribute(def.owner_type, def.definition_scope, def.key)) {
+    assertActorPlatformAttributeUpdateAllowed(def, input);
   }
   if (isSharedRegistryKey(def.key) && isSelectDataType(def.data_type)) {
     if (input.select_options !== undefined) {
@@ -246,6 +260,19 @@ async function assertRemovedSelectOptionsNotInUse(
       const inUse = await client.query(
         `SELECT 1 FROM legal.tasks
          WHERE tenant_id = $1 AND task_model_id = $2 AND status = $3
+         LIMIT 1`,
+        [tenantId, existing.owner_id, option],
+      );
+      if (inUse.rowCount) {
+        throw conflict('error.select_option_in_use');
+      }
+      continue;
+    }
+
+    if (isActorInstanceStatusDefinition(existing)) {
+      const inUse = await client.query(
+        `SELECT 1 FROM legal.actors
+         WHERE tenant_id = $1 AND actor_model_id = $2 AND status = $3
          LIMIT 1`,
         [tenantId, existing.owner_id, option],
       );
@@ -726,8 +753,11 @@ const TASK_RESERVED_INSTANCE_ATTRIBUTE_KEYS = new Set([
   'dependent_task_ids',
 ]);
 
+const ACTOR_RESERVED_INSTANCE_ATTRIBUTE_KEYS = new Set(['status']);
+
 function reservedInstanceAttributeKeys(instanceType: InstanceOwnerType): Set<string> {
   if (instanceType === 'task') return TASK_RESERVED_INSTANCE_ATTRIBUTE_KEYS;
+  if (instanceType === 'actor') return ACTOR_RESERVED_INSTANCE_ATTRIBUTE_KEYS;
   return CASE_RESERVED_INSTANCE_ATTRIBUTE_KEYS;
 }
 

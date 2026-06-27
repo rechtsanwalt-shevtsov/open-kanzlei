@@ -62,6 +62,31 @@ export async function createTaskModelAttribute(
   });
 }
 
+export async function listActorModelAttributes(
+  modelId: string,
+  locale: Locale,
+  definitionScope?: DefinitionScope,
+) {
+  const h = headers(locale);
+  const query = definitionScope ? { definition_scope: definitionScope } : undefined;
+  return api.GET('/v1/actor-models/{id}/attributes', {
+    headers: h,
+    params: { path: { id: modelId }, query },
+  });
+}
+
+export async function createActorModelAttribute(
+  modelId: string,
+  locale: Locale,
+  body: CreateAttributeBody,
+) {
+  return api.POST('/v1/actor-models/{id}/attributes', {
+    headers: headers(locale),
+    params: { path: { id: modelId } },
+    body,
+  });
+}
+
 export async function updateAttributeDefinition(
   id: string,
   locale: Locale,

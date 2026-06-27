@@ -1,0 +1,55 @@
+{
+  "app_key": "actor-model-designer",
+  "name": "Actor Model Designer",
+  "version": "1.0.0",
+  "description": "Actor-Modelle und Attributdefinitionen verwalten.",
+  "has_react_ui": true,
+  "menu_category": "administration",
+  "nav_path": "/apps/actor-model-designer",
+  "nav_icon": "LuUsers",
+  "routes": [
+    { "path": "/apps/actor-model-designer", "label": "Actor Model Designer" },
+    { "path": "/apps/actor-model-designer/new", "label": "Neues Actor-Modell" },
+    { "path": "/apps/actor-model-designer/settings", "label": "Einstellungen" }
+  ],
+  "requires_attributes": [],
+  "provides_attributes": [],
+  "supported_locales": ["de", "en"],
+  "event_subscriptions": [],
+  "settings_schema": {
+    "defaultActorModelStatus": {
+      "type": "string",
+      "default": "draft",
+      "allowedValues": ["draft", "active", "archived"],
+      "tenantConfigurable": true,
+      "userOverridable": false
+    },
+    "showTechnicalKeys": {
+      "type": "boolean",
+      "default": false,
+      "tenantConfigurable": true,
+      "userOverridable": true
+    },
+    "defaultAttributeEncryptionMode": {
+      "type": "string",
+      "default": "zero_knowledge",
+      "allowedValues": ["server_readable", "zero_knowledge"],
+      "tenantConfigurable": true,
+      "userOverridable": false
+    },
+    "itemsPerPage": {
+      "type": "number",
+      "default": 25,
+      "allowedValues": [5, 10, 25, 50, 100],
+      "tenantConfigurable": true,
+      "userOverridable": true
+    },
+    "editorLayout": {
+      "type": "string",
+      "default": "simple",
+      "allowedValues": ["simple", "advanced"],
+      "tenantConfigurable": true,
+      "userOverridable": true
+    }
+  }
+}
