@@ -47,6 +47,7 @@ import {
   assertModelKey,
   isEmptyAttributeValue,
   isSelectDataType,
+  isReferenceDataType,
   normalizeSelectOptions,
   parseAttributeValue,
   parseDefaultValueJson,
@@ -57,6 +58,11 @@ import {
   type InstanceOwnerType,
   type ModelOwnerType,
 } from './validation.js';
+import {
+  assertReferencedEntityExists,
+  assertReferenceTargetTypeConfigured,
+} from './reference-resolution.js';
+import type { ReferenceTargetType } from './reference-target.js';
 
 export type CreateAttributeDefinitionInput = {
   key?: string;
@@ -70,6 +76,8 @@ export type CreateAttributeDefinitionInput = {
   select_options?: string[];
   select_option_translations?: SelectOptionTranslations;
   default_value?: unknown;
+  reference_target_type?: string;
+  reference_target_model_id?: string | null;
 };
 export type UpdateAttributeDefinitionInput = {
   name?: string;
@@ -81,6 +89,8 @@ export type UpdateAttributeDefinitionInput = {
   select_options?: string[];
   select_option_translations?: SelectOptionTranslations;
   default_value?: unknown;
+  reference_target_type?: string;
+  reference_target_model_id?: string | null;
 };
 
 export interface AttributeDefinitionDto {
@@ -96,6 +106,8 @@ export interface AttributeDefinitionDto {
   select_options: string[];
   select_option_translations: SelectOptionTranslations;
   default_value: unknown;
+  reference_target_type: ReferenceTargetType | null;
+  reference_target_model_id: string | null;
   display_name?: string;
   select_option_labels?: Record<string, string>;
   /** Shared-registry option keys that may be labeled but not removed or renamed (read-only in responses). */
@@ -117,13 +129,15 @@ interface DefinitionRow {
   select_options: string[];
   select_option_translations: SelectOptionTranslations;
   default_value: unknown;
+  reference_target_type: ReferenceTargetType | null;
+  reference_target_model_id: string | null;
   created_at: Date;
   updated_at: Date;
 }
 
 const DEFINITION_COLUMNS = `id, owner_type, owner_id, definition_scope, key, data_type,
   encryption_mode, translations, is_required, select_options, select_option_translations,
-  default_value, created_at, updated_at`;
+  default_value, reference_target_type, reference_target_model_id, created_at, updated_at`;
 
 function mapDefinition(row: DefinitionRow): AttributeDefinitionDto {
   return {
@@ -139,6 +153,8 @@ function mapDefinition(row: DefinitionRow): AttributeDefinitionDto {
     select_options: row.select_options ?? [],
     select_option_translations: row.select_option_translations ?? {},
     default_value: row.default_value ?? null,
+    reference_target_type: row.reference_target_type,
+    reference_target_model_id: row.reference_target_model_id,
     created_at: toIso(row.created_at),
     updated_at: toIso(row.updated_at),
   };
@@ -190,6 +206,8 @@ function assertAttributeKeyAllowedOnCreate(
     assertTaskAttributeKeyAllowedOnCreate(ownerType, definitionScope, key);
   } else if (ownerType === 'actor_model') {
     assertActorAttributeKeyAllowedOnCreate(ownerType, definitionScope, key);
+  } else if (ownerType === 'message_model') {
+    // No platform-reserved keys on message models.
   }
   assertCustomAttributeKeyAllowedOnCreate(key, options);
 }
@@ -340,6 +358,50 @@ function resolveDefaultValue(
   return parseDefaultValueJson(dataType, raw, selectOptions);
 }
 
+function resolveReferenceFields(
+  dataType: DataType,
+  definitionScope: DefinitionScope,
+  input: {
+    reference_target_type?: string;
+    reference_target_model_id?: string | null;
+  },
+): {
+  reference_target_type: ReferenceTargetType | null;
+  reference_target_model_id: string | null;
+} {
+  if (!isReferenceDataType(dataType)) {
+    return { reference_target_type: null, reference_target_model_id: null };
+  }
+  assertReferenceTargetTypeConfigured(dataType, definitionScope, input.reference_target_type);
+  return {
+    reference_target_type: input.reference_target_type!,
+    reference_target_model_id: input.reference_target_model_id?.trim() || null,
+  };
+}
+
+async function assertReferenceDefaultValueValid(
+  client: pg.PoolClient,
+  tenantId: string,
+  dataType: DataType,
+  referenceTargetType: ReferenceTargetType | null,
+  referenceTargetModelId: string | null,
+  defaultValue: unknown | null,
+): Promise<void> {
+  if (!isReferenceDataType(dataType) || defaultValue === null || defaultValue === undefined) {
+    return;
+  }
+  if (!referenceTargetType) {
+    throw badRequest('error.validation_failed');
+  }
+  await assertReferencedEntityExists(
+    client,
+    tenantId,
+    referenceTargetType,
+    String(defaultValue),
+    referenceTargetModelId,
+  );
+}
+
 function resolveCreateAttributeFields(
   input: CreateAttributeDefinitionInput,
   defaultLocale: Locale,
@@ -353,16 +415,21 @@ function resolveCreateAttributeFields(
   select_options: string[];
   select_option_translations: SelectOptionTranslations;
   default_value: unknown | null;
+  reference_target_type: ReferenceTargetType | null;
+  reference_target_model_id: string | null;
   generateKeyFromName?: string;
 } {
   assertDataType(input.data_type);
   const definitionScope = input.definition_scope ?? 'instance';
   assertDefinitionScope(definitionScope);
 
-  const encryptionMode = input.encryption_mode ?? 'zero_knowledge';
-  if (encryptionMode !== 'server_readable' && encryptionMode !== 'zero_knowledge') {
-    throw badRequest('error.validation_failed');
+  let encryptionMode: 'server_readable' | 'zero_knowledge' =
+    input.encryption_mode === 'server_readable' ? 'server_readable' : 'zero_knowledge';
+  if (isReferenceDataType(input.data_type)) {
+    encryptionMode = 'server_readable';
   }
+
+  const referenceFields = resolveReferenceFields(input.data_type, definitionScope, input);
 
   const selectOptions = resolveSelectOptions(input.data_type, input.select_options ?? []);
   if (isSelectDataType(input.data_type) && selectOptions.length === 0) {
@@ -393,6 +460,8 @@ function resolveCreateAttributeFields(
       select_options: selectOptions,
       select_option_translations: selectOptionTranslations,
       default_value: defaultValue,
+      reference_target_type: referenceFields.reference_target_type,
+      reference_target_model_id: referenceFields.reference_target_model_id,
       generateKeyFromName: name,
     };
   }
@@ -411,6 +480,8 @@ function resolveCreateAttributeFields(
     select_options: selectOptions,
     select_option_translations: selectOptionTranslations,
     default_value: defaultValue,
+    reference_target_type: referenceFields.reference_target_type,
+    reference_target_model_id: referenceFields.reference_target_model_id,
   };
 }
 
@@ -496,12 +567,22 @@ export async function createAttributeDefinition(
   }
 
   try {
+    await assertReferenceDefaultValueValid(
+      client,
+      tenantId,
+      resolved.data_type,
+      resolved.reference_target_type,
+      resolved.reference_target_model_id,
+      resolved.default_value,
+    );
+
     const result = await client.query<DefinitionRow>(
       `INSERT INTO meta.attribute_definitions
          (tenant_id, owner_type, owner_id, definition_scope, key, data_type,
           encryption_mode, translations, is_required, select_options,
-          select_option_translations, default_value, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          select_option_translations, default_value, reference_target_type,
+          reference_target_model_id, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING ${DEFINITION_COLUMNS}`,
       [
         tenantId,
@@ -516,6 +597,8 @@ export async function createAttributeDefinition(
         JSON.stringify(resolved.select_options),
         JSON.stringify(resolved.select_option_translations),
         resolved.default_value === null ? null : JSON.stringify(resolved.default_value),
+        resolved.reference_target_type,
+        resolved.reference_target_model_id,
         createdBy,
       ],
     );
@@ -541,10 +624,29 @@ export async function updateAttributeDefinition(
 
   const dataType = (input.data_type ?? existing.data_type) as DataType;
   assertDataType(dataType);
-  const encryptionMode = input.encryption_mode ?? existing.encryption_mode;
+  let encryptionMode: 'server_readable' | 'zero_knowledge' =
+    input.encryption_mode === 'server_readable' ? 'server_readable' : existing.encryption_mode;
+  if (isReferenceDataType(dataType)) {
+    encryptionMode = 'server_readable';
+  }
   const translations =
     resolveUpdateAttributeTranslations(existing, input, options?.defaultLocale ?? 'de') ??
     existing.translations;
+
+  const referenceFields =
+    input.reference_target_type !== undefined || input.data_type !== undefined
+      ? resolveReferenceFields(dataType, existing.definition_scope, {
+          reference_target_type:
+            input.reference_target_type ?? existing.reference_target_type ?? undefined,
+          reference_target_model_id:
+            input.reference_target_model_id !== undefined
+              ? input.reference_target_model_id
+              : existing.reference_target_model_id,
+        })
+      : {
+          reference_target_type: existing.reference_target_type,
+          reference_target_model_id: existing.reference_target_model_id,
+        };
 
   const isPlatformStatusDefinition =
     isCaseInstanceStatusDefinition(existing) || isTaskInstanceStatusDefinition(existing);
@@ -583,11 +685,21 @@ export async function updateAttributeDefinition(
       ? resolveDefaultValue(dataType, selectOptions, input.default_value, false)
       : existing.default_value;
 
+  await assertReferenceDefaultValueValid(
+    client,
+    tenantId,
+    dataType,
+    referenceFields.reference_target_type,
+    referenceFields.reference_target_model_id,
+    defaultValue,
+  );
+
   const result = await client.query<DefinitionRow>(
     `UPDATE meta.attribute_definitions
      SET data_type = $3, encryption_mode = $4, translations = $5,
          is_required = $6, select_options = $7, select_option_translations = $8,
-         default_value = $9, updated_at = now()
+         default_value = $9, reference_target_type = $10, reference_target_model_id = $11,
+         updated_at = now()
      WHERE tenant_id = $1 AND id = $2
      RETURNING ${DEFINITION_COLUMNS}`,
     [
@@ -600,6 +712,8 @@ export async function updateAttributeDefinition(
       JSON.stringify(selectOptions),
       JSON.stringify(selectOptionTranslations),
       defaultValue === null ? null : JSON.stringify(defaultValue),
+      referenceFields.reference_target_type,
+      referenceFields.reference_target_model_id,
     ],
   );
   return mapDefinition(result.rows[0]!);
@@ -758,6 +872,7 @@ const ACTOR_RESERVED_INSTANCE_ATTRIBUTE_KEYS = new Set(['status']);
 function reservedInstanceAttributeKeys(instanceType: InstanceOwnerType): Set<string> {
   if (instanceType === 'task') return TASK_RESERVED_INSTANCE_ATTRIBUTE_KEYS;
   if (instanceType === 'actor') return ACTOR_RESERVED_INSTANCE_ATTRIBUTE_KEYS;
+  if (instanceType === 'message') return new Set<string>();
   return CASE_RESERVED_INSTANCE_ATTRIBUTE_KEYS;
 }
 
@@ -839,6 +954,19 @@ export async function upsertInstanceAttributes(
           throw badRequest('error.invalid_attribute_value');
         }
       }
+    }
+    if (isReferenceDataType(def.data_type)) {
+      if (typeof rawValue !== 'string' || !def.reference_target_type) {
+        throw badRequest('error.invalid_attribute_value');
+      }
+      await assertReferencedEntityExists(
+        client,
+        tenantId,
+        def.reference_target_type,
+        rawValue,
+        def.reference_target_model_id,
+        { asInvalidValue: true },
+      );
     }
 
     const serialized = serializeAttributeValue(def.data_type, rawValue);

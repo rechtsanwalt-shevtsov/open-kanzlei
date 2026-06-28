@@ -755,6 +755,102 @@ export interface paths {
         patch: operations["updateActor"];
         trace?: never;
     };
+    "/v1/message-models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMessageModels"];
+        put?: never;
+        post: operations["createMessageModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/message-models/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMessageModel"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteMessageModel"];
+        options?: never;
+        head?: never;
+        patch: operations["updateMessageModel"];
+        trace?: never;
+    };
+    "/v1/message-models/{id}/attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMessageModelAttributes"];
+        put?: never;
+        post: operations["createMessageModelAttribute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMessages"];
+        put?: never;
+        post: operations["createMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/messages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMessage"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteMessage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/message-files/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMessageFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -937,7 +1033,7 @@ export interface components {
             target: components["schemas"]["AppAttributeTarget"];
             definition_scope?: components["schemas"]["AppAttributeDefinitionScope"];
             /** @enum {string} */
-            data_type: "text" | "number" | "money" | "date" | "boolean" | "single_select" | "multi_select";
+            data_type: "text" | "number" | "money" | "date" | "boolean" | "single_select" | "multi_select" | "reference";
             translations: {
                 [key: string]: string;
             };
@@ -1235,14 +1331,19 @@ export interface components {
         /** @enum {string} */
         DefinitionScope: "model" | "instance";
         /** @enum {string} */
-        DataType: "text" | "number" | "money" | "date" | "boolean" | "single_select" | "multi_select";
+        DataType: "text" | "number" | "money" | "date" | "boolean" | "single_select" | "multi_select" | "reference";
         /** @enum {string} */
         EncryptionMode: "server_readable" | "zero_knowledge";
+        /**
+         * @description Entity type referenced by a reference attribute
+         * @enum {string}
+         */
+        ReferenceTargetType: "actor" | "case" | "task";
         AttributeDefinition: {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            owner_type: "case_model" | "task_model" | "actor_model";
+            owner_type: "case_model" | "task_model" | "actor_model" | "message_model";
             /** Format: uuid */
             owner_id: string;
             definition_scope: components["schemas"]["DefinitionScope"];
@@ -1264,6 +1365,13 @@ export interface components {
             };
             /** @description Shared-registry option keys that may be labeled but not removed or renamed (read-only in responses) */
             locked_select_options?: string[];
+            /** @description Target entity type for reference attributes */
+            reference_target_type?: components["schemas"]["ReferenceTargetType"];
+            /**
+             * Format: uuid
+             * @description Optional model filter for reference attributes (actor/case/task model id)
+             */
+            reference_target_model_id?: string | null;
             /** @description Default for new instances (instance scope) or model value (model scope) */
             default_value?: unknown;
             /** @description Resolved label for the effective request locale (Accept-Language), with fallback de → en → key */
@@ -1290,6 +1398,9 @@ export interface components {
                     [key: string]: string;
                 };
             };
+            reference_target_type?: components["schemas"]["ReferenceTargetType"];
+            /** Format: uuid */
+            reference_target_model_id?: string | null;
             default_value?: unknown;
         };
         CaseModelTaskModelExclusions: {
@@ -1343,6 +1454,9 @@ export interface components {
                     [key: string]: string;
                 };
             };
+            reference_target_type?: components["schemas"]["ReferenceTargetType"];
+            /** Format: uuid */
+            reference_target_model_id?: string | null;
             default_value?: unknown;
         };
         /** @description Language-neutral status key (e.g. active, open, closed) */
@@ -1509,6 +1623,137 @@ export interface components {
             attributes?: {
                 [key: string]: unknown;
             };
+        };
+        MessageModel: {
+            /** Format: uuid */
+            id: string;
+            key: components["schemas"]["ModelKey"];
+            status: components["schemas"]["CaseModelStatus"];
+            translations: components["schemas"]["Translations"];
+            description: string;
+            /** @deprecated */
+            description_translations?: components["schemas"]["Translations"];
+            display_name: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CreateMessageModelRequest: {
+            name?: string;
+            /** @enum {string} */
+            locale?: "de" | "en";
+            key?: components["schemas"]["ModelKey"];
+            status?: components["schemas"]["CaseModelStatus"];
+            translations?: components["schemas"]["Translations"];
+            description?: string;
+        };
+        UpdateMessageModelRequest: {
+            name?: string;
+            /** @enum {string} */
+            locale?: "de" | "en";
+            status?: components["schemas"]["CaseModelStatus"];
+            translations?: components["schemas"]["Translations"];
+            description?: string;
+        };
+        /** @enum {string} */
+        MessageDirection: "incoming" | "outgoing" | "internal" | "draft";
+        MessageListItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            message_model_id: string;
+            direction: components["schemas"]["MessageDirection"];
+            /** Format: date-time */
+            communicated_at: string;
+            external_message_id: string | null;
+            subject: string | null;
+            encryption_status: string;
+            participant_actor_ids: string[];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @enum {string} */
+        MessageParticipantRole: "from" | "to" | "cc" | "bcc" | "reply_to";
+        CreateMessageParticipantRequest: {
+            role: components["schemas"]["MessageParticipantRole"];
+            /** Format: uuid */
+            actor_id?: string | null;
+            display_name?: string | null;
+            address?: string | null;
+            sort_order?: number;
+        };
+        /** @enum {string} */
+        MessagePartRole: "body" | "attachment" | "inline" | "signature" | "metadata" | "annotation" | "summary" | "ocr";
+        CreateMessagePartFileRequest: {
+            data_base64: string;
+            filename: string;
+            content_type: string;
+        };
+        CreateMessagePartRequest: {
+            role: components["schemas"]["MessagePartRole"];
+            content_type?: string | null;
+            text_content?: string | null;
+            file?: components["schemas"]["CreateMessagePartFileRequest"];
+            sort_order?: number;
+        };
+        CreateMessageRequest: {
+            /** Format: uuid */
+            message_model_id: string;
+            direction: components["schemas"]["MessageDirection"];
+            /** Format: date-time */
+            communicated_at?: string;
+            external_message_id?: string | null;
+            subject?: string | null;
+            attributes?: {
+                [key: string]: unknown;
+            };
+            participants?: components["schemas"]["CreateMessageParticipantRequest"][];
+            parts?: components["schemas"]["CreateMessagePartRequest"][];
+        };
+        MessageParticipant: {
+            /** Format: uuid */
+            id: string;
+            role: components["schemas"]["MessageParticipantRole"];
+            /** Format: uuid */
+            actor_id: string | null;
+            display_name: string | null;
+            address: string | null;
+            sort_order: number;
+        };
+        MessagePart: {
+            /** Format: uuid */
+            id: string;
+            role: components["schemas"]["MessagePartRole"];
+            sort_order: number;
+            content_type: string | null;
+            text_content: string | null;
+            /** Format: uuid */
+            file_id: string | null;
+            filename: string | null;
+        };
+        Message: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            message_model_id: string;
+            direction: components["schemas"]["MessageDirection"];
+            /** Format: date-time */
+            communicated_at: string;
+            external_message_id: string | null;
+            subject: string | null;
+            encryption_status: string;
+            attributes?: {
+                [key: string]: unknown;
+            };
+            participants: components["schemas"]["MessageParticipant"][];
+            parts: components["schemas"]["MessagePart"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
         };
         /**
          * @deprecated
@@ -3581,6 +3826,308 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listMessageModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["MessageModel"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createMessageModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMessageModelRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageModel"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getMessageModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageModel"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteMessageModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateMessageModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMessageModelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageModel"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listMessageModelAttributes: {
+        parameters: {
+            query?: {
+                definition_scope?: components["schemas"]["DefinitionScope"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AttributeDefinition"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createMessageModelAttribute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAttributeDefinitionRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttributeDefinition"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listMessages: {
+        parameters: {
+            query?: {
+                message_model_id?: string;
+                direction?: components["schemas"]["MessageDirection"];
+                actor_id?: string;
+                communicated_from?: string;
+                communicated_to?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["MessageListItem"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMessageRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getMessageFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };

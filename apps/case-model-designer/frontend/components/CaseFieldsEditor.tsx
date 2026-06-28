@@ -106,7 +106,7 @@ export function CaseFieldsEditor({ fields, onChange }: CaseFieldsEditorProps) {
                       handleDataTypeChange(field.id, e.target.value as DataType)
                     }
                   >
-                    {DATA_TYPES.map((t) => (
+                    {DATA_TYPES.filter((t) => t !== 'reference').map((t) => (
                       <option key={t} value={t}>
                         {msg(dataTypeMessageKey(t))}
                       </option>

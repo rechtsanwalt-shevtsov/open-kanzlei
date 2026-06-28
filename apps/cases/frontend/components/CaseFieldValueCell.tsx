@@ -7,6 +7,7 @@ import type { Locale } from '@shell/i18n/locale.js';
 import { formatFieldValue } from '../lib/case-display.js';
 import { parseFieldValue } from '../lib/field-value.js';
 import { FieldSelectInput } from '@shell/components/admin/FieldSelectInput.js';
+import { ReferenceFieldInput } from '@shell/components/admin/ReferenceFieldInput.js';
 
 interface CaseFieldValueCellProps {
   caseId: string;
@@ -72,6 +73,17 @@ export function CaseFieldValueCell({
         <option value="true">{msg('yes')}</option>
         <option value="false">{msg('no')}</option>
       </select>
+    );
+  }
+
+  if (definition.data_type === 'reference') {
+    return (
+      <ReferenceFieldInput
+        attribute={definition}
+        value={typeof value === 'string' ? value : ''}
+        disabled={saving}
+        onChange={(next) => void persist(next === '' ? null : next)}
+      />
     );
   }
 

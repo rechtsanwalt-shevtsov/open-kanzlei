@@ -663,6 +663,10 @@
   overflow-y: auto;
 }
 
+.admin-dialog--wide {
+  max-width: min(960px, 95vw);
+}
+
 .admin-dialog h2 {
   margin: 0 0 1rem;
   font-size: 1.125rem;

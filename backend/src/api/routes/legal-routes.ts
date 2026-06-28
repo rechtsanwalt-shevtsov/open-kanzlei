@@ -8,6 +8,8 @@ import * as taskModels from '../../legal-work/task-models.js';
 import * as tasks from '../../legal-work/tasks.js';
 import * as actorModels from '../../legal-work/actor-models.js';
 import * as actors from '../../legal-work/actors.js';
+import * as messageModels from '../../legal-work/message-models.js';
+import * as messages from '../../legal-work/messages.js';
 import * as exclusions from '../../legal-work/case-model-task-exclusions.js';
 import { bootstrapActorTenantData } from '../../legal-work/actor-tenant-seed.js';
 
@@ -413,5 +415,107 @@ export async function legalRoutes(app: FastifyInstance): Promise<void> {
     const { tenantId, userId } = ctx(req);
     await handle(() => actors.deleteActor(tenantId, idParam(req), userId));
     return reply.status(204).send();
+  });
+
+  // Message models
+  app.get('/v1/message-models', auth, async (req) => {
+    const items = await handle(() => messageModels.listMessageModels(ctx(req).tenantId));
+    return { items: items.map((item) => messageModels.enrichMessageModel(item, req.locale)) };
+  });
+
+  app.post('/v1/message-models', auth, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
+    const body = req.body as messageModels.CreateMessageModelInput;
+    const item = await handle(() =>
+      messageModels.createMessageModel(tenantId, body, {
+        defaultLocale: req.locale,
+        actorId: userId,
+      }),
+    );
+    return reply.status(201).send(messageModels.enrichMessageModel(item, req.locale));
+  });
+
+  app.get('/v1/message-models/:id', auth, async (req) => {
+    const item = await handle(() => messageModels.getMessageModel(ctx(req).tenantId, idParam(req)));
+    if (!item) throw notFound();
+    return messageModels.enrichMessageModel(item, req.locale);
+  });
+
+  app.patch('/v1/message-models/:id', auth, async (req) => {
+    const { tenantId, userId } = ctx(req);
+    const body = req.body as messageModels.UpdateMessageModelInput;
+    const item = await handle(() =>
+      messageModels.updateMessageModel(tenantId, idParam(req), body, {
+        defaultLocale: req.locale,
+        actorId: userId,
+      }),
+    );
+    return messageModels.enrichMessageModel(item, req.locale);
+  });
+
+  app.delete('/v1/message-models/:id', auth, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
+    await handle(() => messageModels.deleteMessageModel(tenantId, idParam(req), userId));
+    return reply.status(204).send();
+  });
+
+  app.get('/v1/message-models/:id/attributes', auth, async (req) => {
+    const q = req.query as { definition_scope?: string };
+    const scope =
+      q.definition_scope === 'model' || q.definition_scope === 'instance'
+        ? q.definition_scope
+        : undefined;
+    const items = await handle(() =>
+      messageModels.listMessageModelAttributes(ctx(req).tenantId, idParam(req), scope),
+    );
+    return { items: items.map((item) => enrichAttributeDefinition(item, req.locale)) };
+  });
+
+  app.post('/v1/message-models/:id/attributes', auth, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
+    const body = req.body as messageModels.CreateAttributeDefinitionInput;
+    const item = await handle(() =>
+      messageModels.createMessageModelAttribute(tenantId, idParam(req), userId, body, {
+        defaultLocale: req.locale,
+      }),
+    );
+    return reply.status(201).send(enrichAttributeDefinition(item, req.locale));
+  });
+
+  // Messages
+  app.get('/v1/messages', auth, async (req) => {
+    const q = req.query as messages.ListMessagesQuery;
+    const items = await handle(() => messages.listMessages(ctx(req).tenantId, q));
+    return { items };
+  });
+
+  app.post('/v1/messages', auth, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
+    const body = req.body as messages.CreateMessageInput;
+    const item = await handle(() => messages.createMessage(tenantId, body, { actorId: userId }));
+    return reply.status(201).send(item);
+  });
+
+  app.get('/v1/messages/:id', auth, async (req) => {
+    const item = await handle(() => messages.getMessage(ctx(req).tenantId, idParam(req)));
+    if (!item) throw notFound();
+    return item;
+  });
+
+  app.delete('/v1/messages/:id', auth, async (req, reply) => {
+    const { tenantId, userId } = ctx(req);
+    await handle(() => messages.deleteMessage(tenantId, idParam(req), userId));
+    return reply.status(204).send();
+  });
+
+  app.get('/v1/message-files/:id', auth, async (req, reply) => {
+    const file = await handle(() => messages.getMessageFileContent(ctx(req).tenantId, idParam(req)));
+    if (!file) throw notFound();
+    const filename = file.filename ?? 'attachment';
+    const contentType = file.content_type ?? 'application/octet-stream';
+    return reply
+      .header('Content-Type', contentType)
+      .header('Content-Disposition', `attachment; filename="${filename.replace(/"/g, '')}"`)
+      .send(file.data);
   });
 }

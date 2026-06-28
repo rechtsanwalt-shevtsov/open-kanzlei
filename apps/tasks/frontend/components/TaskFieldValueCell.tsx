@@ -5,6 +5,7 @@ import { isSelectDataType } from '@shell/lib/data-type-label.js';
 import type { AttributeDefinition } from '@shell/lib/attribute-api.js';
 import type { Locale } from '@shell/i18n/locale.js';
 import { FieldSelectInput } from '@shell/components/admin/FieldSelectInput.js';
+import { ReferenceFieldInput } from '@shell/components/admin/ReferenceFieldInput.js';
 import { formatFieldValue } from '../lib/task-display.js';
 import { parseFieldValue } from '../lib/field-value.js';
 
@@ -72,6 +73,17 @@ export function TaskFieldValueCell({
         <option value="true">{msg('yes')}</option>
         <option value="false">{msg('no')}</option>
       </select>
+    );
+  }
+
+  if (definition.data_type === 'reference') {
+    return (
+      <ReferenceFieldInput
+        attribute={definition}
+        value={typeof value === 'string' ? value : ''}
+        disabled={saving}
+        onChange={(next) => void persist(next === '' ? null : next)}
+      />
     );
   }
 

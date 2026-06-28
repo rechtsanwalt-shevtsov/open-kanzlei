@@ -926,3 +926,284 @@ actors-item:
         $ref: '../components/responses/common.yaml#/NotFound'
       '409':
         $ref: '../components/responses/common.yaml#/Conflict'
+
+message-models-list:
+  get:
+    tags: [LegalWork]
+    operationId: listMessageModels
+    security: [{ sessionCookie: [] }]
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/MessageModel'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+  post:
+    tags: [LegalWork]
+    operationId: createMessageModel
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateMessageModelRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/MessageModel'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+message-models-item:
+  get:
+    tags: [LegalWork]
+    operationId: getMessageModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/MessageModel'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  patch:
+    tags: [LegalWork]
+    operationId: updateMessageModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/UpdateMessageModelRequest'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/MessageModel'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  delete:
+    tags: [LegalWork]
+    operationId: deleteMessageModel
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses/common.yaml#/Conflict'
+
+message-models-attributes:
+  get:
+    tags: [LegalWork]
+    operationId: listMessageModelAttributes
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+      - name: definition_scope
+        in: query
+        schema:
+          $ref: '../components/schemas/legal.yaml#/DefinitionScope'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/AttributeDefinition'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  post:
+    tags: [LegalWork]
+    operationId: createMessageModelAttribute
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateAttributeDefinitionRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/AttributeDefinition'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses/common.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+messages-list:
+  get:
+    tags: [LegalWork]
+    operationId: listMessages
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - name: message_model_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: direction
+        in: query
+        schema:
+          $ref: '../components/schemas/legal.yaml#/MessageDirection'
+      - name: actor_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: communicated_from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: communicated_to
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '../components/schemas/legal.yaml#/MessageListItem'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+  post:
+    tags: [LegalWork]
+    operationId: createMessage
+    security: [{ sessionCookie: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/legal.yaml#/CreateMessageRequest'
+    responses:
+      '201':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Message'
+      '400':
+        $ref: '../components/responses/common.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+messages-item:
+  get:
+    tags: [LegalWork]
+    operationId: getMessage
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/legal.yaml#/Message'
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+  delete:
+    tags: [LegalWork]
+    operationId: deleteMessage
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '204':
+        description: Deleted
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'
+
+message-files-item:
+  get:
+    tags: [LegalWork]
+    operationId: getMessageFile
+    security: [{ sessionCookie: [] }]
+    parameters:
+      - $ref: '../components/parameters/legal.yaml#/IdPath'
+    responses:
+      '200':
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      '401':
+        $ref: '../components/responses/common.yaml#/Unauthorized'
+      '404':
+        $ref: '../components/responses/common.yaml#/NotFound'

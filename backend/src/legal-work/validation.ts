@@ -1,4 +1,5 @@
 import { badRequest } from '../api/errors.js';
+import { isReferenceUuid } from './reference-target.js';
 
 export const MODEL_KEY_PATTERN = /^[a-z][a-z0-9_]{0,62}$/;
 
@@ -10,12 +11,13 @@ export const DATA_TYPES = [
   'boolean',
   'single_select',
   'multi_select',
+  'reference',
 ] as const;
 
 export type DataType = (typeof DATA_TYPES)[number];
 export type DefinitionScope = 'model' | 'instance';
-export type ModelOwnerType = 'case_model' | 'task_model' | 'actor_model';
-export type InstanceOwnerType = 'case' | 'task' | 'actor';
+export type ModelOwnerType = 'case_model' | 'task_model' | 'actor_model' | 'message_model';
+export type InstanceOwnerType = 'case' | 'task' | 'actor' | 'message';
 export type AttributeValueOwnerType = InstanceOwnerType | ModelOwnerType;
 
 export function assertModelKey(key: string): void {
@@ -47,6 +49,10 @@ export function assertDefinitionScope(value: string): asserts value is Definitio
 
 export function isSelectDataType(dataType: DataType): boolean {
   return dataType === 'single_select' || dataType === 'multi_select';
+}
+
+export function isReferenceDataType(dataType: DataType): boolean {
+  return dataType === 'reference';
 }
 
 export function normalizeSelectOptions(raw: unknown): string[] {
@@ -89,6 +95,11 @@ export function serializeAttributeValue(dataType: DataType, value: unknown): str
         throw badRequest('error.invalid_attribute_value');
       }
       return value.trim();
+    case 'reference':
+      if (typeof value !== 'string' || !isReferenceUuid(value)) {
+        throw badRequest('error.invalid_attribute_value');
+      }
+      return value;
     case 'multi_select': {
       if (!Array.isArray(value) || value.length === 0) {
         throw badRequest('error.invalid_attribute_value');
@@ -115,6 +126,8 @@ export function parseAttributeValue(
     case 'text':
     case 'date':
     case 'single_select':
+      return stored;
+    case 'reference':
       return stored;
     case 'number':
     case 'money':
@@ -162,6 +175,12 @@ export function parseDefaultValueJson(
       return raw;
     case 'single_select': {
       if (typeof raw !== 'string' || !selectOptions.includes(raw)) {
+        throw badRequest('error.validation_failed');
+      }
+      return raw;
+    }
+    case 'reference': {
+      if (typeof raw !== 'string' || !isReferenceUuid(raw)) {
         throw badRequest('error.validation_failed');
       }
       return raw;

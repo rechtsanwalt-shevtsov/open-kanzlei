@@ -5,6 +5,7 @@ import { isSelectDataType } from '@shell/lib/data-type-label.js';
 import type { AttributeDefinition } from '@shell/lib/attribute-api.js';
 import { updateAttributeDefinition } from '@shell/lib/attribute-api.js';
 import { selectOptionLabel } from '@shell/lib/select-option-labels.js';
+import { ReferenceFieldInput } from '@shell/components/admin/ReferenceFieldInput.js';
 import type { Locale } from '@shell/i18n/locale.js';
 
 function formatDefault(attr: AttributeDefinition): string {
@@ -63,6 +64,16 @@ export function InstanceDefaultValueCell({
     if (attribute.data_type === 'single_select' && typeof attribute.default_value === 'string') {
       return <span>{selectOptionLabel(attribute.default_value, attribute)}</span>;
     }
+    if (attribute.data_type === 'reference' && typeof attribute.default_value === 'string') {
+      return (
+        <ReferenceFieldInput
+          attribute={attribute}
+          value={attribute.default_value}
+          onChange={() => {}}
+          readOnly
+        />
+      );
+    }
     const text = formatDefault(attribute);
     return <span>{text || '—'}</span>;
   }
@@ -83,6 +94,20 @@ export function InstanceDefaultValueCell({
         <option value="true">{msg('yes')}</option>
         <option value="false">{msg('no')}</option>
       </select>
+    );
+  }
+
+  if (attribute.data_type === 'reference') {
+    return (
+      <ReferenceFieldInput
+        attribute={attribute}
+        value={draft}
+        disabled={saving}
+        onChange={(next) => {
+          setDraft(next);
+          void persist(next === '' ? null : next);
+        }}
+      />
     );
   }
 

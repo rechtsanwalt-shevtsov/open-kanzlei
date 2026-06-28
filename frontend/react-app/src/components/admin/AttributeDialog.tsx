@@ -3,6 +3,7 @@ import type { AttributeDefinition, DataType } from '../../lib/attribute-api.js';
 import {
   DATA_TYPES,
   dataTypeMessageKey,
+  isReferenceDataType,
   isSelectDataType,
 } from '../../lib/data-type-label.js';
 import {
@@ -25,6 +26,9 @@ import {
 } from '../../lib/select-options.js';
 import { FieldSelectInput } from './FieldSelectInput.js';
 import { SelectOptionsEditor } from './SelectOptionsEditor.js';
+import { ReferenceFieldInput } from './ReferenceFieldInput.js';
+import { useReferenceModelOptions } from '../../hooks/useReferenceModelOptions.js';
+import type { ReferenceTargetType } from '../../hooks/useReferenceOptions.js';
 
 export type AttributeDialogPayload = {
   name: string;
@@ -36,6 +40,8 @@ export type AttributeDialogPayload = {
   select_options?: string[];
   select_option_translations?: Record<string, Record<string, string>>;
   default_value?: unknown;
+  reference_target_type?: ReferenceTargetType;
+  reference_target_model_id?: string | null;
 };
 
 export type AttributeDialogLockFields = {
@@ -98,13 +104,19 @@ export function AttributeDialog({
   const [optionRows, setOptionRows] = useState<SelectOptionRow[]>([]);
   const [defaultText, setDefaultText] = useState('');
   const [defaultMultiKeys, setDefaultMultiKeys] = useState<string[]>([]);
+  const [referenceTargetType, setReferenceTargetType] = useState<ReferenceTargetType>('actor');
+  const [referenceTargetModelId, setReferenceTargetModelId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const isSingleSelect = dataType === 'single_select';
-  const isMultiSelect = dataType === 'multi_select';
+  const isReference = isReferenceDataType(dataType);
   const showSelectOptions = isSelectDataType(dataType);
-  const showEncryption = definitionScope === 'instance';
+  const showEncryption = definitionScope === 'instance' && !isReference;
+  const availableDataTypes =
+    definitionScope === 'instance' ? DATA_TYPES : DATA_TYPES.filter((t) => t !== 'reference');
+  const { options: referenceModelOptions } = useReferenceModelOptions(
+    isReference ? referenceTargetType : null,
+  );
   const lockedOptionKeys = attribute?.locked_select_options ?? [];
 
   useEffect(() => {
@@ -130,6 +142,8 @@ export function AttributeDialog({
           ? attribute.default_value
           : [],
       );
+      setReferenceTargetType(attribute.reference_target_type ?? 'actor');
+      setReferenceTargetModelId(attribute.reference_target_model_id ?? '');
     } else {
       setName('');
       setDataType('text');
@@ -138,6 +152,8 @@ export function AttributeDialog({
       setOptionRows([]);
       setDefaultText('');
       setDefaultMultiKeys([]);
+      setReferenceTargetType('actor');
+      setReferenceTargetModelId('');
     }
     setError(null);
   }, [open, mode, attribute, locale, defaultEncryptionMode]);
@@ -162,12 +178,16 @@ export function AttributeDialog({
     [normalizedSelectOptions],
   );
 
+  const isSingleSelect = dataType === 'single_select';
+  const isMultiSelect = dataType === 'multi_select';
+
   const defaultInputType = useMemo(() => {
     if (dataType === 'boolean') return 'select';
     if (dataType === 'date') return 'date';
     if (dataType === 'number' || dataType === 'money') return 'number';
     if (dataType === 'single_select') return 'select';
     if (dataType === 'multi_select') return 'multi';
+    if (isReferenceDataType(dataType)) return 'reference';
     return 'text';
   }, [dataType]);
 
@@ -177,6 +197,16 @@ export function AttributeDialog({
 
     if (!name.trim()) {
       setError(msg('cmdModelNameRequired'));
+      return;
+    }
+
+    if (isReference && definitionScope !== 'instance') {
+      setError(msg('errorGeneric'));
+      return;
+    }
+
+    if (isReference && !referenceTargetType) {
+      setError(msg('errorGeneric'));
       return;
     }
 
@@ -232,6 +262,8 @@ export function AttributeDialog({
           setError(msg('errorGeneric'));
           return;
         }
+      } else if (isReference && defaultText.trim()) {
+        defaultValue = defaultText.trim();
       } else if (defaultText.trim()) {
         defaultValue = parseDefaultFromInput(dataType, defaultText);
       }
@@ -243,13 +275,17 @@ export function AttributeDialog({
       locale,
       definition_scope: definitionScope,
       data_type: dataType,
-      encryption_mode: showEncryption ? encryptionMode : 'server_readable',
+      encryption_mode: isReference ? 'server_readable' : showEncryption ? encryptionMode : 'server_readable',
       ...(extendedFields
         ? {
             is_required: isRequired,
             select_options: showSelectOptions ? selectOptions : undefined,
             select_option_translations: showSelectOptions ? selectOptionTranslations : undefined,
             default_value: defaultValue,
+            reference_target_type: isReference ? referenceTargetType : undefined,
+            reference_target_model_id: isReference
+              ? referenceTargetModelId.trim() || null
+              : undefined,
           }
         : {}),
     });
@@ -295,13 +331,50 @@ export function AttributeDialog({
               disabled={lockFields?.dataType}
               onChange={(e) => setDataType(e.target.value as DataType)}
             >
-              {DATA_TYPES.map((t) => (
+              {DATA_TYPES.filter((t) => availableDataTypes.includes(t)).map((t) => (
                 <option key={t} value={t}>
                   {msg(dataTypeMessageKey(t))}
                 </option>
               ))}
             </select>
           </label>
+
+          {extendedFields && isReference && (
+            <>
+              <label>
+                {msg('referenceTargetType')}
+                <select
+                  value={referenceTargetType}
+                  onChange={(e) => {
+                    setReferenceTargetType(e.target.value as ReferenceTargetType);
+                    setReferenceTargetModelId('');
+                    setDefaultText('');
+                  }}
+                >
+                  <option value="actor">{msg('referenceTargetActor')}</option>
+                  <option value="case">{msg('referenceTargetCase')}</option>
+                  <option value="task">{msg('referenceTargetTask')}</option>
+                </select>
+              </label>
+              <label>
+                {msg('referenceTargetModel')}
+                <select
+                  value={referenceTargetModelId}
+                  onChange={(e) => {
+                    setReferenceTargetModelId(e.target.value);
+                    setDefaultText('');
+                  }}
+                >
+                  <option value="">{msg('referenceTargetAnyModel')}</option>
+                  {referenceModelOptions.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
 
           {extendedFields && (
             <label className="admin-checkbox-label">
@@ -362,6 +435,16 @@ export function AttributeDialog({
                   onChange={(value) =>
                     setDefaultMultiKeys(Array.isArray(value) ? value : [])
                   }
+                />
+              ) : defaultInputType === 'reference' && isReference ? (
+                <ReferenceFieldInput
+                  attribute={{
+                    reference_target_type: referenceTargetType,
+                    reference_target_model_id: referenceTargetModelId.trim() || null,
+                  }}
+                  value={defaultText}
+                  onChange={setDefaultText}
+                  className="admin-settings-select"
                 />
               ) : (
                 <input

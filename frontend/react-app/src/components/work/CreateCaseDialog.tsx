@@ -4,6 +4,7 @@ import { useI18n } from '../../i18n/I18nContext.js';
 import { WORK_STATUSES, workStatusLabel } from '../../lib/work-status.js';
 import { listModelAttributes, type AttributeDefinition } from '../../lib/attribute-api.js';
 import { labelFromTranslations } from '../../lib/model-label.js';
+import { ReferenceFieldInput } from '../../components/admin/ReferenceFieldInput.js';
 import type { ActorOption } from '../../hooks/useActorsList.js';
 import type { ModelOption } from '../../hooks/useModelOptions.js';
 
@@ -134,6 +135,20 @@ export function CreateCaseDialog({
           />
           {label}
           {required ? ' *' : ''}
+        </label>
+      );
+    }
+
+    if (def.data_type === 'reference') {
+      return (
+        <label key={def.id}>
+          {label}
+          {required ? ' *' : ''}
+          <ReferenceFieldInput
+            attribute={def}
+            value={value}
+            onChange={(next) => setField(def.key, next)}
+          />
         </label>
       );
     }

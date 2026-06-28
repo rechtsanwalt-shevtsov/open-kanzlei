@@ -1,0 +1,29 @@
+{
+  "app_key": "kommunikation",
+  "name": "Kommunikation",
+  "version": "1.0.0",
+  "description": "Nachrichten chronologisch anzeigen und neue Nachrichten anlegen.",
+  "has_react_ui": true,
+  "menu_category": "work",
+  "nav_path": "/apps/kommunikation",
+  "nav_icon": "LuMail",
+  "app_group": "unassigned",
+  "routes": [
+    { "path": "/apps/kommunikation", "label": "Kommunikation" },
+    { "path": "/apps/kommunikation/settings", "label": "Einstellungen" }
+  ],
+  "required_teams": [],
+  "requires_attributes": [],
+  "provides_attributes": [],
+  "supported_locales": ["de", "en"],
+  "event_subscriptions": [],
+  "settings_schema": {
+    "itemsPerPage": {
+      "type": "number",
+      "default": 25,
+      "allowedValues": [5, 10, 25, 50, 100],
+      "tenantConfigurable": true,
+      "userOverridable": true
+    }
+  }
+}

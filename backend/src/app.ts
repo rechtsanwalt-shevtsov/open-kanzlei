@@ -19,7 +19,9 @@ import { initializeAppRegistry } from './platform/apps/registry.js';
 export async function buildApp() {
   initializeAppRegistry();
 
-  const app = Fastify({ logger: true });
+  // Messages embed encrypted attachments as base64 JSON, so the default 1 MiB
+  // body limit is far too small. Allow larger uploads (configurable via env).
+  const app = Fastify({ logger: true, bodyLimit: env.maxRequestBytes });
 
   // Accept DELETE/GET clients that send Content-Type: application/json without a body.
   app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {

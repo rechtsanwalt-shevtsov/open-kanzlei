@@ -18,7 +18,12 @@ StatusKey:
 
 DataType:
   type: string
-  enum: [text, number, money, date, boolean, single_select, multi_select]
+  enum: [text, number, money, date, boolean, single_select, multi_select, reference]
+
+ReferenceTargetType:
+  type: string
+  enum: [actor, case, task]
+  description: Entity type referenced by a reference attribute
 
 DefinitionScope:
   type: string
@@ -202,7 +207,7 @@ AttributeDefinition:
       format: uuid
     owner_type:
       type: string
-      enum: [case_model, task_model, actor_model]
+      enum: [case_model, task_model, actor_model, message_model]
     owner_id:
       type: string
       format: uuid
@@ -239,6 +244,15 @@ AttributeDefinition:
       items:
         type: string
       description: Shared-registry option keys that may be labeled but not removed or renamed (read-only in responses)
+    reference_target_type:
+      $ref: '#/ReferenceTargetType'
+      nullable: true
+      description: Target entity type for reference attributes
+    reference_target_model_id:
+      type: string
+      format: uuid
+      nullable: true
+      description: Optional model filter for reference attributes (actor/case/task model id)
     default_value:
       description: Default for new instances (instance scope) or model value (model scope)
     display_name:
@@ -285,6 +299,12 @@ CreateAttributeDefinitionRequest:
         type: object
         additionalProperties:
           type: string
+    reference_target_type:
+      $ref: '#/ReferenceTargetType'
+    reference_target_model_id:
+      type: string
+      format: uuid
+      nullable: true
     default_value: {}
 
 UpdateAttributeDefinitionRequest:
@@ -314,6 +334,12 @@ UpdateAttributeDefinitionRequest:
         type: object
         additionalProperties:
           type: string
+    reference_target_type:
+      $ref: '#/ReferenceTargetType'
+    reference_target_model_id:
+      type: string
+      format: uuid
+      nullable: true
     default_value: {}
 
 AttributeValuesRequest:
@@ -657,3 +683,298 @@ UpdateActorRequest:
     attributes:
       type: object
       additionalProperties: true
+
+MessageDirection:
+  type: string
+  enum: [incoming, outgoing, internal, draft]
+
+MessagePartRole:
+  type: string
+  enum: [body, attachment, inline, signature, metadata, annotation, summary, ocr]
+
+MessageParticipantRole:
+  type: string
+  enum: [from, to, cc, bcc, reply_to]
+
+MessageModel:
+  type: object
+  required: [id, key, status, translations, description, display_name, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/CaseModelStatus'
+    translations:
+      $ref: '#/Translations'
+    description:
+      type: string
+    description_translations:
+      $ref: '#/Translations'
+      deprecated: true
+    display_name:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateMessageModelRequest:
+  type: object
+  properties:
+    name:
+      type: string
+      minLength: 1
+    locale:
+      type: string
+      enum: [de, en]
+    key:
+      $ref: '#/ModelKey'
+    status:
+      $ref: '#/CaseModelStatus'
+    translations:
+      $ref: '#/Translations'
+    description:
+      type: string
+
+UpdateMessageModelRequest:
+  type: object
+  properties:
+    name:
+      type: string
+      minLength: 1
+    locale:
+      type: string
+      enum: [de, en]
+    status:
+      $ref: '#/CaseModelStatus'
+    translations:
+      $ref: '#/Translations'
+    description:
+      type: string
+
+MessageParticipant:
+  type: object
+  required: [id, role, actor_id, display_name, address, sort_order]
+  properties:
+    id:
+      type: string
+      format: uuid
+    role:
+      $ref: '#/MessageParticipantRole'
+    actor_id:
+      type: string
+      format: uuid
+      nullable: true
+    display_name:
+      type: string
+      nullable: true
+    address:
+      type: string
+      nullable: true
+    sort_order:
+      type: integer
+
+MessagePart:
+  type: object
+  required: [id, role, sort_order, content_type, text_content, file_id, filename]
+  properties:
+    id:
+      type: string
+      format: uuid
+    role:
+      $ref: '#/MessagePartRole'
+    sort_order:
+      type: integer
+    content_type:
+      type: string
+      nullable: true
+    text_content:
+      type: string
+      nullable: true
+    file_id:
+      type: string
+      format: uuid
+      nullable: true
+    filename:
+      type: string
+      nullable: true
+
+Message:
+  type: object
+  required:
+    - id
+    - message_model_id
+    - direction
+    - communicated_at
+    - external_message_id
+    - subject
+    - encryption_status
+    - participants
+    - parts
+    - created_at
+    - updated_at
+  properties:
+    id:
+      type: string
+      format: uuid
+    message_model_id:
+      type: string
+      format: uuid
+    direction:
+      $ref: '#/MessageDirection'
+    communicated_at:
+      type: string
+      format: date-time
+    external_message_id:
+      type: string
+      nullable: true
+    subject:
+      type: string
+      nullable: true
+    encryption_status:
+      type: string
+    attributes:
+      type: object
+      additionalProperties: true
+    participants:
+      type: array
+      items:
+        $ref: '#/MessageParticipant'
+    parts:
+      type: array
+      items:
+        $ref: '#/MessagePart'
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+MessageListItem:
+  type: object
+  required:
+    - id
+    - message_model_id
+    - direction
+    - communicated_at
+    - external_message_id
+    - subject
+    - encryption_status
+    - participant_actor_ids
+    - created_at
+    - updated_at
+  properties:
+    id:
+      type: string
+      format: uuid
+    message_model_id:
+      type: string
+      format: uuid
+    direction:
+      $ref: '#/MessageDirection'
+    communicated_at:
+      type: string
+      format: date-time
+    external_message_id:
+      type: string
+      nullable: true
+    subject:
+      type: string
+      nullable: true
+    encryption_status:
+      type: string
+    participant_actor_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CreateMessageParticipantRequest:
+  type: object
+  required: [role]
+  properties:
+    role:
+      $ref: '#/MessageParticipantRole'
+    actor_id:
+      type: string
+      format: uuid
+      nullable: true
+    display_name:
+      type: string
+      nullable: true
+    address:
+      type: string
+      nullable: true
+    sort_order:
+      type: integer
+
+CreateMessagePartFileRequest:
+  type: object
+  required: [data_base64, filename, content_type]
+  properties:
+    data_base64:
+      type: string
+    filename:
+      type: string
+    content_type:
+      type: string
+
+CreateMessagePartRequest:
+  type: object
+  required: [role]
+  properties:
+    role:
+      $ref: '#/MessagePartRole'
+    content_type:
+      type: string
+      nullable: true
+    text_content:
+      type: string
+      nullable: true
+    file:
+      $ref: '#/CreateMessagePartFileRequest'
+      nullable: true
+    sort_order:
+      type: integer
+
+CreateMessageRequest:
+  type: object
+  required: [message_model_id, direction]
+  properties:
+    message_model_id:
+      type: string
+      format: uuid
+    direction:
+      $ref: '#/MessageDirection'
+    communicated_at:
+      type: string
+      format: date-time
+    external_message_id:
+      type: string
+      nullable: true
+    subject:
+      type: string
+      nullable: true
+    attributes:
+      type: object
+      additionalProperties: true
+    participants:
+      type: array
+      items:
+        $ref: '#/CreateMessageParticipantRequest'
+    parts:
+      type: array
+      items:
+        $ref: '#/CreateMessagePartRequest'

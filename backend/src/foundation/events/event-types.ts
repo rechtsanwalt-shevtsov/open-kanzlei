@@ -42,6 +42,13 @@ export const PUBLIC_EVENT_TYPES = [
   'actor.created',
   'actor.updated',
   'actor.deleted',
+  'message_model.created',
+  'message_model.updated',
+  'message_model.archived',
+  'message_model.deleted',
+  'message.created',
+  'message.updated',
+  'message.deleted',
 ] as const;
 
 export const INTERNAL_EVENT_TYPES = [

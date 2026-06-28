@@ -132,6 +132,20 @@ paths:
   /v1/actors/{id}:
     $ref: './paths/legal.yaml#/actors-item'
 
+  /v1/message-models:
+    $ref: './paths/legal.yaml#/message-models-list'
+  /v1/message-models/{id}:
+    $ref: './paths/legal.yaml#/message-models-item'
+  /v1/message-models/{id}/attributes:
+    $ref: './paths/legal.yaml#/message-models-attributes'
+
+  /v1/messages:
+    $ref: './paths/legal.yaml#/messages-list'
+  /v1/messages/{id}:
+    $ref: './paths/legal.yaml#/messages-item'
+  /v1/message-files/{id}:
+    $ref: './paths/legal.yaml#/message-files-item'
+
 components:
   securitySchemes:
     sessionCookie:

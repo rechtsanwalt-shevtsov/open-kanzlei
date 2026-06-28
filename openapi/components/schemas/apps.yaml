@@ -247,7 +247,7 @@ AppProvidesAttribute:
       $ref: '#/AppAttributeDefinitionScope'
     data_type:
       type: string
-      enum: [text, number, money, date, boolean, single_select, multi_select]
+      enum: [text, number, money, date, boolean, single_select, multi_select, reference]
     translations:
       type: object
       additionalProperties:

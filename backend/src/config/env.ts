@@ -13,6 +13,8 @@ export const env = {
   sessionCookieName: 'openkanzlei_session',
   sessionTtlDays: Number(process.env.SESSION_TTL_DAYS ?? 7),
   storagePath: process.env.STORAGE_PATH ?? './storage',
+  /** Max HTTP request body size in bytes (base64 attachments need headroom). */
+  maxRequestBytes: Number(process.env.MAX_REQUEST_BYTES ?? 50 * 1024 * 1024),
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
   /** Directory containing app packages (apps/<app-key>/manifest.json). */
   appsPath: process.env.APPS_PATH ?? path.resolve(__dirname, '../../../apps'),

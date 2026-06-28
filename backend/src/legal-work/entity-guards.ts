@@ -31,7 +31,7 @@ export async function assertTaskNotReferencedByOthers(
 export async function deleteAttributeDefinitionsForModel(
   client: pg.PoolClient,
   tenantId: string,
-  ownerType: 'case_model' | 'task_model' | 'actor_model',
+  ownerType: 'case_model' | 'task_model' | 'actor_model' | 'message_model',
   modelId: string,
 ): Promise<void> {
   await client.query(
@@ -44,7 +44,7 @@ export async function deleteAttributeDefinitionsForModel(
 export async function deleteInstanceAttributeValues(
   client: pg.PoolClient,
   tenantId: string,
-  ownerType: 'case' | 'task' | 'actor',
+  ownerType: 'case' | 'task' | 'actor' | 'message',
   ownerId: string,
 ): Promise<void> {
   await client.query(

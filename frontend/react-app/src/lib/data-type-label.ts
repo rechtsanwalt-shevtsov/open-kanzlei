@@ -9,6 +9,7 @@ export const DATA_TYPES: DataType[] = [
   'boolean',
   'single_select',
   'multi_select',
+  'reference',
 ];
 
 export function dataTypeMessageKey(type: DataType): MessageKey {
@@ -27,7 +28,13 @@ export function dataTypeMessageKey(type: DataType): MessageKey {
       return 'dataTypeSingleSelect';
     case 'multi_select':
       return 'dataTypeMultiSelect';
+    case 'reference':
+      return 'dataTypeReference';
   }
+}
+
+export function isReferenceDataType(type: DataType): boolean {
+  return type === 'reference';
 }
 
 export function isSelectDataType(type: DataType): boolean {

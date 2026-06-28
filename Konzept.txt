@@ -1,7 +1,7 @@
 ================================================================================
 OpenKanzlei — Konzept und Implementierungsplan
 ================================================================================
-Stand: Mai 2026 (Apps: ergänzt 26.05.2026)
+Stand: Juni 2026 (Apps: ergänzt 26.05.2026; Actor, Reference, Message: ergänzt 28.06.2026)
 Zweck: Fahrplan und dokumentierte Architekturentscheidungen für die Entwicklung.
        Vor Implementierung abgestimmt; bei Änderungen dieses Dokument aktualisieren.
 
@@ -157,6 +157,8 @@ Drei logische Scopes (kein scope_type-Feld in der DB nötig):
   2. Shared Resources   — Kontakte, Organisationen, Vorlagen, … (später)
   3. Cases              — Arbeitscontainer: Case-Instanzen, Attribute, Dokumente
   4. Tasks              — Arbeitseinheiten innerhalb eines Cases
+  5. Actors             — Beteiligte (Personen, Organisationen, …), tenant-weit
+  6. Messages           — Kommunikation (E-Mail, Schriftsatz, …), tenant-weit, eigenständig
 
 Technische DB-Struktur darf flach bleiben; Trennung über Schemas/Module.
 
@@ -227,6 +229,115 @@ Code: task-models.ts, tasks.ts, task-model-platform-attributes.ts, work-status.t
   Migration 021, 024, 029
 
 ================================================================================
+6c. MODELL / INSTANZ — ACTORS (BETEILIGTE)
+================================================================================
+
+Entscheidung: Actors sind eigenständige Entitäten — NICHT an Cases oder Tasks
+gebunden. Beziehungen zu anderen Entitäten werden später separat modelliert
+(„Beziehungen“-Entität, noch nicht implementiert).
+
+Muster: analog Case- und Task-Modelle — Attribute nur auf Modellen, Werte auf
+Instanzen.
+
+Modelle: actor_models (tenant-scoped)
+  - key, status (draft|active|archived), is_system (für Plattform-Standardmodelle)
+  - Systemmodell „person“ (is_system=true) wird pro Tenant beim ersten Zugriff
+    angelegt (bootstrapActorTenantData)
+
+Instanzen: actors
+  - POST /v1/actors — lazy, kein automatisches Anlegen
+  - Pflicht: actor_model_id
+  - Systemspalten: status, is_tenant_root (genau ein Tenant-Root-Actor pro Tenant),
+    encryption_status, encryption_version
+
+Hierarchie: actors → actor_model_id (kein case_id / task_id)
+
+Plattform-Instanzattribute (jedes Actor-Modell, scope instance):
+  - status (single_select: active|inactive|archived, server_readable)
+  - group (single_select, server_readable) — Zuordnung zu Tenant-Gruppen
+    (admin, regular); Optionen werden aus platform.teams synchronisiert,
+    ausgenommen plattformuser; Default nur über default_value des Attributs
+    group (kein separates Modell-Systemfeld default_group_key mehr)
+
+Standard-Instanzattribute (beim Modell-Anlegen gesät, tenant-editierbar):
+  name, first_name, email, phone, address — jeweils text, zero_knowledge
+
+Plattformuser:
+  - Login-fähige Benutzer sind Actors im Systemmodell mit group=plattformuser
+  - Verwaltung über App platform-users (Gruppenmitgliedschaft, Login)
+  - Actor-Model-Designer: Gruppenverwaltung (Tenant-Teams) + Modell-Designer
+  - Actors-App: nur bestehende Beteiligte anlegen/verwalten (ohne Plattformuser)
+
+Apps:
+  - actor-model-designer — Actor-Modelle, Attribute, Gruppen
+  - actors — Beteiligten-Instanzen
+  - platform-users — Plattformbenutzer (Actors mit Login)
+
+Code: actor-models.ts, actors.ts, actor-model-defaults.ts,
+  actor-model-platform-attributes.ts, actor-tenant-seed.ts, actor-group.ts;
+  Migration 033, 036, 038
+
+================================================================================
+6d. MODELL / INSTANZ — MESSAGES (KOMMUNIKATION)
+================================================================================
+
+Entscheidung: Messages sind eigenständige Entitäten — KEIN FK zu Case/Task.
+Die „Art“ einer Nachricht ist das gewählte message_model (z. B. „E-Mail“,
+„Aktenvermerk“, „Schriftsatz“). Richtung ist ein festes Systemfeld auf der
+Instanz, nicht das Modell.
+
+Modelle: message_models (tenant-scoped, analog task_models ohne Plattform-
+Instanzattribute wie status/title)
+
+Instanzen: messages
+  - POST /v1/messages — Anlegen inkl. Parts, Participants, Dateien
+  - Pflicht: message_model_id, direction
+  - Systemspalten (server-lesbar):
+      direction (incoming|outgoing|internal|draft)
+      communicated_at (Kommunikationsdatum, chronologische Sortierung)
+      external_message_id (optional — technische Message-ID aus Quellsystem,
+        z. B. RFC-5322-Header; für Deduplizierung/Import vorgesehen)
+  - Verschlüsselte Felder (BYTEA, Zero-Knowledge-Ziel):
+      subject_encrypted
+  - Keine direkte Verknüpfung zu Cases/Actors außer optional actor_id in
+    message_participants
+
+MessagePart (legal.message_parts):
+  - Zerlegung einer Nachricht in inhaltliche Teile
+  - role: body | attachment | inline | signature | metadata | annotation |
+          summary | ocr
+  - content_type_encrypted, text_encrypted (optional)
+  - file_id → legal.message_files (verschlüsselter Datei-Blob auf Storage)
+
+MessageParticipant (legal.message_participants):
+  - role: from | to | cc | bcc | reply_to
+  - actor_id optional (Verweis auf legal.actors)
+  - display_name_encrypted, address_encrypted — Snapshots für externe Adressen
+    ohne Actor-Instanz
+
+Dateien (legal.message_files):
+  - Speicherung unter STORAGE_PATH/message-files/{tenant_id}/ (verschlüsselt)
+  - original_filename_encrypted, content_type_encrypted
+  - Download: GET /v1/message-files/{id}
+
+Zero-Knowledge (Kernanforderung juristische Software):
+  - Nur anonymisierte/technische Metadaten server-lesbar: IDs, direction,
+    communicated_at, message_model_id, external_message_id, actor_id in
+    Participants, Part-Rollen und sort_order
+  - Betreff, Teilnehmer-Snapshots, Textinhalte, Dateinamen und Dateiinhalte
+    verschlüsselt — keine serverseitige Volltextsuche in Inhalten
+  - MVP: EncryptionService-Passthrough (Klartext in BYTEA); Architektur für
+    echte Client-Verschlüsselung vorbereitet
+
+Apps:
+  - message-model-designer — Nachrichten-Modelle und Attributdefinitionen
+  - kommunikation — chronologische Liste, Suche auf Metadaten/Betreff (nach
+    Entschlüsselung im MVP), Dialog „Nachricht anlegen“
+
+Code: message-models.ts, messages.ts, message-crypto.ts,
+  message-file-storage.ts; Migration 040, 041
+
+================================================================================
 7. BENUTZERDEFINIERTE ATTRIBUTE
 ================================================================================
 
@@ -254,23 +365,59 @@ Tabellen:
     - tenant_id, owner_type, owner_id (Modell!)
     - key (sprachneutral, stabil), data_type
     - encryption_mode: server_readable | zero_knowledge
+    - reference_target_type, reference_target_model_id (nur bei data_type reference)
     - translations (JSONB): {"de":"…","en":"…"}
     - created_by
 
   attribute_values
     - tenant_id, attribute_definition_id
-    - owner_type (Instanz: case), owner_id
+    - owner_type (Instanz: case | task | actor | message), owner_id
     - plaintext_value / encrypted_value
     - encryption_status, encryption_version
 
 Regeln:
-  - Definitionen auf owner_type: case_model | task_model
-  - Werte auf Instanzen: case | task
+  - Definitionen auf owner_type: case_model | task_model | actor_model | message_model
+  - Werte auf Instanzen: case | task | actor | message
   - Schreiben nur erlaubt, wenn Attribut am Modell der Instanz definiert ist
   - Verschlüsselungsentscheidung über attribute_definitions.encryption_mode,
     NICHT über Tabellen- oder Spaltennamen
 
-Plattform-Standard-Instanzattribut — work status (Case + Task, scope instance):
+data_type (Stand Implementierung):
+  text, number, money, date, boolean, single_select, multi_select, reference
+  — money/select in OpenAPI teils als Phase-2 markiert; reference implementiert
+
+----------------------------------------------------------------------
+7a. ATTRIBUT-TYP reference (Entitätsverweis)
+----------------------------------------------------------------------
+
+Unterscheidung wichtig:
+  - Shared-Registry-Key „reference“ auf case_model (Abschnitt 6, text) =
+    Aktenzeichen / freies Referenzfeld (server_readable)
+  - data_type „reference“ = strukturierter Verweis auf eine andere Instanz
+    per UUID (nicht verwechseln!)
+
+Definition (attribute_definitions):
+  - data_type: reference
+  - reference_target_type: actor | case | task (Pflicht bei reference)
+  - reference_target_model_id: optional — schränkt Ziel auf ein bestimmtes
+    Modell ein (z. B. nur Actors des Modells „person“)
+
+Speicherung (attribute_values):
+  - Wert = UUID der Ziel-Instanz (als serialisierter String, verschlüsselt
+    gemäß encryption_mode der Definition)
+  - Validierung: Ziel muss im Tenant existieren; optional Modell-Filter
+
+Anzeige (UI/API):
+  - Gespeichert wird die ID; angezeigt wird ein aufgelöster Titel
+    (reference-resolution.ts, instance-title.ts)
+  - Case/Task: bevorzugt attributes.title; Actor: name/first_name
+
+Code: reference-target.ts, reference-resolution.ts, instance-title.ts;
+  Migration 039_reference_attribute.sql
+
+----------------------------------------------------------------------
+7b. Plattform-Standard-Instanzattribute (Auszug)
+----------------------------------------------------------------------
   Key (reserviert): status
   - Zentrale Definition: work-status.ts — WORK_STATUS_VALUES
   - Feste Werte (sprachneutral, von allen Apps gleich interpretiert):
@@ -297,7 +444,17 @@ Plattform-Standard-Instanzattribut — work status (Case + Task, scope instance)
   - data_type: text, encryption_mode: zero_knowledge, is_required: true
   - Pflicht bei Anlage neuer Case-/Task-Instanz (attributes.title)
 
+  Actor-Modell (scope instance, siehe 6c):
+  - status (single_select, server_readable) — eigene Wertemenge ACTOR_STATUS_VALUES
+  - group (single_select, server_readable) — Tenant-Gruppen admin/regular;
+    Optionen synchron mit platform.teams (ohne plattformuser)
+
+  Message-Modell:
+  - Keine Plattform-Instanzattribute; Richtung/Betreff/Teilnehmer auf Instanz-
+    Systemtabellen bzw. verschlüsselten Spalten (siehe 6d)
+
   Code: work-status.ts, case-model-platform-attributes.ts, task-model-platform-attributes.ts,
+    actor-model-platform-attributes.ts,
     case-model-defaults.ts, task-model-defaults.ts, case-instance-status.ts,
     task-instance-status.ts; Migration 019, 022, 029
 
@@ -341,10 +498,16 @@ Schutz App-/Registry-Attribute:
 Integrität beim Löschen (keine verwaisten „Leichen“, Code: entity-guards.ts):
   - Case-Modell: nur löschbar ohne Case-Instanzen → 409 error.model_in_use
   - Task-Modell: nur löschbar ohne Task-Instanzen → 409 error.model_in_use
+  - Actor-Modell: nur löschbar ohne Actor-Instanzen → 409 error.model_in_use
+  - Message-Modell: nur löschbar ohne Message-Instanzen → 409 error.model_in_use
   - Case-Instanz: nur löschbar ohne Task-Instanzen → 409 error.case_in_use;
     bei erlaubtem Löschen werden zugehörige Attributwerte und Dokumente mit entfernt
   - Task-Instanz: nur löschbar, wenn kein anderer Task sie als Vorgänger/Nachfolger
     referenziert → 409 error.task_in_use; Attributwerte werden mit entfernt
+  - Actor-Instanz: Attributwerte werden mit entfernt; Tenant-Root und
+    Plattformuser unterliegen zusätzlichen Schutzregeln
+  - Message-Instanz: Parts, Participants, Dateien und Attributwerte werden
+    mit entfernt
   - Attributdefinition: nur löschbar ohne Instanzwerte → 409 error.attribute_in_use
 
 ================================================================================
@@ -373,7 +536,7 @@ Langfristiges Ziel:
   - Betreiber hat keinen Zugriff auf juristische Inhalte
 
 Betrifft später u. a.: Cases, Attribute, Notizen, Dokumente,
-Mandanten-/Gegnerinformationen.
+Mandanten-/Gegnerinformationen, Messages (Betreff, Inhalte, Anhänge).
 
 Ausgenommen (technische Plattformdaten):
   tenant_id, user_id, username, Team-Mitgliedschaften, Metadaten, Timestamps, Eventtypen,
@@ -537,7 +700,9 @@ PostgreSQL-Schemas zur logischen Trennung:
 
   platform.*   — tenants, tenant_profiles, users, teams, user_teams, sessions,
                  app_installations, app_tenant_settings, app_user_settings, …
-  legal.*      — case_models, cases, documents
+  legal.*      — case_models, cases, task_models, tasks, actor_models, actors,
+                 message_models, messages, message_parts, message_participants,
+                 message_files, documents
   events.*     — domain_events, outbox_events, webhook_subscriptions
   meta.*       — attribute_definitions, attribute_values
 
@@ -1030,6 +1195,9 @@ Zwei Ebenen „Installation“:
 20.2 Weitere First-Party-Apps
   - Gleiches Muster apps/<app-key>/; menu_category work oder administration
   - Fachlogik über Plattform-APIs; keine app-eigenen DB-Tabellen im MVP-Stil
+  - Implementiert (Auszug): case-model-designer, cases, task-model-designer, tasks,
+    tasks-kanban, actor-model-designer, actors, platform-users,
+    message-model-designer, kommunikation
 
 20.3 Drop-in ohne Shell-Rebuild (Ausbau)
   - Dynamisches Laden von /app-assets/{appKey}/entry.js für nicht im Monorepo
@@ -1128,7 +1296,11 @@ Abnahme App-MVP:
   | Work Context im Backend  | Keine Interpretation; nur Rohdaten + APIs |
   | Work-Context API         | Gruppe reservieren, Endpunkte später      |
   | Case title               | Modell-Attribut, zero_knowledge           |
-  | Aktenzeichen/reference   | Shared-Registry-Attribut reference (optional) |
+  | Aktenzeichen/reference   | Shared-Registry-Attribut reference (optional, text) |
+  | Attribut reference       | data_type reference → UUID auf actor/case/task |
+  | Actors                   | Eigenständig; Modell/Instanz; group/status plattform |
+  | Messages                 | Eigenständig; Art=Modell; Richtung=Spalte; ZK-Inhalte |
+  | Message-Dateien          | Verschlüsselt auf Storage; kein Blob in PostgreSQL |
   | Attribute definieren     | Nur auf Modellen, nicht auf Instanzen     |
   | Instanziierung           | Lazy (B)                                  |
   | Login                    | tenant_slug + username + password         |

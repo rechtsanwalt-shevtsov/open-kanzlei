@@ -10,6 +10,7 @@ import { labelFromTranslations } from '@shell/lib/model-label.js';
 import { instanceTitle } from '@shell/lib/work-instance.js';
 import type { components } from '@shell/api/schema.js';
 import { FieldSelectInput } from '@shell/components/admin/FieldSelectInput.js';
+import { ReferenceFieldInput } from '@shell/components/admin/ReferenceFieldInput.js';
 import {
   defaultFieldValue,
   defaultMultiSelectValue,
@@ -215,6 +216,22 @@ export function CreateTaskDialog({
           {label}
           {required ? ' *' : ''}
         </label>
+      );
+    }
+
+    if (def.data_type === 'reference') {
+      return (
+        <div key={def.id} className="cas-field-block">
+          <span className="cas-field-block-label">
+            {label}
+            {required ? ' *' : ''}
+          </span>
+          <ReferenceFieldInput
+            attribute={def}
+            value={value}
+            onChange={(next) => setField(def.key, next)}
+          />
+        </div>
       );
     }
 
