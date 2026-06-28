@@ -34,10 +34,13 @@ export interface AppInstallationDto {
   nav_icon: string | null;
 }
 
-export interface TeamAppActivationDto {
-  team_id: string;
+export interface GroupAppActivationDto {
+  group_id: string;
   status: 'active' | 'inactive';
 }
+
+/** @deprecated Use GroupAppActivationDto */
+export type TeamAppActivationDto = GroupAppActivationDto;
 
 export interface TenantAppCatalogEntryDto {
   app_key: string;
@@ -46,7 +49,7 @@ export interface TenantAppCatalogEntryDto {
   has_react_ui: boolean;
   settings_path: string | null;
   app_group: string;
-  team_activations: TeamAppActivationDto[];
+  group_activations: GroupAppActivationDto[];
 }
 
 function toIso(date: Date): string {
@@ -287,10 +290,10 @@ export async function listTenantAppCatalog(tenantId: string): Promise<TenantAppC
       [tenantId],
     );
 
-    const activationByApp = new Map<string, TeamAppActivationDto[]>();
+    const activationByApp = new Map<string, GroupAppActivationDto[]>();
     for (const row of activations.rows) {
       const list = activationByApp.get(row.app_key) ?? [];
-      list.push({ team_id: row.team_id, status: row.status });
+      list.push({ group_id: row.team_id, status: row.status });
       activationByApp.set(row.app_key, list);
     }
 
@@ -302,14 +305,14 @@ export async function listTenantAppCatalog(tenantId: string): Promise<TenantAppC
       await registerAppForTenant(client, tenantId, appKey);
 
       const existing = activationByApp.get(appKey) ?? [];
-      const byTeam = new Map(existing.map((a) => [a.team_id, a.status]));
-      const teamActivations: TeamAppActivationDto[] = teams.rows.map((team) => ({
-        team_id: team.id,
-        status: byTeam.get(team.id) ?? 'inactive',
+      const byGroup = new Map(existing.map((a) => [a.group_id, a.status]));
+      const groupActivations: GroupAppActivationDto[] = teams.rows.map((team) => ({
+        group_id: team.id,
+        status: byGroup.get(team.id) ?? 'inactive',
       }));
 
       for (const team of teams.rows) {
-        if (!byTeam.has(team.id)) {
+        if (!byGroup.has(team.id)) {
           await client.query(
             `INSERT INTO platform.app_team_activations (tenant_id, team_id, app_key, status)
              VALUES ($1, $2, $3, 'inactive')
@@ -326,7 +329,7 @@ export async function listTenantAppCatalog(tenantId: string): Promise<TenantAppC
         has_react_ui: manifest.has_react_ui,
         settings_path: settingsPathFromManifest(manifest),
         app_group: manifest.app_group,
-        team_activations: teamActivations,
+        group_activations: groupActivations,
       });
     }
 

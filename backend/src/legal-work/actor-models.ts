@@ -18,8 +18,10 @@ import {
 import { assertCaseModelStatus, assertModelKey, toIso } from './validation.js';
 import { allocateUniqueActorModelKey, slugifyModelKey } from './model-key.js';
 import {
+  ensureActorModelPlatformAttributesForTenant,
   seedActorModelDefaultInstanceAttributes,
   seedActorModelPlatformInstanceAttributes,
+  syncActorModelGroupOptions,
 } from './actor-model-defaults.js';
 import { deleteAttributeDefinitionsForModel } from './entity-guards.js';
 import { provisionAppAttributesOnModel } from '../platform/apps/app-attribute-provisioning.js';
@@ -187,6 +189,7 @@ async function publish(
 
 export async function listActorModels(tenantId: string): Promise<ActorModelDto[]> {
   return withTenantTransaction(tenantId, async (client) => {
+    await ensureActorModelPlatformAttributesForTenant(client, tenantId);
     const result = await client.query<ModelRow>(
       `SELECT id, key, status, is_system, translations, description, description_translations,
               created_at, updated_at
@@ -390,9 +393,10 @@ export async function listActorModelAttributes(
   definitionScope?: import('./validation.js').DefinitionScope,
 ): Promise<AttributeDefinitionDto[]> {
   if (!(await getActorModel(tenantId, actorModelId))) throw notFound();
-  return withTenantTransaction(tenantId, (client) =>
-    listAttributeDefinitions(client, tenantId, 'actor_model', actorModelId, definitionScope),
-  );
+  return withTenantTransaction(tenantId, async (client) => {
+    await syncActorModelGroupOptions(client, tenantId);
+    return listAttributeDefinitions(client, tenantId, 'actor_model', actorModelId, definitionScope);
+  });
 }
 
 export async function createActorModelAttribute(

@@ -59,7 +59,7 @@ function userValue(
 export function AppSettingsPage() {
   const { locale, msg } = useI18n();
   const { user } = useAuth();
-  const admin = user ? userIsAdmin(user.teams) : false;
+  const admin = user ? userIsAdmin(user.groups) : false;
 
   const [tenantDraft, setTenantDraft] = useState<Record<string, unknown>>({});
   const [userDraft, setUserDraft] = useState<Record<string, unknown>>({});

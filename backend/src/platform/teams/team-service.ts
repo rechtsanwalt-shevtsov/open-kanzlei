@@ -110,6 +110,10 @@ export async function createTeam(tenantId: string, name: string): Promise<TeamDt
       const team = mapTeam(result.rows[0]!);
       const { seedTeamActivationsForTeam } = await import('../apps/app-service.js');
       await seedTeamActivationsForTeam(client, tenantId, team.id);
+      const { syncActorModelGroupOptions } = await import(
+        '../../legal-work/actor-model-defaults.js'
+      );
+      await syncActorModelGroupOptions(client, tenantId);
       return team;
     } catch (err: unknown) {
       if ((err as { code?: string }).code === '23505') {
@@ -158,6 +162,10 @@ export async function updateTeam(
          RETURNING id, key, name, created_at, updated_at`,
         [teamId, tenantId, trimmed],
       );
+      const { syncActorModelGroupOptions } = await import(
+        '../../legal-work/actor-model-defaults.js'
+      );
+      await syncActorModelGroupOptions(client, tenantId);
       return mapTeam(result.rows[0]!);
     } catch (err: unknown) {
       if ((err as { code?: string }).code === '23505') {
@@ -197,6 +205,10 @@ export async function deleteTeam(tenantId: string, teamId: string): Promise<void
       [teamId, tenantId],
     );
     if (!result.rowCount) throw notFound();
+    const { syncActorModelGroupOptions } = await import(
+      '../../legal-work/actor-model-defaults.js'
+    );
+    await syncActorModelGroupOptions(client, tenantId);
   });
 }
 
@@ -273,9 +285,21 @@ export async function setActorTeams(
   tenantId: string,
   actorId: string,
   teamIds: string[],
-  options?: { preservePlatformUser?: boolean },
+  options?: { preservePlatformUser?: boolean; replaceAll?: boolean },
 ): Promise<void> {
   const uniqueTeamIds = [...new Set(teamIds)];
+  if (options?.replaceAll) {
+    await assertTeamsInTenant(client, tenantId, uniqueTeamIds, { allowPlatformUser: true });
+    await client.query(`DELETE FROM platform.actor_teams WHERE actor_id = $1`, [actorId]);
+    for (const teamId of uniqueTeamIds) {
+      await client.query(
+        `INSERT INTO platform.actor_teams (actor_id, team_id) VALUES ($1, $2)`,
+        [actorId, teamId],
+      );
+    }
+    return;
+  }
+
   await assertTeamsInTenant(client, tenantId, uniqueTeamIds);
 
   let platformUserTeamId: string | null = null;

@@ -3,6 +3,7 @@ import type { Locale } from '../foundation/i18n/locale.js';
 import { withTenantTransaction } from '../foundation/database/tenant-context.js';
 import { resolveActorInstanceStatus } from './actor-instance-status.js';
 import {
+  ensureActorModelPlatformAttributesForTenant,
   seedActorModelDefaultInstanceAttributes,
   seedActorModelPlatformInstanceAttributes,
 } from './actor-model-defaults.js';
@@ -138,6 +139,7 @@ async function runActorTenantBootstrap(
   }
   await ensureTenantRootActor(client, tenantId, name, createdBy);
   await ensureCollaboratorActorModel(client, tenantId, createdBy);
+  await ensureActorModelPlatformAttributesForTenant(client, tenantId, createdBy);
 }
 
 /**

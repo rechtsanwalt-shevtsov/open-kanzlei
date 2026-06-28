@@ -219,6 +219,9 @@ export function ActorModelsListPage() {
           <Link to="/apps/actor-model-designer/new" className="button-outline">
             + {msg('amdCreate')}
           </Link>
+          <Link to="/apps/actor-model-designer/groups" className="button-outline">
+            {msg('teamsTitle')}
+          </Link>
           <Link
             to="/apps/actor-model-designer/settings"
             className="button-icon"

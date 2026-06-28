@@ -73,7 +73,7 @@ export function AdminSidebar() {
   const { sidebarApps } = useInstalledApps();
   const location = useLocation();
 
-  const isAdmin = user ? userIsAdmin(user.teams) : false;
+  const isAdmin = user ? userIsAdmin(user.groups) : false;
 
   const adminSectionActive = useMemo(
     () => location.pathname.startsWith('/admin'),

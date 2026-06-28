@@ -66,7 +66,7 @@ async function loadSessionActor(
   const canLogin = await actorHasPlatformLogin(client, actorId);
   if (!canLogin) return null;
 
-  const teams = await loadActorRightsTeams(client, actorId);
+  const groups = await loadActorRightsTeams(client, actorId);
   const email = await loadActorEmail(client, row.tenant_id, actorId);
 
   return {
@@ -75,7 +75,7 @@ async function loadSessionActor(
     username: row.username,
     email,
     preferredLanguage: row.preferred_language,
-    teams,
+    groups,
     tenantDefaultLanguage: row.default_language,
   };
 }

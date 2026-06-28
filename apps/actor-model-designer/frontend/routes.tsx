@@ -1,6 +1,7 @@
 import { Navigate, Route, useParams } from 'react-router-dom';
 import { AdminRoute } from '@shell/components/AdminRoute.js';
 import { AppSettingsPage } from './pages/AppSettingsPage.js';
+import { GroupsPage } from './pages/GroupsPage.js';
 import { ActorModelDetailPage } from './pages/ActorModelDetailPage.js';
 import { ActorModelFormPage } from './pages/ActorModelFormPage.js';
 import { ActorModelsListPage } from './pages/ActorModelsListPage.js';
@@ -16,6 +17,7 @@ export const appRoutes = (
   <Route element={<AdminRoute />}>
     <Route path="apps/actor-model-designer" element={<ActorModelsListPage />} />
     <Route path="apps/actor-model-designer/new" element={<ActorModelFormPage />} />
+    <Route path="apps/actor-model-designer/groups" element={<GroupsPage />} />
     <Route path="apps/actor-model-designer/settings" element={<AppSettingsPage />} />
     <Route path="apps/actor-model-designer/:id/edit" element={<ActorModelEditRedirect />} />
     <Route path="apps/actor-model-designer/:id" element={<ActorModelDetailPage />} />

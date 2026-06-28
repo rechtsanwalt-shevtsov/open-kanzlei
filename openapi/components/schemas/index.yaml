@@ -15,14 +15,14 @@ TenantProfile:
 UpdateTenantProfileRequest:
   $ref: './tenant.yaml#/UpdateTenantProfileRequest'
 
-UserTeam:
-  $ref: './platform.yaml#/UserTeam'
-Team:
-  $ref: './platform.yaml#/Team'
-CreateTeamRequest:
-  $ref: './platform.yaml#/CreateTeamRequest'
-UpdateTeamRequest:
-  $ref: './platform.yaml#/UpdateTeamRequest'
+UserGroup:
+  $ref: './platform.yaml#/UserGroup'
+Group:
+  $ref: './platform.yaml#/Group'
+CreateGroupRequest:
+  $ref: './platform.yaml#/CreateGroupRequest'
+UpdateGroupRequest:
+  $ref: './platform.yaml#/UpdateGroupRequest'
 TenantUser:
   $ref: './platform.yaml#/TenantUser'
 CreateTenantUserRequest:

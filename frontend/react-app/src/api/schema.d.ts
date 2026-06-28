@@ -159,7 +159,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/tenant/apps/{appKey}/teams/{teamId}": {
+    "/v1/tenant/apps/{appKey}/groups/{groupId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -172,8 +172,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Activate or deactivate an app for a team (admin) */
-        patch: operations["patchTeamAppStatus"];
+        /** Activate or deactivate an app for a platform group (admin) */
+        patch: operations["patchGroupAppStatus"];
         trace?: never;
     };
     "/v1/tenant/app-assignments": {
@@ -183,7 +183,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List app group assignments for all teams and user overrides (admin) */
+        /** List app group assignments for all platform groups and user overrides (admin) */
         get: operations["listTenantAppAssignments"];
         put?: never;
         post?: never;
@@ -193,7 +193,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/tenant/teams/{teamId}/app-assignments": {
+    "/v1/tenant/groups/{groupId}/app-assignments": {
         parameters: {
             query?: never;
             header?: never;
@@ -201,8 +201,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Set app group assignments for a team (admin) */
-        put: operations["setTeamAppAssignments"];
+        /** Set app group assignments for a platform group (admin) */
+        put: operations["setGroupAppAssignments"];
         post?: never;
         delete?: never;
         options?: never;
@@ -383,30 +383,30 @@ export interface paths {
         patch: operations["patchTasksKanbanWipLimits"];
         trace?: never;
     };
-    "/v1/teams": {
+    "/v1/groups": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["listTeams"];
+        get: operations["listGroups"];
         put?: never;
-        post: operations["createTeam"];
+        post: operations["createGroup"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/teams/assignable": {
+    "/v1/groups/assignable": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["listAssignableTeams"];
+        get: operations["listAssignableGroups"];
         put?: never;
         post?: never;
         delete?: never;
@@ -415,7 +415,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/teams/{id}": {
+    "/v1/groups/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -425,10 +425,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["deleteTeam"];
+        delete: operations["deleteGroup"];
         options?: never;
         head?: never;
-        patch: operations["updateTeam"];
+        patch: operations["updateGroup"];
         trace?: never;
     };
     "/v1/platform-users": {
@@ -770,10 +770,10 @@ export interface components {
             /** @enum {string} */
             default_language: "de" | "en";
         };
-        UserTeam: {
+        UserGroup: {
             /** Format: uuid */
             id: string;
-            /** @description Stable identifier for system teams (admin, regular) */
+            /** @description Stable identifier for system groups (admin, regular, plattformuser) */
             key?: string | null;
             name: string;
         };
@@ -787,7 +787,7 @@ export interface components {
             email?: string | null;
             /** @enum {string|null} */
             preferred_language?: "de" | "en" | null;
-            teams: components["schemas"]["UserTeam"][];
+            groups: components["schemas"]["UserGroup"][];
         };
         AuthSessionResponse: {
             user: components["schemas"]["CurrentUserResponse"];
@@ -860,13 +860,13 @@ export interface components {
             nav_icon: string | null;
         };
         /**
-         * @description App group membership declared in manifest.json. Flight-level groups allow exactly one active app per team/user; unassigned apps are multi-select.
+         * @description App group membership declared in manifest.json. Flight-level groups allow exactly one active app per platform group/user; unassigned apps are multi-select.
          * @enum {string}
          */
         AppGroup: "unassigned" | "flight_level_0" | "flight_level_1" | "flight_level_2" | "flight_level_3";
-        TeamAppActivation: {
+        GroupAppActivation: {
             /** Format: uuid */
-            team_id: string;
+            group_id: string;
             status: components["schemas"]["AppInstallationStatus"];
         };
         TenantAppCatalogEntry: {
@@ -877,9 +877,9 @@ export interface components {
             /** @description Route to app settings page (e.g. /apps/cases/settings) */
             settings_path: string | null;
             app_group: components["schemas"]["AppGroup"];
-            team_activations: components["schemas"]["TeamAppActivation"][];
+            group_activations: components["schemas"]["GroupAppActivation"][];
         };
-        PatchTeamAppStatusRequest: {
+        PatchGroupAppStatusRequest: {
             status: components["schemas"]["AppInstallationStatus"];
         };
         AppCatalogItem: {
@@ -896,10 +896,10 @@ export interface components {
             flight_level_3: components["schemas"]["AppKey"] | null;
             unassigned: components["schemas"]["AppKey"][];
         };
-        TeamAppAssignmentRow: {
+        GroupAppAssignmentRow: {
             /** Format: uuid */
-            team_id: string;
-            team_name: string;
+            group_id: string;
+            group_name: string;
             assignments: components["schemas"]["AppGroupAssignments"];
         };
         ActorAppAssignmentRow: {
@@ -910,7 +910,7 @@ export interface components {
         };
         TenantAppAssignments: {
             apps: components["schemas"]["AppCatalogItem"][];
-            teams: components["schemas"]["TeamAppAssignmentRow"][];
+            groups: components["schemas"]["GroupAppAssignmentRow"][];
             actor_overrides: components["schemas"]["ActorAppAssignmentRow"][];
             /** @deprecated */
             user_overrides?: components["schemas"]["ActorAppAssignmentRow"][];
@@ -1108,10 +1108,10 @@ export interface components {
                 [key: string]: number;
             };
         };
-        Team: {
+        Group: {
             /** Format: uuid */
             id: string;
-            /** @description Stable identifier for system teams (admin, regular) */
+            /** @description Stable identifier for system groups (admin, regular, plattformuser) */
             key?: string | null;
             name: string;
             /** Format: date-time */
@@ -1119,10 +1119,10 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
-        CreateTeamRequest: {
+        CreateGroupRequest: {
             name: string;
         };
-        UpdateTeamRequest: {
+        UpdateGroupRequest: {
             name: string;
         };
         PlatformUser: {
@@ -1131,12 +1131,13 @@ export interface components {
              * @description Actor id
              */
             id: string;
-            username: string;
+            display_name: string;
+            username?: string | null;
             /** Format: email */
             email?: string | null;
             /** Format: uuid */
             actor_model_id: string;
-            teams: components["schemas"]["UserTeam"][];
+            groups: components["schemas"]["UserGroup"][];
             has_login: boolean;
             /** @enum {string|null} */
             preferred_language?: "de" | "en" | null;
@@ -1155,7 +1156,7 @@ export interface components {
             display_name?: string | null;
             /** Format: uuid */
             actor_model_id?: string;
-            team_ids: string[];
+            group_ids: string[];
             /** @enum {string} */
             preferred_language?: "de" | "en";
         };
@@ -1167,7 +1168,7 @@ export interface components {
             email?: string | null;
             first_name?: string | null;
             display_name?: string | null;
-            team_ids?: string[];
+            group_ids?: string[];
             /** @enum {string} */
             preferred_language?: "de" | "en";
             revoke_login?: boolean;
@@ -1519,7 +1520,7 @@ export interface components {
             username: string;
             /** Format: email */
             email?: string | null;
-            teams: components["schemas"]["UserTeam"][];
+            groups: components["schemas"]["UserGroup"][];
             is_active: boolean;
             /** @enum {string|null} */
             preferred_language?: "de" | "en" | null;
@@ -1534,7 +1535,7 @@ export interface components {
             email?: string | null;
             /** Format: password */
             password: string;
-            team_ids: string[];
+            group_ids: string[];
             /** @enum {string} */
             preferred_language?: "de" | "en";
         };
@@ -1543,7 +1544,7 @@ export interface components {
             email?: string | null;
             /** Format: password */
             password?: string;
-            team_ids?: string[];
+            group_ids?: string[];
             is_active?: boolean;
             /** @enum {string} */
             preferred_language?: "de" | "en";
@@ -1861,19 +1862,19 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
-    patchTeamAppStatus: {
+    patchGroupAppStatus: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 appKey: components["schemas"]["AppKey"];
-                teamId: string;
+                groupId: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PatchTeamAppStatusRequest"];
+                "application/json": components["schemas"]["PatchGroupAppStatusRequest"];
             };
         };
         responses: {
@@ -1912,12 +1913,12 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
-    setTeamAppAssignments: {
+    setGroupAppAssignments: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                teamId: string;
+                groupId: string;
             };
             cookie?: never;
         };
@@ -1932,7 +1933,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TeamAppAssignmentRow"];
+                    "application/json": components["schemas"]["GroupAppAssignmentRow"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -2266,7 +2267,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
-    listTeams: {
+    listGroups: {
         parameters: {
             query?: never;
             header?: never;
@@ -2281,7 +2282,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        items: components["schemas"]["Team"][];
+                        items: components["schemas"]["Group"][];
                     };
                 };
             };
@@ -2289,7 +2290,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
-    createTeam: {
+    createGroup: {
         parameters: {
             query?: never;
             header?: never;
@@ -2298,7 +2299,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateTeamRequest"];
+                "application/json": components["schemas"]["CreateGroupRequest"];
             };
         };
         responses: {
@@ -2307,7 +2308,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Team"];
+                    "application/json": components["schemas"]["Group"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -2316,7 +2317,7 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
-    listAssignableTeams: {
+    listAssignableGroups: {
         parameters: {
             query?: never;
             header?: never;
@@ -2331,7 +2332,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        items: components["schemas"]["Team"][];
+                        items: components["schemas"]["Group"][];
                     };
                 };
             };
@@ -2339,7 +2340,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
-    deleteTeam: {
+    deleteGroup: {
         parameters: {
             query?: never;
             header?: never;
@@ -2362,7 +2363,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    updateTeam: {
+    updateGroup: {
         parameters: {
             query?: never;
             header?: never;
@@ -2373,7 +2374,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateTeamRequest"];
+                "application/json": components["schemas"]["UpdateGroupRequest"];
             };
         };
         responses: {
@@ -2382,7 +2383,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Team"];
+                    "application/json": components["schemas"]["Group"];
                 };
             };
             400: components["responses"]["BadRequest"];

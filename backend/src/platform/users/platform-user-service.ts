@@ -3,7 +3,7 @@ import type pg from 'pg';
 import { badRequest, conflict, notFound } from '../../api/errors.js';
 import { getEventService } from '../../foundation/events/event-service.js';
 import { withTenantTransaction } from '../../foundation/database/tenant-context.js';
-import { upsertInstanceAttributes } from '../../legal-work/attributes.js';
+import { loadInstanceAttributes, upsertInstanceAttributes } from '../../legal-work/attributes.js';
 import { resolveActorInstanceStatus } from '../../legal-work/actor-instance-status.js';
 import {
   COLLABORATOR_ACTOR_MODEL_KEY,
@@ -15,7 +15,6 @@ import {
   assertTeamsInTenant,
   ensureDefaultTeams,
   getTeamIdByKey,
-  loadActorRightsTeams,
   loadActorTeams,
   setActorTeams,
   type ActorTeamDto,
@@ -25,10 +24,11 @@ import { assertPassword, assertUsername } from './validation.js';
 
 export interface PlatformUserDto {
   id: string;
-  username: string;
+  display_name: string;
+  username: string | null;
   email: string | null;
   actor_model_id: string;
-  teams: ActorTeamDto[];
+  groups: ActorTeamDto[];
   has_login: boolean;
   preferred_language: 'de' | 'en' | null;
   created_at: string;
@@ -103,7 +103,28 @@ async function loadActorEmail(
   return result.rows[0]?.plaintext_value ?? null;
 }
 
-async function loadPlatformUser(
+async function loadActorDisplayName(
+  client: pg.PoolClient,
+  tenantId: string,
+  actorId: string,
+  actorModelId: string,
+): Promise<string> {
+  const attrs = await loadInstanceAttributes(
+    client,
+    tenantId,
+    'actor',
+    actorId,
+    'actor_model',
+    actorModelId,
+  );
+  const name = typeof attrs.name === 'string' ? attrs.name.trim() : '';
+  if (name) return name;
+  const first = typeof attrs.first_name === 'string' ? attrs.first_name.trim() : '';
+  if (first) return first;
+  return actorId.slice(0, 8);
+}
+
+async function loadActorPlatformAccess(
   client: pg.PoolClient,
   tenantId: string,
   actorId: string,
@@ -129,21 +150,27 @@ async function loadPlatformUser(
     [actorId, tenantId],
   );
   const cred = credResult.rows[0];
-  if (!cred) return null;
 
-  const teams = await loadActorRightsTeams(client, actorId);
+  const groups = await loadActorTeams(client, actorId, { includePlatformUser: true });
   const email = await loadActorEmail(client, tenantId, actorId, actor.actor_model_id);
+  const displayName = await loadActorDisplayName(
+    client,
+    tenantId,
+    actorId,
+    actor.actor_model_id,
+  );
 
   return {
     id: actor.id,
-    username: cred.username,
+    display_name: displayName,
+    username: cred?.username ?? null,
     email,
     actor_model_id: actor.actor_model_id,
-    teams,
-    has_login: true,
-    preferred_language: cred.preferred_language,
-    created_at: cred.created_at.toISOString(),
-    updated_at: cred.updated_at.toISOString(),
+    groups,
+    has_login: cred !== undefined,
+    preferred_language: cred?.preferred_language ?? null,
+    created_at: (cred?.created_at ?? actor.created_at).toISOString(),
+    updated_at: (cred?.updated_at ?? actor.updated_at).toISOString(),
   };
 }
 
@@ -174,13 +201,15 @@ async function countLoginCapableAdmins(
 
 export async function listPlatformUsers(tenantId: string): Promise<PlatformUserDto[]> {
   return withTenantTransaction(tenantId, async (client) => {
-    const result = await client.query<{ actor_id: string }>(
-      `SELECT actor_id FROM platform.actor_credentials WHERE tenant_id = $1 ORDER BY username`,
+    const result = await client.query<{ id: string }>(
+      `SELECT id FROM legal.actors
+       WHERE tenant_id = $1 AND is_tenant_root = false
+       ORDER BY created_at DESC`,
       [tenantId],
     );
     const users: PlatformUserDto[] = [];
     for (const row of result.rows) {
-      const user = await loadPlatformUser(client, tenantId, row.actor_id);
+      const user = await loadActorPlatformAccess(client, tenantId, row.id);
       if (user) users.push(user);
     }
     return users;
@@ -192,7 +221,7 @@ export async function getPlatformUser(
   actorId: string,
 ): Promise<PlatformUserDto | null> {
   return withTenantTransaction(tenantId, async (client) =>
-    loadPlatformUser(client, tenantId, actorId),
+    loadActorPlatformAccess(client, tenantId, actorId),
   );
 }
 
@@ -267,7 +296,7 @@ export async function createPlatformUser(
       data: { actor_id: newActorId },
     });
 
-    const user = await loadPlatformUser(client, tenantId, newActorId);
+    const user = await loadActorPlatformAccess(client, tenantId, newActorId);
     if (!user) throw badRequest('error.internal');
     return user;
   });
@@ -284,13 +313,16 @@ export async function updatePlatformUser(
   }
 
   return withTenantTransaction(tenantId, async (client) => {
-    const existing = await loadPlatformUser(client, tenantId, targetActorId);
+    const existing = await loadActorPlatformAccess(client, tenantId, targetActorId);
     if (!existing) throw notFound();
 
-    const isSelf = actorId === targetActorId;
-    const wasAdmin = actorIsAdmin(existing.teams);
+    await ensureDefaultTeams(client, tenantId);
+    const platformUserTeamId = await getTeamIdByKey(client, tenantId, TEAM_PLATFORMUSER);
 
-    let nextTeams = existing.teams;
+    const isSelf = actorId === targetActorId;
+    const wasAdmin = actorIsAdmin(existing.groups);
+
+    let nextGroupRows: ActorTeamDto[] = existing.groups;
     if (input.teamIds !== undefined) {
       const teamRows = await client.query<ActorTeamDto>(
         `SELECT t.id, t.key, t.name
@@ -299,10 +331,10 @@ export async function updatePlatformUser(
          ORDER BY t.key NULLS LAST, t.name`,
         [tenantId, [...new Set(input.teamIds)]],
       );
-      nextTeams = teamRows.rows;
+      nextGroupRows = teamRows.rows;
     }
 
-    const willBeAdmin = actorIsAdmin(nextTeams);
+    const willBeAdmin = actorIsAdmin(nextGroupRows);
     if (wasAdmin && !willBeAdmin) {
       const adminsLeft = await countLoginCapableAdmins(client, tenantId, targetActorId);
       if (adminsLeft === 0) {
@@ -313,7 +345,10 @@ export async function updatePlatformUser(
       }
     }
 
-    if (input.revokeLogin) {
+    const wantsLogin = nextGroupRows.some((g) => g.key === TEAM_PLATFORMUSER);
+    const hadLogin = existing.has_login;
+
+    if (input.revokeLogin || (hadLogin && !wantsLogin)) {
       if (wasAdmin) {
         const adminsLeft = await countLoginCapableAdmins(client, tenantId, targetActorId);
         if (adminsLeft === 0) {
@@ -327,50 +362,75 @@ export async function updatePlatformUser(
         `DELETE FROM platform.actor_credentials WHERE actor_id = $1 AND tenant_id = $2`,
         [targetActorId, tenantId],
       );
-      await client.query(
-        `DELETE FROM platform.actor_teams at
-         USING platform.teams t
-         WHERE at.team_id = t.id AND at.actor_id = $1 AND t.key = $2`,
-        [targetActorId, TEAM_PLATFORMUSER],
-      );
+      if (input.teamIds !== undefined) {
+        const withoutPlatform = nextGroupRows.filter((g) => g.key !== TEAM_PLATFORMUSER);
+        await setActorTeams(client, tenantId, targetActorId, withoutPlatform.map((g) => g.id), {
+          replaceAll: true,
+        });
+      }
     } else {
-      if (input.password) {
-        assertPassword(input.password);
-      }
-      if (input.username) {
-        assertUsername(input.username);
-      }
-
-      const credSets: string[] = ['updated_at = now()'];
-      const credValues: unknown[] = [targetActorId, tenantId];
-      let credIdx = 3;
-
-      if (input.username !== undefined) {
-        credSets.push(`username = $${credIdx++}`);
-        credValues.push(assertUsername(input.username));
-      }
-      if (input.password) {
-        const passwordHash = await argon2.hash(input.password);
-        credSets.push(`password_hash = $${credIdx++}`);
-        credValues.push(passwordHash);
-      }
-      if (input.preferredLanguage !== undefined) {
-        credSets.push(`preferred_language = $${credIdx++}`);
-        credValues.push(input.preferredLanguage);
-      }
-
-      if (credSets.length > 1) {
+      if (wantsLogin && !hadLogin) {
+        const username = assertUsername(input.username ?? '');
+        assertPassword(input.password ?? '');
+        const passwordHash = await argon2.hash(input.password!);
         try {
           await client.query(
-            `UPDATE platform.actor_credentials SET ${credSets.join(', ')}
-             WHERE actor_id = $1 AND tenant_id = $2`,
-            credValues,
+            `INSERT INTO platform.actor_credentials
+               (actor_id, tenant_id, username, password_hash, preferred_language)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [
+              targetActorId,
+              tenantId,
+              username,
+              passwordHash,
+              input.preferredLanguage ?? null,
+            ],
           );
         } catch (err: unknown) {
           if ((err as { code?: string }).code === '23505') {
             throw conflict('error.username_taken');
           }
           throw err;
+        }
+      } else if (hadLogin) {
+        if (input.password) {
+          assertPassword(input.password);
+        }
+        if (input.username) {
+          assertUsername(input.username);
+        }
+
+        const credSets: string[] = ['updated_at = now()'];
+        const credValues: unknown[] = [targetActorId, tenantId];
+        let credIdx = 3;
+
+        if (input.username !== undefined) {
+          credSets.push(`username = $${credIdx++}`);
+          credValues.push(assertUsername(input.username));
+        }
+        if (input.password) {
+          const passwordHash = await argon2.hash(input.password);
+          credSets.push(`password_hash = $${credIdx++}`);
+          credValues.push(passwordHash);
+        }
+        if (input.preferredLanguage !== undefined) {
+          credSets.push(`preferred_language = $${credIdx++}`);
+          credValues.push(input.preferredLanguage);
+        }
+
+        if (credSets.length > 1) {
+          try {
+            await client.query(
+              `UPDATE platform.actor_credentials SET ${credSets.join(', ')}
+               WHERE actor_id = $1 AND tenant_id = $2`,
+              credValues,
+            );
+          } catch (err: unknown) {
+            if ((err as { code?: string }).code === '23505') {
+              throw conflict('error.username_taken');
+            }
+            throw err;
+          }
         }
       }
 
@@ -398,26 +458,32 @@ export async function updatePlatformUser(
         if (isSelf && !willBeAdmin) {
           throw conflict('error.cannot_demote_self');
         }
-        await setActorTeams(client, tenantId, targetActorId, input.teamIds, {
-          preservePlatformUser: true,
+        const finalTeamIds = wantsLogin
+          ? [...new Set([...input.teamIds, platformUserTeamId])]
+          : input.teamIds.filter((id) => id !== platformUserTeamId);
+        await setActorTeams(client, tenantId, targetActorId, finalTeamIds, {
+          replaceAll: true,
         });
+      } else if (wantsLogin && !hadLogin) {
+        await addActorToTeam(client, targetActorId, platformUserTeamId);
       }
     }
 
     await getEventService().publish(client, {
       tenantId,
-      type: input.revokeLogin ? 'platform_user.login_revoked' : 'platform_user.updated',
+      type:
+        input.revokeLogin || (hadLogin && !wantsLogin)
+          ? 'platform_user.login_revoked'
+          : hadLogin || wantsLogin
+            ? 'platform_user.updated'
+            : 'platform_user.updated',
       aggregateType: 'platform_user',
       aggregateId: targetActorId,
       actorId,
       data: { actor_id: targetActorId },
     });
 
-    if (input.revokeLogin) {
-      return existing;
-    }
-
-    const user = await loadPlatformUser(client, tenantId, targetActorId);
+    const user = await loadActorPlatformAccess(client, tenantId, targetActorId);
     if (!user) throw notFound();
     return user;
   });

@@ -22,11 +22,14 @@ export interface AppCatalogItemDto {
   settings_path: string | null;
 }
 
-export interface TeamAppAssignmentRowDto {
-  team_id: string;
-  team_name: string;
+export interface GroupAppAssignmentRowDto {
+  group_id: string;
+  group_name: string;
   assignments: AppGroupAssignments;
 }
+
+/** @deprecated Use GroupAppAssignmentRowDto */
+export type TeamAppAssignmentRowDto = GroupAppAssignmentRowDto;
 
 export interface ActorAppAssignmentRowDto {
   actor_id: string;
@@ -39,7 +42,7 @@ export type UserAppAssignmentRowDto = ActorAppAssignmentRowDto;
 
 export interface TenantAppAssignmentsDto {
   apps: AppCatalogItemDto[];
-  teams: TeamAppAssignmentRowDto[];
+  groups: GroupAppAssignmentRowDto[];
   actor_overrides: ActorAppAssignmentRowDto[];
   /** @deprecated Use actor_overrides */
   user_overrides: ActorAppAssignmentRowDto[];
@@ -294,8 +297,8 @@ export async function listTenantAppAssignments(tenantId: string): Promise<Tenant
       }
 
       teamRows.push({
-        team_id: team.id,
-        team_name: team.name,
+        group_id: team.id,
+        group_name: team.name,
         assignments: await getTeamAssignments(client, tenantId, team.id),
       });
     }
@@ -334,7 +337,7 @@ export async function listTenantAppAssignments(tenantId: string): Promise<Tenant
 
     return {
       apps: apps.sort((a, b) => a.name.localeCompare(b.name)),
-      teams: teamRows,
+      groups: teamRows,
       actor_overrides: mappedOverrides,
       user_overrides: mappedOverrides,
     };
@@ -383,8 +386,8 @@ export async function setTeamAppAssignmentsInTx(
   await provisionActivatedApps(client, tenantId, previousKeys, nextKeys, actorId);
 
   return {
-    team_id: teamId,
-    team_name: team.rows[0].name,
+    group_id: teamId,
+    group_name: team.rows[0].name,
     assignments,
   };
 }

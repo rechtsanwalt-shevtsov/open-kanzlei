@@ -19,8 +19,8 @@ function appKeyParam(request: FastifyRequest): string {
   return (request.params as { appKey: string }).appKey;
 }
 
-function teamIdParam(request: FastifyRequest): string {
-  return (request.params as { teamId: string }).teamId;
+function groupIdParam(request: FastifyRequest): string {
+  return (request.params as { groupId: string }).groupId;
 }
 
 function userIdParam(request: FastifyRequest): string {
@@ -50,10 +50,10 @@ export async function appRoutes(app: FastifyInstance): Promise<void> {
     return { items };
   });
 
-  app.patch('/v1/tenant/apps/:appKey/teams/:teamId', admin, async (req) => {
+  app.patch('/v1/tenant/apps/:appKey/groups/:groupId', admin, async (req) => {
     const { tenantId, userId } = ctx(req);
     const appKey = appKeyParam(req);
-    const teamId = teamIdParam(req);
+    const groupId = groupIdParam(req);
     const body = (req.body ?? {}) as { status?: string };
     if (body.status !== 'active' && body.status !== 'inactive') {
       throw badRequest('error.validation_failed');
@@ -61,7 +61,7 @@ export async function appRoutes(app: FastifyInstance): Promise<void> {
     const item = await appService.setTeamAppStatus(
       tenantId,
       appKey,
-      teamId,
+      groupId,
       body.status,
       userId,
     );
@@ -118,11 +118,11 @@ export async function appRoutes(app: FastifyInstance): Promise<void> {
     return assignmentService.listTenantAppAssignments(tenantId);
   });
 
-  app.put('/v1/tenant/teams/:teamId/app-assignments', admin, async (req) => {
+  app.put('/v1/tenant/groups/:groupId/app-assignments', admin, async (req) => {
     const { tenantId, userId } = ctx(req);
-    const teamId = teamIdParam(req);
+    const groupId = groupIdParam(req);
     const assignments = normalizeAppGroupAssignments(req.body);
-    return assignmentService.setTeamAppAssignments(tenantId, teamId, assignments, userId);
+    return assignmentService.setTeamAppAssignments(tenantId, groupId, assignments, userId);
   });
 
   app.put('/v1/tenant/actors/:actorId/app-assignments', admin, async (req) => {
@@ -145,12 +145,12 @@ export async function appRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/v1/actors/:actorId/active-apps-by-group', auth, async (req) => {
-    const { tenantId, userId: actingActorId, teams } = {
+    const { tenantId, userId: actingActorId, groups } = {
       ...ctx(req),
-      teams: req.user!.teams,
+      groups: req.user!.groups,
     };
     const actorId = (req.params as { actorId: string }).actorId;
-    if (actingActorId !== actorId && !userIsAdmin(teams)) {
+    if (actingActorId !== actorId && !userIsAdmin(groups)) {
       throw forbidden();
     }
     return assignmentService.getActiveAppsByGroupForUser(tenantId, actorId);

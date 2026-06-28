@@ -46,7 +46,7 @@ AuthSessionResponse:
 
 CurrentUserResponse:
   type: object
-  required: [id, tenant_id, username, teams]
+  required: [id, tenant_id, username, groups]
   properties:
     id:
       type: string
@@ -64,7 +64,7 @@ CurrentUserResponse:
       type: string
       enum: [de, en]
       nullable: true
-    teams:
+    groups:
       type: array
       items:
-        $ref: '../schemas/platform.yaml#/UserTeam'
+        $ref: '../schemas/platform.yaml#/UserGroup'

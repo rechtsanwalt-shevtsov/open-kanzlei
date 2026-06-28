@@ -36,7 +36,7 @@ export function TeamDialog({ open, mode, team, onClose, onSaved }: TeamDialogPro
     setSubmitting(true);
 
     if (mode === 'create') {
-      const res = await api.POST('/v1/teams', {
+      const res = await api.POST('/v1/groups', {
         headers: apiHeaders(locale),
         body: { name: name.trim() },
       });
@@ -47,7 +47,7 @@ export function TeamDialog({ open, mode, team, onClose, onSaved }: TeamDialogPro
         return;
       }
     } else if (team) {
-      const res = await api.PATCH('/v1/teams/{id}', {
+      const res = await api.PATCH('/v1/groups/{id}', {
         headers: apiHeaders(locale),
         params: { path: { id: team.id } },
         body: { name: name.trim() },

@@ -15,7 +15,7 @@ export function AdminRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  if (!userIsAdmin(user.teams)) {
+  if (!userIsAdmin(user.groups)) {
     return <Navigate to="/" replace />;
   }
 

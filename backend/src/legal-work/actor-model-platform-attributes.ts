@@ -2,6 +2,11 @@ import { forbidden } from '../api/errors.js';
 import type { DefinitionScope, ModelOwnerType } from './validation.js';
 import type { SelectOptionTranslations } from './select-option-translations.js';
 import {
+  ACTOR_GROUP_VALUES,
+  DEFAULT_ACTOR_GROUP,
+  DEFAULT_ACTOR_GROUP_OPTION_TRANSLATIONS,
+} from './actor-group.js';
+import {
   ACTOR_STATUS_VALUES,
   DEFAULT_ACTOR_STATUS,
   DEFAULT_ACTOR_STATUS_OPTION_TRANSLATIONS,
@@ -9,12 +14,28 @@ import {
 import type { PlatformInstanceAttributeSeed } from './case-model-platform-attributes.js';
 
 /** Platform contract: instance attribute keys on every actor model. */
-export const ACTOR_MODEL_PLATFORM_INSTANCE_ATTRIBUTE_KEYS = ['status'] as const;
+export const ACTOR_MODEL_PLATFORM_INSTANCE_ATTRIBUTE_KEYS = ['status', 'group'] as const;
 
 export type ActorModelPlatformInstanceAttributeKey =
   (typeof ACTOR_MODEL_PLATFORM_INSTANCE_ATTRIBUTE_KEYS)[number];
 
 const PLATFORM_KEY_SET = new Set<string>(ACTOR_MODEL_PLATFORM_INSTANCE_ATTRIBUTE_KEYS);
+
+export function buildActorGroupAttributeSeed(
+  defaultGroupKey: string = DEFAULT_ACTOR_GROUP,
+): PlatformInstanceAttributeSeed {
+  return {
+    key: 'group',
+    data_type: 'single_select',
+    translations: { de: 'Gruppe', en: 'Group' },
+    encryption_mode: 'server_readable',
+    is_required: false,
+    select_options: [...ACTOR_GROUP_VALUES],
+    locked_select_options: [...ACTOR_GROUP_VALUES],
+    select_option_translations: DEFAULT_ACTOR_GROUP_OPTION_TRANSLATIONS,
+    default_value: defaultGroupKey,
+  };
+}
 
 export const ACTOR_MODEL_PLATFORM_INSTANCE_DEFINITIONS: ReadonlyArray<PlatformInstanceAttributeSeed> =
   [
@@ -28,6 +49,7 @@ export const ACTOR_MODEL_PLATFORM_INSTANCE_DEFINITIONS: ReadonlyArray<PlatformIn
       select_option_translations: DEFAULT_ACTOR_STATUS_OPTION_TRANSLATIONS,
       default_value: DEFAULT_ACTOR_STATUS,
     },
+    buildActorGroupAttributeSeed(),
   ];
 
 export function isPlatformActorModelInstanceAttribute(
@@ -50,6 +72,17 @@ export function isActorInstanceStatusDefinition(def: {
   return (
     isPlatformActorModelInstanceAttribute(def.owner_type, def.definition_scope, def.key) &&
     def.key === 'status'
+  );
+}
+
+export function isActorInstanceGroupDefinition(def: {
+  owner_type: ModelOwnerType;
+  definition_scope: DefinitionScope;
+  key: string;
+}): boolean {
+  return (
+    isPlatformActorModelInstanceAttribute(def.owner_type, def.definition_scope, def.key) &&
+    def.key === 'group'
   );
 }
 
@@ -80,25 +113,46 @@ export function assertActorPlatformAttributeUpdateAllowed(
     default_value?: unknown;
   },
 ): void {
-  if (def.key !== 'status') return;
+  if (def.key === 'status') {
+    if (input.data_type !== undefined && input.data_type !== def.data_type) {
+      throw forbidden('error.attribute_definition_reserved');
+    }
+    if (input.encryption_mode !== undefined && input.encryption_mode !== def.encryption_mode) {
+      throw forbidden('error.attribute_definition_reserved');
+    }
+    if (input.is_required !== undefined && input.is_required !== def.is_required) {
+      throw forbidden('error.attribute_definition_reserved');
+    }
+    if (input.default_value !== undefined) {
+      throw forbidden('error.attribute_definition_reserved');
+    }
+    if (input.select_options !== undefined) {
+      const next = new Set(input.select_options);
+      for (const option of ACTOR_STATUS_VALUES) {
+        if (!next.has(option)) {
+          throw forbidden('error.attribute_definition_reserved');
+        }
+      }
+    }
+    return;
+  }
 
-  if (input.data_type !== undefined && input.data_type !== def.data_type) {
-    throw forbidden('error.attribute_definition_reserved');
-  }
-  if (input.encryption_mode !== undefined && input.encryption_mode !== def.encryption_mode) {
-    throw forbidden('error.attribute_definition_reserved');
-  }
-  if (input.is_required !== undefined && input.is_required !== def.is_required) {
-    throw forbidden('error.attribute_definition_reserved');
-  }
-  if (input.default_value !== undefined) {
-    throw forbidden('error.attribute_definition_reserved');
-  }
-  if (input.select_options !== undefined) {
-    const next = new Set(input.select_options);
-    for (const option of ACTOR_STATUS_VALUES) {
-      if (!next.has(option)) {
-        throw forbidden('error.attribute_definition_reserved');
+  if (def.key === 'group') {
+    if (input.data_type !== undefined && input.data_type !== def.data_type) {
+      throw forbidden('error.attribute_definition_reserved');
+    }
+    if (input.encryption_mode !== undefined && input.encryption_mode !== def.encryption_mode) {
+      throw forbidden('error.attribute_definition_reserved');
+    }
+    if (input.is_required !== undefined && input.is_required !== def.is_required) {
+      throw forbidden('error.attribute_definition_reserved');
+    }
+    if (input.select_options !== undefined) {
+      const next = new Set(input.select_options);
+      for (const option of ACTOR_GROUP_VALUES) {
+        if (!next.has(option)) {
+          throw forbidden('error.attribute_definition_reserved');
+        }
       }
     }
   }

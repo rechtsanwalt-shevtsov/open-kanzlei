@@ -6,7 +6,7 @@ export interface SessionActor {
   username: string;
   email: string | null;
   preferredLanguage: 'de' | 'en' | null;
-  teams: ActorTeamDto[];
+  groups: ActorTeamDto[];
   tenantDefaultLanguage: 'de' | 'en';
 }
 
@@ -32,7 +32,7 @@ export interface CurrentUserResponse {
   username: string;
   email: string | null;
   preferred_language: 'de' | 'en' | null;
-  teams: ActorTeamDto[];
+  groups: ActorTeamDto[];
 }
 
 export function toCurrentUserResponse(actor: SessionActor): CurrentUserResponse {
@@ -42,6 +42,6 @@ export function toCurrentUserResponse(actor: SessionActor): CurrentUserResponse 
     username: actor.username,
     email: actor.email,
     preferred_language: actor.preferredLanguage,
-    teams: actor.teams,
+    groups: actor.groups,
   };
 }

@@ -25,7 +25,7 @@ tags:
   - name: LegalWork
     description: Case models, task models, and instances
   - name: Platform
-    description: Tenant users and teams (administration)
+    description: Tenant users and groups (administration)
   - name: Apps
     description: First-party app registry, installations and settings
 
@@ -49,12 +49,12 @@ paths:
     $ref: './paths/apps.yaml#/apps-list'
   /v1/tenant/apps:
     $ref: './paths/apps.yaml#/tenant-apps-catalog'
-  /v1/tenant/apps/{appKey}/teams/{teamId}:
-    $ref: './paths/apps.yaml#/tenant-app-team-status'
+  /v1/tenant/apps/{appKey}/groups/{groupId}:
+    $ref: './paths/apps.yaml#/tenant-app-group-status'
   /v1/tenant/app-assignments:
     $ref: './paths/apps.yaml#/tenant-app-assignments'
-  /v1/tenant/teams/{teamId}/app-assignments:
-    $ref: './paths/apps.yaml#/tenant-team-app-assignments'
+  /v1/tenant/groups/{groupId}/app-assignments:
+    $ref: './paths/apps.yaml#/tenant-group-app-assignments'
   /v1/tenant/actors/{actorId}/app-assignments:
     $ref: './paths/apps.yaml#/tenant-actor-app-assignments'
   /v1/me/active-apps-by-group:
@@ -77,12 +77,12 @@ paths:
   /v1/apps/tasks-kanban/wip-limits:
     $ref: './paths/tasks-kanban.yaml#/tasks-kanban-wip-limits'
 
-  /v1/teams:
-    $ref: './paths/platform.yaml#/teams-list'
-  /v1/teams/assignable:
-    $ref: './paths/platform.yaml#/teams-assignable-list'
-  /v1/teams/{id}:
-    $ref: './paths/platform.yaml#/teams-item'
+  /v1/groups:
+    $ref: './paths/platform.yaml#/groups-list'
+  /v1/groups/assignable:
+    $ref: './paths/platform.yaml#/groups-assignable-list'
+  /v1/groups/{id}:
+    $ref: './paths/platform.yaml#/groups-item'
   /v1/platform-users:
     $ref: './paths/platform.yaml#/users-list'
   /v1/platform-users/{id}:

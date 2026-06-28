@@ -53,7 +53,7 @@ export async function requireAdmin(
   reply: FastifyReply,
 ): Promise<void> {
   await requireAuth(request, reply);
-  if (!userIsAdmin(request.user!.teams)) {
+  if (!userIsAdmin(request.user!.groups)) {
     throw forbidden();
   }
 }

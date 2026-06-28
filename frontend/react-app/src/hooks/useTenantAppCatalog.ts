@@ -25,7 +25,7 @@ export function useTenantAppCatalog(): TenantAppsContextValue {
   const [loading, setLoading] = useState(true);
 
   const refreshCatalog = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!user || !userIsAdmin(user.teams)) {
+    if (!user || !userIsAdmin(user.groups)) {
       setCatalog([]);
       setLoading(false);
       return;
@@ -53,9 +53,9 @@ export function useTenantAppCatalog(): TenantAppsContextValue {
       teamId: string,
       status: 'active' | 'inactive',
     ): Promise<string | null> => {
-      const res = await api.PATCH('/v1/tenant/apps/{appKey}/teams/{teamId}', {
+      const res = await api.PATCH('/v1/tenant/apps/{appKey}/groups/{groupId}', {
         headers: apiHeaders(locale),
-        params: { path: { appKey, teamId } },
+        params: { path: { appKey, groupId: teamId } },
         body: { status },
       });
       if (res.error || !res.response.ok) {

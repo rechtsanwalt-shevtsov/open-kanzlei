@@ -25,7 +25,7 @@ type CaseModel = components['schemas']['CaseModel'];
 export function KanbanBoardPage() {
   const { user } = useAuth();
   const { locale, msg } = useI18n();
-  const admin = userIsAdmin(user?.teams ?? []);
+  const admin = userIsAdmin(user?.groups ?? []);
 
   const [users, setUsers] = useState<PlatformUser[]>([]);
   const [assigneeUserId, setAssigneeUserId] = useState(user?.id ?? '');
@@ -187,7 +187,7 @@ export function KanbanBoardPage() {
             >
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.username}
+                  {u.display_name || u.username || u.id.slice(0, 8)}
                 </option>
               ))}
             </select>

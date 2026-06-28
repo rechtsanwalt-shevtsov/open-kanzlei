@@ -33,14 +33,14 @@ function TeamAssignmentRow({
   const { msg } = useI18n();
   const { assignments, saving, error, patchAssignments } = useAutoSaveAssignmentRow(
     row.assignments,
-    row.team_id,
-    (next) => onSave(row.team_id, next),
+    row.group_id,
+    (next) => onSave(row.group_id, next),
   );
 
   return (
     <tr>
       <td>
-        <strong>{row.team_name}</strong>
+        <strong>{row.group_name}</strong>
         {saving && <p className="hint">{msg('loading')}</p>}
         {error && <p className="form-error">{error}</p>}
       </td>
@@ -348,16 +348,16 @@ export function AdminAppsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.teams.length === 0 ? (
+                  {data.groups.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="admin-table-empty">
                         {msg('adminAppsTeamsEmpty')}
                       </td>
                     </tr>
                   ) : (
-                    data.teams.map((row) => (
+                    data.groups.map((row) => (
                       <TeamAssignmentRow
-                        key={row.team_id}
+                        key={row.group_id}
                         row={row}
                         apps={apps}
                         onSave={handleTeamSave}

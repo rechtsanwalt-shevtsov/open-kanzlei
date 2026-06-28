@@ -9,7 +9,9 @@ import type { SaveAssignmentsResult } from './useAutoSaveAssignmentRow.js';
 export type TenantAppAssignments = components['schemas']['TenantAppAssignments'];
 export type AppGroupAssignments = components['schemas']['AppGroupAssignments'];
 export type AppCatalogItem = components['schemas']['AppCatalogItem'];
-export type TeamAppAssignmentRow = components['schemas']['TeamAppAssignmentRow'];
+export type GroupAppAssignmentRow = components['schemas']['GroupAppAssignmentRow'];
+/** @deprecated Use GroupAppAssignmentRow */
+export type TeamAppAssignmentRow = GroupAppAssignmentRow;
 export type ActorAppAssignmentRow = components['schemas']['ActorAppAssignmentRow'];
 /** @deprecated Use ActorAppAssignmentRow */
 export type UserAppAssignmentRow = ActorAppAssignmentRow;
@@ -44,7 +46,7 @@ export function useAppAssignments(): AppAssignmentsContextValue {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!user || !userIsAdmin(user.teams)) {
+    if (!user || !userIsAdmin(user.groups)) {
       setData(null);
       setLoading(false);
       return;
@@ -68,9 +70,9 @@ export function useAppAssignments(): AppAssignmentsContextValue {
 
   const saveTeamAssignments = useCallback(
     async (teamId: string, assignments: AppGroupAssignments): Promise<SaveAssignmentsResult> => {
-      const res = await api.PUT('/v1/tenant/teams/{teamId}/app-assignments', {
+      const res = await api.PUT('/v1/tenant/groups/{groupId}/app-assignments', {
         headers: apiHeaders(locale),
-        params: { path: { teamId } },
+        params: { path: { groupId: teamId } },
         body: assignments,
       });
       if (res.error || !res.response.ok) {
@@ -82,8 +84,8 @@ export function useAppAssignments(): AppAssignmentsContextValue {
           if (!prev) return prev;
           return {
             ...prev,
-            teams: prev.teams.map((team) =>
-              team.team_id === teamId ? saved : team,
+            groups: prev.groups.map((group) =>
+              group.group_id === teamId ? saved : group,
             ),
           };
         });

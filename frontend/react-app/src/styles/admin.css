@@ -824,15 +824,19 @@
   color: var(--color-error);
 }
 
+.form label.checkbox-label,
 .checkbox-label {
   display: flex;
+  flex-direction: row;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.5rem;
   font-size: 0.9rem;
 }
 
 .checkbox-label input {
   width: auto;
+  margin: 0;
 }
 
 .admin-table--settings {

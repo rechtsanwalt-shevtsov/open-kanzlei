@@ -1,7 +1,7 @@
-teams-list:
+groups-list:
   get:
     tags: [Platform]
-    operationId: listTeams
+    operationId: listGroups
     security: [{ sessionCookie: [] }]
     responses:
       '200':
@@ -14,27 +14,27 @@ teams-list:
                 items:
                   type: array
                   items:
-                    $ref: '../components/schemas/platform.yaml#/Team'
+                    $ref: '../components/schemas/platform.yaml#/Group'
       '401':
         $ref: '../components/responses/common.yaml#/Unauthorized'
       '403':
         $ref: '../components/responses/common.yaml#/Forbidden'
   post:
     tags: [Platform]
-    operationId: createTeam
+    operationId: createGroup
     security: [{ sessionCookie: [] }]
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/platform.yaml#/CreateTeamRequest'
+            $ref: '../components/schemas/platform.yaml#/CreateGroupRequest'
     responses:
       '201':
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/platform.yaml#/Team'
+              $ref: '../components/schemas/platform.yaml#/Group'
       '400':
         $ref: '../components/responses/common.yaml#/BadRequest'
       '401':
@@ -44,10 +44,10 @@ teams-list:
       '409':
         $ref: '../components/responses/common.yaml#/Conflict'
 
-teams-assignable-list:
+groups-assignable-list:
   get:
     tags: [Platform]
-    operationId: listAssignableTeams
+    operationId: listAssignableGroups
     security: [{ sessionCookie: [] }]
     responses:
       '200':
@@ -60,16 +60,16 @@ teams-assignable-list:
                 items:
                   type: array
                   items:
-                    $ref: '../components/schemas/platform.yaml#/Team'
+                    $ref: '../components/schemas/platform.yaml#/Group'
       '401':
         $ref: '../components/responses/common.yaml#/Unauthorized'
       '403':
         $ref: '../components/responses/common.yaml#/Forbidden'
 
-teams-item:
+groups-item:
   patch:
     tags: [Platform]
-    operationId: updateTeam
+    operationId: updateGroup
     security: [{ sessionCookie: [] }]
     parameters:
       - $ref: '../components/parameters/legal.yaml#/IdPath'
@@ -78,13 +78,13 @@ teams-item:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/platform.yaml#/UpdateTeamRequest'
+            $ref: '../components/schemas/platform.yaml#/UpdateGroupRequest'
     responses:
       '200':
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/platform.yaml#/Team'
+              $ref: '../components/schemas/platform.yaml#/Group'
       '400':
         $ref: '../components/responses/common.yaml#/BadRequest'
       '401':
@@ -97,7 +97,7 @@ teams-item:
         $ref: '../components/responses/common.yaml#/Conflict'
   delete:
     tags: [Platform]
-    operationId: deleteTeam
+    operationId: deleteGroup
     security: [{ sessionCookie: [] }]
     parameters:
       - $ref: '../components/parameters/legal.yaml#/IdPath'

@@ -37,6 +37,10 @@ import {
   isActorInstanceStatusAttribute,
 } from '@shell/lib/actor-instance-status.js';
 import {
+  findActorGroupDefinition,
+  isActorInstanceGroupAttribute,
+} from '@shell/lib/actor-instance-group.js';
+import {
   buildModelTabSystemFieldRows,
   systemFieldSearchText,
   type SystemFieldRow,
@@ -59,7 +63,17 @@ type PlatformStatusRow = {
   attribute: AttributeDefinition;
 };
 
-type ListRow = SystemFieldRow | CustomFieldRow | PlatformStatusRow;
+type PlatformGroupRow = {
+  kind: 'platform_group';
+  id: string;
+  attribute: AttributeDefinition;
+};
+
+type ListRow = SystemFieldRow | CustomFieldRow | PlatformStatusRow | PlatformGroupRow;
+
+function isPlatformGroupRow(row: ListRow): row is PlatformGroupRow {
+  return row.kind === 'platform_group';
+}
 
 function isCustomRow(row: ListRow): row is CustomFieldRow {
   return row.kind === 'custom';
@@ -167,8 +181,11 @@ export function ActorModelDetailPage() {
       return [...systemRows, ...customRows];
     }
     const statusAttribute = findActorStatusDefinition(instanceScopeItems);
+    const groupAttribute = findActorGroupDefinition(instanceScopeItems);
     const customAttributes = instanceScopeItems.filter(
-      (attribute) => !isActorInstanceStatusAttribute(attribute),
+      (attribute) =>
+        !isActorInstanceStatusAttribute(attribute) &&
+        !isActorInstanceGroupAttribute(attribute),
     );
     const rows: ListRow[] = [];
     if (statusAttribute) {
@@ -176,6 +193,13 @@ export function ActorModelDetailPage() {
         kind: 'platform_status',
         id: statusAttribute.id,
         attribute: statusAttribute,
+      });
+    }
+    if (groupAttribute) {
+      rows.push({
+        kind: 'platform_group',
+        id: groupAttribute.id,
+        attribute: groupAttribute,
       });
     }
     rows.push(
@@ -191,6 +215,7 @@ export function ActorModelDetailPage() {
   function rowLabel(row: ListRow): string {
     if (row.kind === 'system') return msg(row.labelKey);
     if (row.kind === 'platform_status') return msg('amdInstanceStatus');
+    if (row.kind === 'platform_group') return msg('amdInstanceGroup');
     const a = row.attribute;
     return a.display_name ?? labelFromTranslations(a.translations, a.key, locale);
   }
@@ -202,7 +227,7 @@ export function ActorModelDetailPage() {
       if (row.kind === 'system') {
         return systemFieldSearchText(row, msg).includes(q);
       }
-      if (row.kind === 'platform_status') {
+      if (row.kind === 'platform_status' || row.kind === 'platform_group') {
         return [rowLabel(row), row.attribute.key, msg('cmdFieldTypeEnum')].join(' ').toLowerCase().includes(q);
       }
       const a = row.attribute;
@@ -226,7 +251,14 @@ export function ActorModelDetailPage() {
       if (sortColumn === 'name') {
         return dir * rowLabel(a).localeCompare(rowLabel(b), locale);
       }
-      if (a.kind === 'system' || b.kind === 'system' || a.kind === 'platform_status' || b.kind === 'platform_status') {
+      if (
+        a.kind === 'system' ||
+        b.kind === 'system' ||
+        a.kind === 'platform_status' ||
+        b.kind === 'platform_status' ||
+        a.kind === 'platform_group' ||
+        b.kind === 'platform_group'
+      ) {
         return 0;
       }
       const aa = a.attribute;
@@ -611,9 +643,10 @@ export function ActorModelDetailPage() {
                   </tr>
                 ) : (
                   pageItems.map((row) => {
-                    if (row.kind === 'platform_status') {
+                    if (row.kind === 'platform_status' || row.kind === 'platform_group') {
                       const a = row.attribute;
                       const name = rowLabel(row);
+                      const defaultReadOnly = row.kind === 'platform_status';
                       return (
                         <tr key={row.id} className="admin-table-row--system">
                           <td className="admin-table-col-check" />
@@ -643,7 +676,7 @@ export function ActorModelDetailPage() {
                               saving={fieldSaving}
                               onSavingChange={setFieldSaving}
                               onUpdated={() => void refresh()}
-                              readOnly
+                              readOnly={defaultReadOnly}
                             />
                           </td>
                           <td className="admin-table-col-encryption">

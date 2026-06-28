@@ -13,7 +13,7 @@ AppGroup:
     - flight_level_3
   description: >
     App group membership declared in manifest.json. Flight-level groups allow
-    exactly one active app per team/user; unassigned apps are multi-select.
+    exactly one active app per platform group/user; unassigned apps are multi-select.
 
 AppGroupAssignments:
   type: object
@@ -72,14 +72,14 @@ AppCatalogItem:
       type: string
       nullable: true
 
-TeamAppAssignmentRow:
+GroupAppAssignmentRow:
   type: object
-  required: [team_id, team_name, assignments]
+  required: [group_id, group_name, assignments]
   properties:
-    team_id:
+    group_id:
       type: string
       format: uuid
-    team_name:
+    group_name:
       type: string
     assignments:
       $ref: '#/AppGroupAssignments'
@@ -101,16 +101,16 @@ UserAppAssignmentRow:
 
 TenantAppAssignments:
   type: object
-  required: [apps, teams, actor_overrides]
+  required: [apps, groups, actor_overrides]
   properties:
     apps:
       type: array
       items:
         $ref: '#/AppCatalogItem'
-    teams:
+    groups:
       type: array
       items:
-        $ref: '#/TeamAppAssignmentRow'
+        $ref: '#/GroupAppAssignmentRow'
     actor_overrides:
       type: array
       items:
@@ -125,11 +125,11 @@ AppInstallationStatus:
   type: string
   enum: [active, inactive]
 
-TeamAppActivation:
+GroupAppActivation:
   type: object
-  required: [team_id, status]
+  required: [group_id, status]
   properties:
-    team_id:
+    group_id:
       type: string
       format: uuid
     status:
@@ -144,7 +144,7 @@ TenantAppCatalogEntry:
     - has_react_ui
     - settings_path
     - app_group
-    - team_activations
+    - group_activations
   properties:
     app_key:
       $ref: '#/AppKey'
@@ -160,12 +160,12 @@ TenantAppCatalogEntry:
       description: Route to app settings page (e.g. /apps/cases/settings)
     app_group:
       $ref: '#/AppGroup'
-    team_activations:
+    group_activations:
       type: array
       items:
-        $ref: '#/TeamAppActivation'
+        $ref: '#/GroupAppActivation'
 
-PatchTeamAppStatusRequest:
+PatchGroupAppStatusRequest:
   type: object
   required: [status]
   properties:

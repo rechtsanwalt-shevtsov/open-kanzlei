@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { api, apiHeaders } from '../../api/client.js';
 import type { components } from '../../api/schema.js';
-import { useAuth } from '../../context/AuthContext.js';
 import { useI18n } from '../../i18n/I18nContext.js';
 import type { Team } from '../../hooks/useTeams.js';
 import type { PlatformUser } from '../../hooks/usePlatformUsers.js';
@@ -10,80 +9,70 @@ const USERNAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_.-]{0,62}$/;
 
 interface PlatformUserDialogProps {
   open: boolean;
-  mode: 'create' | 'edit';
-  user?: PlatformUser;
-  teams: Team[];
+  actor?: PlatformUser;
+  groups: Team[];
   onClose: () => void;
   onSaved: () => void;
-  onDeleted?: () => void;
 }
 
 export function PlatformUserDialog({
   open,
-  mode,
-  user,
-  teams,
+  actor,
+  groups,
   onClose,
   onSaved,
-  onDeleted,
 }: PlatformUserDialogProps) {
-  const { user: currentUser } = useAuth();
   const { locale, msg } = useI18n();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [teamIds, setTeamIds] = useState<string[]>([]);
+  const [groupIds, setGroupIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const assignableTeams = useMemo(
-    () => teams.filter((t) => t.key !== 'plattformuser'),
-    [teams],
+  const platformUserGroupId = useMemo(
+    () => groups.find((g) => g.key === 'plattformuser')?.id ?? null,
+    [groups],
   );
 
-  const regularTeamId = useMemo(
-    () => assignableTeams.find((t) => t.key === 'regular')?.id ?? null,
-    [assignableTeams],
+  const hasLoginSelected = useMemo(
+    () => (platformUserGroupId ? groupIds.includes(platformUserGroupId) : false),
+    [groupIds, platformUserGroupId],
   );
 
   useEffect(() => {
-    if (!open) return;
-    if (mode === 'edit' && user) {
-      setUsername(user.username);
-      setEmail(user.email ?? '');
-      setPassword('');
-      setTeamIds(user.teams.map((t) => t.id));
-    } else {
-      setUsername('');
-      setEmail('');
-      setPassword('');
-      setTeamIds(regularTeamId ? [regularTeamId] : []);
-    }
+    if (!open || !actor) return;
+    setUsername(actor.username ?? '');
+    setEmail(actor.email ?? '');
+    setPassword('');
+    setGroupIds(actor.groups.map((g) => g.id));
     setError(null);
-  }, [open, mode, user, regularTeamId]);
+  }, [open, actor]);
 
-  function toggleTeam(teamId: string) {
-    setTeamIds((prev) => {
-      if (prev.includes(teamId)) {
-        const next = prev.filter((id) => id !== teamId);
+  function toggleGroup(groupId: string) {
+    setGroupIds((prev) => {
+      if (prev.includes(groupId)) {
+        const next = prev.filter((id) => id !== groupId);
         return next.length > 0 ? next : prev;
       }
-      return [...prev, teamId];
+      return [...prev, groupId];
     });
   }
 
-  if (!open) return null;
+  if (!open || !actor) return null;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!actor) return;
     setError(null);
 
-    if (teamIds.length === 0) {
+    if (groupIds.length === 0) {
       setError(msg('usersTeamsRequired'));
       return;
     }
 
-    if (mode === 'create') {
+    const grantingLogin = hasLoginSelected && !actor.has_login;
+    if (grantingLogin) {
       const trimmed = username.trim();
       if (!USERNAME_PATTERN.test(trimmed)) {
         setError(msg('usersUsernameInvalid'));
@@ -93,69 +82,31 @@ export function PlatformUserDialog({
         setError(msg('usersPasswordShort'));
         return;
       }
-    } else if (password && password.length < 8) {
+    } else if (hasLoginSelected && password && password.length < 8) {
       setError(msg('usersPasswordShort'));
       return;
     }
 
     setSubmitting(true);
 
-    if (mode === 'create') {
-      const res = await api.POST('/v1/platform-users', {
-        headers: apiHeaders(locale),
-        body: {
-          username: username.trim(),
-          email: email.trim() || null,
-          password,
-          team_ids: teamIds,
-        },
-      });
-      setSubmitting(false);
-      if (res.error) {
-        const err = res.error as { message?: string };
-        setError(err?.message ?? msg('errorGeneric'));
-        return;
+    const body: components['schemas']['UpdatePlatformUserRequest'] = {
+      email: email.trim() || null,
+      group_ids: groupIds,
+    };
+
+    if (hasLoginSelected) {
+      if (username.trim()) {
+        body.username = username.trim();
       }
-    } else if (user) {
-      const body: components['schemas']['UpdatePlatformUserRequest'] = {
-        email: email.trim() || null,
-        team_ids: teamIds,
-      };
       if (password) {
         body.password = password;
       }
-      const res = await api.PATCH('/v1/platform-users/{id}', {
-        headers: apiHeaders(locale),
-        params: { path: { id: user.id } },
-        body,
-      });
-      setSubmitting(false);
-      if (res.error) {
-        const err = res.error as { message?: string };
-        setError(err?.message ?? msg('errorGeneric'));
-        return;
-      }
     }
 
-    onSaved();
-    onClose();
-  }
-
-  const title = mode === 'create' ? msg('pusrCreateTitle') : msg('pusrEditTitle');
-  const canRevoke =
-    mode === 'edit' && user && currentUser && user.id !== currentUser.id;
-
-  async function handleRevokeLogin() {
-    if (!user || !canRevoke) return;
-    if (!window.confirm(msg('pusrRevokeConfirm').replace('{username}', user.username))) {
-      return;
-    }
-
-    setError(null);
-    setSubmitting(true);
-    const res = await api.DELETE('/v1/platform-users/{id}', {
+    const res = await api.PATCH('/v1/platform-users/{id}', {
       headers: apiHeaders(locale),
-      params: { path: { id: user.id } },
+      params: { path: { id: actor.id } },
+      body,
     });
     setSubmitting(false);
 
@@ -165,7 +116,7 @@ export function PlatformUserDialog({
       return;
     }
 
-    onDeleted?.();
+    onSaved();
     onClose();
   }
 
@@ -178,61 +129,63 @@ export function PlatformUserDialog({
         aria-labelledby="platform-user-dialog-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="platform-user-dialog-title">{title}</h2>
+        <h2 id="platform-user-dialog-title">{msg('pusrEditTitle')}</h2>
         <form onSubmit={handleSubmit} className="form">
-          {mode === 'create' ? (
-            <label>
-              {msg('username')}
-              <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                autoComplete="off"
-              />
-            </label>
-          ) : (
-            <p className="admin-dialog-readonly">
-              {msg('username')}: <strong>{username}</strong>
-            </p>
-          )}
-
-          <label>
-            {msg('email')}
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="off"
-            />
-            <span className="hint">{msg('usersEmailHint')}</span>
-          </label>
-
-          <label>
-            {mode === 'create' ? msg('password') : msg('usersPasswordOptional')}
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required={mode === 'create'}
-              minLength={mode === 'create' ? 8 : undefined}
-              autoComplete="new-password"
-            />
-          </label>
+          <p className="admin-dialog-readonly">
+            {msg('pusrColActor')}: <strong>{actor.display_name}</strong>
+          </p>
 
           <fieldset className="admin-fieldset">
             <legend>{msg('usersColTeams')}</legend>
-            {assignableTeams.map((team) => (
-              <label key={team.id} className="checkbox-label">
+            {groups.map((group) => (
+              <label key={group.id} className="checkbox-label">
                 <input
                   type="checkbox"
-                  checked={teamIds.includes(team.id)}
-                  onChange={() => toggleTeam(team.id)}
+                  checked={groupIds.includes(group.id)}
+                  onChange={() => toggleGroup(group.id)}
                 />
-                {team.name}
+                {group.name}
               </label>
             ))}
-            <span className="hint">{msg('pusrTeamsHint')}</span>
+            <span className="hint">{msg('pusrGroupsHint')}</span>
           </fieldset>
+
+          {hasLoginSelected && (
+            <>
+              <label>
+                {msg('username')}
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required={!actor.has_login}
+                  autoComplete="off"
+                />
+              </label>
+
+              <label>
+                {msg('email')}
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="off"
+                />
+                <span className="hint">{msg('usersEmailHint')}</span>
+              </label>
+
+              <label>
+                {actor.has_login ? msg('usersPasswordOptional') : msg('password')}
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required={!actor.has_login}
+                  minLength={!actor.has_login ? 8 : undefined}
+                  autoComplete="new-password"
+                />
+              </label>
+            </>
+          )}
 
           {error && (
             <p className="form-error" role="alert">
@@ -241,22 +194,12 @@ export function PlatformUserDialog({
           )}
 
           <div className="admin-dialog-actions">
-            {canRevoke && (
-              <button
-                type="button"
-                className="button-danger admin-dialog-actions-delete"
-                disabled={submitting}
-                onClick={() => void handleRevokeLogin()}
-              >
-                {msg('pusrRevokeLogin')}
-              </button>
-            )}
             <div className="admin-dialog-actions-main">
               <button type="button" className="button-secondary" onClick={onClose}>
                 {msg('cancel')}
               </button>
               <button type="submit" className="button-primary" disabled={submitting}>
-                {submitting ? msg('loading') : mode === 'create' ? msg('pusrCreate') : msg('submitSave')}
+                {submitting ? msg('loading') : msg('submitSave')}
               </button>
             </div>
           </div>

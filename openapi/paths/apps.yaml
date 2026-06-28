@@ -42,11 +42,11 @@ tenant-apps-catalog:
       '403':
         $ref: '../components/responses/common.yaml#/Forbidden'
 
-tenant-app-team-status:
+tenant-app-group-status:
   patch:
     tags: [Apps]
-    operationId: patchTeamAppStatus
-    summary: Activate or deactivate an app for a team (admin)
+    operationId: patchGroupAppStatus
+    summary: Activate or deactivate an app for a platform group (admin)
     security: [{ sessionCookie: [] }]
     parameters:
       - name: appKey
@@ -54,7 +54,7 @@ tenant-app-team-status:
         required: true
         schema:
           $ref: '../components/schemas/apps.yaml#/AppKey'
-      - name: teamId
+      - name: groupId
         in: path
         required: true
         schema:
@@ -65,7 +65,7 @@ tenant-app-team-status:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/apps.yaml#/PatchTeamAppStatusRequest'
+            $ref: '../components/schemas/apps.yaml#/PatchGroupAppStatusRequest'
     responses:
       '200':
         content:
@@ -85,7 +85,7 @@ tenant-app-assignments:
   get:
     tags: [Apps]
     operationId: listTenantAppAssignments
-    summary: List app group assignments for all teams and user overrides (admin)
+    summary: List app group assignments for all platform groups and user overrides (admin)
     security: [{ sessionCookie: [] }]
     responses:
       '200':
@@ -98,14 +98,14 @@ tenant-app-assignments:
       '403':
         $ref: '../components/responses/common.yaml#/Forbidden'
 
-tenant-team-app-assignments:
+tenant-group-app-assignments:
   put:
     tags: [Apps]
-    operationId: setTeamAppAssignments
-    summary: Set app group assignments for a team (admin)
+    operationId: setGroupAppAssignments
+    summary: Set app group assignments for a platform group (admin)
     security: [{ sessionCookie: [] }]
     parameters:
-      - name: teamId
+      - name: groupId
         in: path
         required: true
         schema:
@@ -122,7 +122,7 @@ tenant-team-app-assignments:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/apps.yaml#/TeamAppAssignmentRow'
+              $ref: '../components/schemas/apps.yaml#/GroupAppAssignmentRow'
       '400':
         $ref: '../components/responses/common.yaml#/BadRequest'
       '401':

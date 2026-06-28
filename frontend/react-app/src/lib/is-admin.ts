@@ -1,11 +1,14 @@
 import type { components } from '../api/schema.js';
 
-type UserTeam = components['schemas']['UserTeam'];
+type UserGroup = components['schemas']['UserGroup'];
 
-export function userIsAdmin(teams: UserTeam[]): boolean {
-  return teams.some((t) => t.key === 'admin');
+export function userIsAdmin(groups: UserGroup[]): boolean {
+  return groups.some((t) => t.key === 'admin');
 }
 
-export function formatTeamNames(teams: UserTeam[]): string {
-  return teams.map((t) => t.name).join(', ');
+export function formatGroupNames(groups: UserGroup[]): string {
+  return groups.map((t) => t.name).join(', ');
 }
+
+/** @deprecated Use formatGroupNames */
+export const formatTeamNames = formatGroupNames;

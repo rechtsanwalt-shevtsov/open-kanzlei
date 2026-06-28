@@ -24,7 +24,7 @@ function parseWipLimits(raw: unknown): WipLimitsShape {
 export function AppSettingsPage() {
   const { locale, msg } = useI18n();
   const { user } = useAuth();
-  const admin = user ? userIsAdmin(user.teams) : false;
+  const admin = user ? userIsAdmin(user.groups) : false;
 
   const [wipLimitMode, setWipLimitMode] = useState<'soft' | 'hard'>('soft');
   const [defaultStarted, setDefaultStarted] = useState(10);
